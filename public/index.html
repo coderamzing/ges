@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campaigns - Temp Testing</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .campaign-item { cursor: pointer; }
+        .campaign-item:hover { background-color: #f8f9fa; }
+        .campaign-item-header { display: flex; justify-content: space-between; align-items: center; }
+        .delete-btn { margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Campaigns</h1>
+
+        <!-- Login Form -->
+        <div class="card mb-4" id="loginCard">
+            <div class="card-body">
+                <h5 class="card-title">Login</h5>
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <input type="email" class="form-control" id="email" placeholder="Email" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Create Campaign Form -->
+        <div class="card mb-4" id="createForm" style="display: none;">
+            <div class="card-body">
+                <h5 class="card-title">Create New Campaign</h5>
+                <form id="campaignForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Campaign Title</label>
+                            <input type="text" class="form-control" id="campaignName" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Event</label>
+                            <select class="form-select" id="eventId" required></select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Language</label>
+                            <select class="form-select" id="lang" required>
+                                <option value="en">English</option>
+                                <option value="fr">French</option>
+                                <option value="es">Spanish</option>
+                                <option value="it">Italian</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="status" required>
+                                <option value="active">Active</option>
+                                <option value="draft">Draft</option>
+                                <option value="paused">Paused</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select Talents to Invite</label>
+                        <input type="text" class="form-control mb-2" id="talentSearch" placeholder="Search talents...">
+                        <div id="talentsList" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px;">
+                            <div class="text-center text-muted">Loading talents...</div>
+                        </div>
+                        <small class="text-muted">Selected: <span id="selectedCount">0</span></small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Campaign</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Campaigns List -->
+        <div id="campaignsList"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = '/api';
+        let token = localStorage.getItem('token');
+
+        // Check if already logged in
+        if (token) {
+            $('#loginCard').hide();
+            $('#createForm').show();
+            loadCampaigns();
+            loadEvents();
+            loadTalents();
+        }
+
+        // Login
+        $('#loginForm').on('submit', async function(e) {
+            e.preventDefault();
+            const email = $('#email').val();
+            try {
+                const response = await $.ajax({
+                    url: `${API_BASE}/auth/login`,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ email })
+                });
+                token = response.access_token;
+                localStorage.setItem('token', token);
+                $('#loginCard').hide();
+                $('#createForm').show();
+                loadCampaigns();
+                loadEvents();
+                loadTalents();
+            } catch (error) {
+                alert('Login failed: ' + (error.responseJSON?.message || error.statusText));
+            }
+        });
+
+        // Load Events
+        async function loadEvents() {
+            try {
+                const response = await $.ajax({
+                    url: `${API_BASE}/events`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const select = $('#eventId');
+                select.empty();
+                select.append('<option value="">Select Event</option>');
+                response.forEach(event => {
+                    select.append(`<option value="${event.id}">${event.name} - ${event.city}</option>`);
+                });
+            } catch (error) {
+                console.error('Error loading events:', error);
+            }
+        }
+
+        // Load Talents
+        let allTalents = [];
+        async function loadTalents() {
+            try {
+                allTalents = await $.ajax({
+                    url: `${API_BASE}/talents`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                displayTalents(allTalents);
+            } catch (error) {
+                $('#talentsList').html('<div class="alert alert-danger">Error loading talents</div>');
+            }
+        }
+
+        // Display Talents
+        function displayTalents(talents) {
+            if (talents.length === 0) {
+                $('#talentsList').html('<div class="text-muted">No talents found</div>');
+                return;
+            }
+            let html = '';
+            talents.forEach(talent => {
+                html += `
+                    <div class="form-check talent-item" data-talent-id="${talent.id}">
+                        <input class="form-check-input talent-checkbox" type="checkbox" value="${talent.id}" id="talent-${talent.id}">
+                        <label class="form-check-label" for="talent-${talent.id}">
+                            <strong>${escapeHtml(talent.name || 'Unknown')}</strong> 
+                            <span class="text-muted">@${escapeHtml(talent.accountId || 'unknown')}</span>
+                            ${talent.city ? `<small class="text-muted"> - ${escapeHtml(talent.city)}</small>` : ''}
+                        </label>
+                    </div>
+                `;
+            });
+            $('#talentsList').html(html);
+            updateSelectedCount();
+        }
+
+        // Update selected count
+        function updateSelectedCount() {
+            const selected = $('.talent-checkbox:checked').length;
+            $('#selectedCount').text(selected);
+        }
+
+        // Talent search
+        $('#talentSearch').on('input', function() {
+            const searchTerm = $(this).val().toLowerCase();
+            $('.talent-item').each(function() {
+                const text = $(this).text().toLowerCase();
+                $(this).toggle(text.includes(searchTerm));
+            });
+        });
+
+        // Talent checkbox change
+        $(document).on('change', '.talent-checkbox', function() {
+            updateSelectedCount();
+        });
+
+        // Load Campaigns
+        async function loadCampaigns() {
+            try {
+                const response = await $.ajax({
+                    url: `${API_BASE}/campaigns/promoter`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                // Load stats for each campaign
+                const campaignsWithStats = await Promise.all(response.map(async (campaign) => {
+                    try {
+                        const stats = await $.ajax({
+                            url: `${API_BASE}/campaigns/${campaign.id}/stats`,
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        return { ...campaign, stats };
+                    } catch (error) {
+                        console.error(`Error loading stats for campaign ${campaign.id}:`, error);
+                        return { ...campaign, stats: null };
+                    }
+                }));
+                displayCampaigns(campaignsWithStats);
+            } catch (error) {
+                $('#campaignsList').html('<div class="alert alert-danger">Error loading campaigns</div>');
+            }
+        }
+
+        // Display Campaigns
+        function displayCampaigns(campaigns) {
+            if (campaigns.length === 0) {
+                $('#campaignsList').html('<div class="alert alert-info">No campaigns found</div>');
+                return;
+            }
+            let html = '<div class="list-group">';
+            campaigns.forEach(campaign => {
+                const stats = campaign.stats;
+                let statsHtml = '';
+                if (stats) {
+                    statsHtml = `
+                    <div class="mt-2">
+                        <div class="row text-center">
+                            <div class="col-3">
+                                <small class="text-muted d-block">Contacted</small>
+                                <strong>${stats.totalContacted || 0}</strong>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Sent</small>
+                                <strong>${stats.sent || 0}</strong>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Delivered</small>
+                                <strong>${stats.delivered || 0}</strong>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Replied</small>
+                                <strong class="text-success">${stats.replied || 0}</strong>
+                            </div>
+                        </div>`;
+                    if (stats.responseClassification) {
+                        statsHtml += `
+                        <div class="row text-center mt-2">
+                            <div class="col-3">
+                                <small class="text-muted d-block">Confirmed</small>
+                                <strong class="text-success">${stats.responseClassification.confirmed || 0}</strong>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Interested</small>
+                                <strong class="text-info">${stats.responseClassification.interested || 0}</strong>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Declined</small>
+                                <strong class="text-danger">${stats.responseClassification.declined || 0}</strong>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Seen/No Reply</small>
+                                <strong class="text-warning">${stats.responseClassification.seenNoReply || 0}</strong>
+                            </div>
+                        </div>`;
+                    }
+                    statsHtml += '</div>';
+                } else {
+                    statsHtml = '<div class="mt-2"><small class="text-muted">Stats loading...</small></div>';
+                }
+                
+                html += `
+                    <div class="list-group-item campaign-item">
+                        <div class="campaign-item-header">
+                            <div onclick="window.location.href='campaign.html?id=${campaign.id}'" style="flex: 1; cursor: pointer;">
+                                <h5>${escapeHtml(campaign.name)}</h5>
+                                <small class="text-muted">Status: ${campaign.status} | Lang: ${campaign.lang}</small>
+                                ${statsHtml}
+                            </div>
+                            <button class="btn btn-danger btn-sm delete-btn" data-campaign-id="${campaign.id}" data-campaign-name="${escapeHtml(campaign.name)}">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            $('#campaignsList').html(html);
+            
+            // Attach delete handlers
+            $('.delete-btn').on('click', function(e) {
+                e.stopPropagation();
+                const campaignId = $(this).data('campaign-id');
+                const campaignName = $(this).data('campaign-name');
+                deleteCampaign(campaignId, campaignName);
+            });
+        }
+
+        // Delete Campaign
+        async function deleteCampaign(campaignId, campaignName) {
+            if (!confirm(`Are you sure you want to delete "${campaignName}"?`)) {
+                return;
+            }
+            try {
+                await $.ajax({
+                    url: `${API_BASE}/campaigns/${campaignId}`,
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                alert('Campaign deleted!');
+                loadCampaigns();
+            } catch (error) {
+                alert('Error deleting campaign: ' + (error.responseJSON?.message || error.statusText));
+            }
+        }
+
+        // Create Campaign
+        $('#campaignForm').on('submit', async function(e) {
+            e.preventDefault();
+            const selectedTalents = $('.talent-checkbox:checked').map(function() {
+                return parseInt($(this).val());
+            }).get();
+
+            const data = {
+                name: $('#campaignName').val(),
+                eventId: parseInt($('#eventId').val()),
+                lang: $('#lang').val(),
+                status: $('#status').val()
+            };
+            try {
+                // Create campaign
+                const campaign = await $.ajax({
+                    url: `${API_BASE}/campaigns`,
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify(data)
+                });
+
+                // Add talents to campaign if any selected
+                if (selectedTalents.length > 0) {
+                    await $.ajax({
+                        url: `${API_BASE}/campaigns/${campaign.id}/invitations`,
+                        method: 'POST',
+                        headers: { 
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        data: JSON.stringify({ talentIds: selectedTalents })
+                    });
+                }
+
+                alert('Campaign created!');
+                $('#campaignForm')[0].reset();
+                $('.talent-checkbox').prop('checked', false);
+                updateSelectedCount();
+                loadCampaigns();
+            } catch (error) {
+                alert('Error creating campaign: ' + (error.responseJSON?.message || error.statusText));
+            }
+        });
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/**
+ * =========================
+ * PROMOTERS
+ * =========================
+ */
+model Promoter {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+/**
+ * =========================
+ * EVENTS (Owned by Promoter)
+ * =========================
+ */
+model Event {
+  id         Int       @id @default(autoincrement())
+  promoterId Int // Promoter.id
+  name       String
+  type       String
+  city       String
+  date       DateTime
+  capacity   Int
+  start_time DateTime?
+  end_time   DateTime?
+  reach_time DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+/**
+ * =========================
+ * CAMPAIGNS (Per Event)
+ * =========================
+ */
+enum CampaignStatus {
+  draft
+  active
+  paused
+  completed
+  stopped
+}
+model Campaign {
+  id                 Int       @id @default(autoincrement())
+  eventId            Int
+  name               String
+  status             CampaignStatus @default(draft)
+  lang               String
+  start_at           DateTime?
+  end_at             DateTime?
+  postEventTriggerAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  templates        CampaignTemplate[]
+  spintaxTemplates CampaignSpintaxTemplate[]
+  invitations      CampaignInvitation[]
+  messages         CampaignMessage[]
+}
+
+/**
+ * =========================
+ * MESSAGE TEMPLATES
+ * (Dispatcher selects, does NOT generate)
+ * =========================
+ */
+enum TemplateType {
+  invitation
+  followup
+  postevent
+}
+
+model CampaignTemplate {
+  id         Int          @id @default(autoincrement())
+  campaignId Int
+  lang       String
+  type       TemplateType
+  name       String
+  content    String
+  isActive   Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  spintaxTemplates CampaignSpintaxTemplate[]
+}
+
+/**
+ * =========================
+ * Spintax TEMPLATES 12 Unique
+ * =========================
+ */
+model CampaignSpintaxTemplate {
+  id                 Int          @id @default(autoincrement())
+  CampaignTemplateId Int
+  campaignId         Int
+  lang               String
+  type               TemplateType
+  name               String
+  content            String
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  // Relations
+  template CampaignTemplate @relation(fields: [CampaignTemplateId], references: [id])
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+}
+
+/**
+ * =========================
+ * TALENT (Global Pool)
+ * =========================
+ */
+model Talent {
+  id             Int      @id @default(autoincrement())
+  name           String
+  accountId      String   @unique
+  talentType     String // model | elite | civilian
+  currentCity    String?
+  currentCountry String?
+  city           String?
+  country        String?
+  langPreferred  String?
+  profilePic     String?
+  followers      Int      @default(0)
+  rating         Int      @default(0)
+  createdAt      DateTime @default(now())
+}
+
+/**
+ * =========================
+ * TALENT ↔ PROMOTER STATE
+ * (Trust, Cooldown, Opt-out)
+ * =========================
+ */
+model TalentPromoterState {
+  id            Int       @id @default(autoincrement())
+  talentId      Int
+  promoterId    Int
+  trustScore    Int       @default(0)
+  lastContacted DateTime?
+  lastReply     DateTime?
+  optedOut      Boolean   @default(false)
+
+  @@unique([talentId, promoterId])
+}
+
+/**
+ * =========================
+ * TRUST SCORE HISTORY
+ * =========================
+ */
+model TrustScoreLog {
+  id         Int      @id @default(autoincrement())
+  talentId   Int
+  promoterId Int
+  eventId    Int?
+  change     Int // +10, -5, etc.
+  reason     String // positive_reply, no_reply_48h, attended
+  createdAt  DateTime @default(now())
+}
+
+/**
+ * =========================
+ * INVITATIONS & BATCH LOGIC
+ * =========================
+ */
+enum InvitationStatus {
+  pending
+  confirmed
+  declined
+  maybe
+  ignored
+  attended
+}
+
+model CampaignInvitation {
+  id           Int              @id @default(autoincrement())
+  campaignId   Int
+  eventId      Int
+  promoterId   Int
+  talentId     Int
+  batch        Int // 1 | 2 | followup
+  status       InvitationStatus @default(pending)
+  invitationAt DateTime?
+  isSeen       Boolean          @default(false)
+  followupSent Boolean          @default(false)
+  thankYouSent Boolean          @default(false)
+  hasReplied   Boolean          @default(false)
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  messages CampaignMessage[]
+
+  @@unique([campaignId, talentId])
+}
+
+/**
+ * =========================
+ * MESSAGES (Sent + Received)
+ * =========================
+ */
+enum MessageDirection {
+  sent
+  received
+}
+
+model CampaignMessage {
+  id              Int              @id @default(autoincrement())
+  campaignId      Int
+  promoterId      Int
+  invitationId    Int
+  talentId        Int
+  direction       MessageDirection
+  message         String
+  sentAt          DateTime?
+  receivedAt      DateTime?
+  isSeen          Boolean          @default(false)
+  isInterpret     Boolean          @default(false)
+  isScoreAnalyzed Boolean          @default(false)
+
+  // Relations
+  invitation CampaignInvitation @relation(fields: [invitationId], references: [id])
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+}
+
+/**
+ * =========================
+ * BLACKLIST (Hard Opt-out)
+ * =========================
+ */
+model TalentBlacklist {
+  id         Int      @id @default(autoincrement())
+  talentId   Int
+  promoterId Int
+  reason     String
+  createdAt  DateTime @default(now())
+
+  @@unique([talentId, promoterId])
+}
