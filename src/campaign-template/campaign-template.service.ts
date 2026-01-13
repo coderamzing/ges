@@ -3,7 +3,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCampaignTemplateDto } from './campaign-template.dto';
 import { UpdateCampaignTemplateDto } from './campaign-template.dto';
-import { CampaignTemplate } from '@prisma/client';
+import { CampaignTemplate, TemplateType } from '@prisma/client';
+import { renderTemplate } from '../../utils/handlebar';
 
 
 export const CAMPAIGN_TEMPLATE_SAVED_EVENT = 'campaign-template.saved';
@@ -30,11 +31,11 @@ export class CampaignTemplateService {
       );
     }
 
-    const event = await this.prisma.event.findUnique({
+    const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
 
-    if (!event || event.promoterId !== promoterId) {
+    if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(
         `Campaign with ID ${createCampaignTemplateDto.campaignId} does not belong to this promoter`,
       );
@@ -86,14 +87,29 @@ export class CampaignTemplateService {
     });
   }
 
+  async findByCampaignAndType(
+    campaignId: number,
+    type: TemplateType,
+  ): Promise<CampaignTemplate[]> {
+    return this.prisma.campaignTemplate.findMany({
+      where: {
+        campaignId,
+        type,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
   async findByPromoter(promoterId: number): Promise<CampaignTemplate[]> {
     // Get all events for this promoter first
-    const events = await this.prisma.event.findMany({
-      where: { promoterId },
+    const events = await this.prisma.events.findMany({
+      where: { userId: BigInt(promoterId) },
       select: { id: true },
     });
 
-    const eventIds = events.map(event => event.id);
+    const eventIds = events.map(event => Number(event.id));
 
     if (eventIds.length === 0) {
       return [];
@@ -145,11 +161,11 @@ export class CampaignTemplateService {
       throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
     }
 
-    const event = await this.prisma.event.findUnique({
+    const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
 
-    if (!event || event.promoterId !== promoterId) {
+    if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(
         `Campaign with ID ${campaignId} does not belong to this promoter`,
       );
@@ -202,11 +218,11 @@ export class CampaignTemplateService {
       );
     }
 
-    const event = await this.prisma.event.findUnique({
+    const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
 
-    if (!event || event.promoterId !== promoterId) {
+    if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(
         `CampaignTemplate does not belong to this promoter`,
       );
@@ -215,6 +231,29 @@ export class CampaignTemplateService {
     return this.prisma.campaignTemplate.delete({
       where: { id },
     });
+  }
+
+  async previewTemplate(eventId: number, template: string): Promise<string> {
+    // Fetch the event
+    const event = await this.prisma.events.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      throw new NotFoundException(`Event with ID ${eventId} not found`);
+    }
+
+    // Prepare template variables with event details
+    const variables = {
+      name: 'Anna', // Default name as requested
+      eventName: event.name || '',
+      eventType: event.eventType || '',
+      eventCity: event.city || '',
+      eventDate: event.dt ? event.dt.toLocaleDateString() : '',
+    };
+
+    // Render the template with variables
+    return renderTemplate(template, variables);
   }
 }
 

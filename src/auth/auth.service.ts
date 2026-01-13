@@ -13,17 +13,20 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<LoginResponseDto> {
     const { email } = loginDto;
 
-    // Check if promoter exists with this email
-    const promoter = await this.prisma.promoter.findUnique({
-      where: { email },
+    // Check if user exists with this email
+    // Using type assertion because PrismaService extends PrismaClient
+    // and TypeScript may not immediately recognize new models
+    const user = await (this.prisma as any).user.findFirst({
+      where: { username : email },
     });
 
-    if (!promoter) {
-      throw new UnauthorizedException('Invalid email or promoter not found');
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or user not found');
     }
 
     // Generate JWT token with 7 days expiration
-    const payload = { sub: promoter.id, email: promoter.email };
+    // Convert BigInt to string for JWT payload
+    const payload = { sub: user.id.toString(), email: user.username };
     const access_token = await this.jwtService.signAsync(payload, {
       expiresIn: '7d',
     });

@@ -6,6 +6,12 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 
 async function bootstrap() {
+  // Override BigInt.prototype.toJSON to automatically serialize BigInt to string
+  // This fixes "Do not know how to serialize a BigInt" errors globally
+  (BigInt.prototype as any).toJSON = function () {
+    return this.toString();
+  };
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Enable CORS for all origins

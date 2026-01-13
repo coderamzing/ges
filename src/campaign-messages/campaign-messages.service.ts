@@ -23,7 +23,7 @@ export class CampaignMessagesService {
    */
   async getTalentMessages(
     campaignId: number,
-    talentId: number,
+    talentId: string,
   ): Promise<CampaignMessage[]> {
     return this.prisma.campaignMessage.findMany({
       where: {
@@ -50,7 +50,7 @@ export class CampaignMessagesService {
     campaignId: number;
     promoterId: number;
     invitationId: number;
-    talentId: number;
+    talentId: string;
     direction: MessageDirection;
     message: string;
     sentAt?: Date;

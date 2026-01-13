@@ -16,7 +16,7 @@ export class TempController {
   @Post('campaigns/:id/messages')
   async sendTalentMessage(
     @Param('id', ParseIntPipe) campaignId: number,
-    @Body() body: { talentId: number; message: string },
+    @Body() body: { talentId: string; message: string },
     @GetPromoter() promoter: { id: number; email: string },
   ) {
     return this.tempService.sendTalentMessage(campaignId, body.talentId, body.message, promoter.id);
@@ -25,7 +25,7 @@ export class TempController {
   @Get('talent/:talentId/promoter/:promoterId/state')
   @ApiOperation({ summary: 'Get talent-promoter state (temp endpoint)' })
   async getTalentPromoterState(
-    @Param('talentId', ParseIntPipe) talentId: number,
+    @Param('talentId') talentId: string,
     @Param('promoterId', ParseIntPipe) promoterId: number,
   ) {
     return this.tempService.getTalentPromoterState(talentId, promoterId);
@@ -34,7 +34,7 @@ export class TempController {
   @Get('talent/:talentId/promoter/:promoterId/logs')
   @ApiOperation({ summary: 'Get trust score logs for talent-promoter (temp endpoint)' })
   async getTrustScoreLogs(
-    @Param('talentId', ParseIntPipe) talentId: number,
+    @Param('talentId') talentId: string,
     @Param('promoterId', ParseIntPipe) promoterId: number,
   ) {
     return this.tempService.getTrustScoreLogs(talentId, promoterId);

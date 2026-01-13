@@ -9,34 +9,37 @@ datasource db {
 
 /**
  * =========================
- * PROMOTERS
+ * USERS
  * =========================
  */
-model Promoter {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  createdAt DateTime @default(now())
+model User {
+  id          BigInt    @id @default(autoincrement()) @map("id")
+  createdAt   DateTime? @map("created_at")
+  name        String?   @map("name")
+  password    String?   @map("password")
+  picture     Bytes?    @map("picture")
+  role        String?   @map("role")
+  updatedAt   DateTime? @map("updated_at")
+  username    String?   @map("username")
+  city        String?   @map("city")
+  loginTry    Boolean?  @map("login_try")
+  pictureUrl  String?   @map("picture_url")
+  blockedUntil DateTime? @map("blocked_until")
+  approved    Boolean?  @map("approved")
+  email       String?   @map("email")
+  status      String?   @map("status")
+  userType    String?   @map("user_type")
+  paid        Boolean?  @map("paid")
+  notified    Boolean?  @map("notified")
+  proxy       String?   @map("proxy")
+
+  // Relations
+  talentPromoterStates TalentPromoterState[]
+  talentBlacklists     TalentBlacklist[]
+
+  @@map("users")
 }
 
-/**
- * =========================
- * EVENTS (Owned by Promoter)
- * =========================
- */
-model Event {
-  id         Int       @id @default(autoincrement())
-  promoterId Int // Promoter.id
-  name       String
-  type       String
-  city       String
-  date       DateTime
-  capacity   Int
-  start_time DateTime?
-  end_time   DateTime?
-  reach_time DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-}
 
 /**
  * =========================
@@ -59,6 +62,7 @@ model Campaign {
   start_at           DateTime?
   end_at             DateTime?
   postEventTriggerAt DateTime?
+  followup_delay     Int       @default(12)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -109,6 +113,7 @@ model CampaignSpintaxTemplate {
   type               TemplateType
   name               String
   content            String
+  batch              Int     @default(1)
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
@@ -119,39 +124,22 @@ model CampaignSpintaxTemplate {
 
 /**
  * =========================
- * TALENT (Global Pool)
- * =========================
- */
-model Talent {
-  id             Int      @id @default(autoincrement())
-  name           String
-  accountId      String   @unique
-  talentType     String // model | elite | civilian
-  currentCity    String?
-  currentCountry String?
-  city           String?
-  country        String?
-  langPreferred  String?
-  profilePic     String?
-  followers      Int      @default(0)
-  rating         Int      @default(0)
-  createdAt      DateTime @default(now())
-}
-
-/**
- * =========================
  * TALENT ↔ PROMOTER STATE
  * (Trust, Cooldown, Opt-out)
  * =========================
  */
 model TalentPromoterState {
   id            Int       @id @default(autoincrement())
-  talentId      Int
-  promoterId    Int
+  talentId      String
+  promoterId    BigInt
   trustScore    Int       @default(0)
   lastContacted DateTime?
   lastReply     DateTime?
   optedOut      Boolean   @default(false)
+
+  // Relations
+  user User? @relation(fields: [promoterId], references: [id])
+  talentPool TalentPool? @relation(fields: [talentId], references: [id])
 
   @@unique([talentId, promoterId])
 }
@@ -163,8 +151,8 @@ model TalentPromoterState {
  */
 model TrustScoreLog {
   id         Int      @id @default(autoincrement())
-  talentId   Int
-  promoterId Int
+  talentId   String
+  promoterId BigInt
   eventId    Int?
   change     Int // +10, -5, etc.
   reason     String // positive_reply, no_reply_48h, attended
@@ -178,6 +166,7 @@ model TrustScoreLog {
  */
 enum InvitationStatus {
   pending
+  sent
   confirmed
   declined
   maybe
@@ -189,13 +178,14 @@ model CampaignInvitation {
   id           Int              @id @default(autoincrement())
   campaignId   Int
   eventId      Int
-  promoterId   Int
-  talentId     Int
+  promoterId   BigInt
+  talentId     String
   batch        Int // 1 | 2 | followup
   status       InvitationStatus @default(pending)
   invitationAt DateTime?
   isSeen       Boolean          @default(false)
   followupSent Boolean          @default(false)
+  followup     Boolean          @default(false)
   thankYouSent Boolean          @default(false)
   hasReplied   Boolean          @default(false)
 
@@ -219,9 +209,9 @@ enum MessageDirection {
 model CampaignMessage {
   id              Int              @id @default(autoincrement())
   campaignId      Int
-  promoterId      Int
+  promoterId      BigInt
   invitationId    Int
-  talentId        Int
+  talentId        String
   direction       MessageDirection
   message         String
   sentAt          DateTime?
@@ -242,10 +232,156 @@ model CampaignMessage {
  */
 model TalentBlacklist {
   id         Int      @id @default(autoincrement())
-  talentId   Int
-  promoterId Int
+  talentId   String
+  promoterId BigInt
   reason     String
   createdAt  DateTime @default(now())
 
+  // Relations
+  user User? @relation(fields: [promoterId], references: [id])
+  talentPool TalentPool? @relation(fields: [talentId], references: [id])
+
   @@unique([talentId, promoterId])
+}
+
+/**
+ * =========================
+ * TALENT POOL
+ * (Existing table - no migrations)
+ * =========================
+ */
+model TalentPool {
+  id                    String    @id @map("id")
+  agencyId              BigInt?   @map("agency_id")
+  agencyName            String?   @map("agency_name")
+  allLocations          String?   @map("all_locations")
+  category              String?   @map("category")
+  city                  String?   @map("city")
+  country               String?   @map("country")
+  createdDateTime       DateTime? @map("created_date_time")
+  email                 String?   @map("email")
+  ethnicity             String?   @map("ethnicity")
+  ethnicityScore        Float?    @map("ethnicity_score")
+  folCheckDateTime      DateTime? @map("fol_check_date_time")
+  followers             BigInt?   @map("followers")
+  followings            BigInt?   @map("followings")
+  foundCityDateTime     DateTime? @map("found_city_date_time")
+  foundCityMethod       String?   @map("found_city_method")
+  fromTracker           String?   @map("from_tracker")
+  fromTrackerPk         BigInt?   @map("from_tracker_pk")
+  genre                 String?   @map("genre")
+  genreScore            Float?    @map("genre_score")
+  hairColor             String?   @map("hair_color")
+  hairColorScore        Float?    @map("hair_color_score")
+  hasStoryDateTime      DateTime? @map("has_story_date_time")
+  idOld                 String?   @map("id_old")
+  instagramLink         String?   @map("instagram_link")
+  isPrivate             Boolean?  @map("is_private")
+  language              String?   @map("language")
+  lat                   Float?    @map("lat")
+  lng                   Float?    @map("lng")
+  location              String?   @map("location")
+  mainPicture           String?   @map("main_picture")
+  name                  String?   @map("name")
+  nameAi                Boolean?  @map("name_ai")
+  nameIg                String?   @map("name_ig")
+  note                  String?   @map("note")
+  pk                    BigInt?   @map("pk")
+  profilePicture        String?   @map("profile_picture")
+  profileUpdDateTime    DateTime? @map("profile_upd_date_time")
+  rejected              Boolean?  @map("rejected")
+  removed               Boolean?  @map("removed")
+  statusId              BigInt?   @map("status_id")
+  statusName            String?   @map("status_name")
+  storyCheckDateTime    DateTime? @map("story_check_date_time")
+  storyDateTime         DateTime? @map("story_date_time")
+  storyPicture          String?   @map("story_picture")
+  translated            DateTime? @map("translated")
+  updatedDateTime       DateTime? @map("updated_date_time")
+  fromUser              BigInt?   @map("from_user")
+  bio                   String?   @map("bio")
+  ethn                  Boolean?  @map("ethn")
+  hair                  Boolean?  @map("hair")
+  profileCity           String?   @map("profile_city")
+  profileCountry        String?   @map("profile_country")
+  genreChk              Boolean?  @map("genre_chk")
+  genreRationale        String?   @map("genre_rationale")
+  continent             String?   @map("continent")
+  checked               Boolean?  @default(false) @map("checked")
+  elite                 Boolean?  @map("elite")
+  pictureUpdated        DateTime? @map("picture_updated")
+  img                   Boolean?  @map("img")
+  subscriberId          String?   @map("subscriber_id")
+  fallback              Boolean?  @map("fallback")
+  trustScore            Int?      @default(0) @map("trust_score")
+  optedOut              Boolean?  @default(false) @map("opted_out")
+  optedOutAt            DateTime? @map("opted_out_at")
+  currentCity           String?   @map("current_city")
+  lastCity              String?   @map("last_city")
+  locationUpdatedAt     DateTime? @map("location_updated_at")
+  locationSource        String?   @map("location_source")
+  talentType            String?   @default("civilian") @map("talent_type")
+  priorityStatus        String?   @default("first_choice") @map("priority_status")
+  lastInteractionDate   DateTime? @map("last_interaction_date")
+  lastCityUpdateDate    DateTime? @map("last_city_update_date")
+  cityHome              String?   @map("city_home")
+  cityHomeUpdated       DateTime? @map("city_home_updated")
+
+  // Relations
+  promoterStates TalentPromoterState[]
+  blacklists     TalentBlacklist[]
+
+  @@map("talent_pool")
+}
+
+/**
+ * =========================
+ * EVENTS (Legacy Table)
+ * (Existing table - no migrations)
+ * =========================
+ */
+model Events {
+  id                    BigInt    @id @map("id")
+  city                  String?   @map("city")
+  clubAddress           String?   @map("club_address")
+  clubGuests            Int?      @map("club_guests")
+  clubName              String?   @map("club_name")
+  clubTime              DateTime?   @map("club_time")
+  createdAt             DateTime? @map("created_at")
+  dinnerAddress         String?   @map("dinner_address")
+  dinnerGuests          Int?      @map("dinner_guests")
+  dinnerName            String?   @map("dinner_name")
+  // Stored as a timestamp in the database; use DateTime here to match the actual column type
+  dinnerTime            DateTime? @map("dinner_time")
+  dt                    DateTime? @map("dt")
+  mainEventType         String?   @map("main_event_type")
+  tm                    DateTime?   @map("tm")
+  uniqueEvent           Boolean?  @map("unique_event")
+  updateAt              DateTime? @map("update_at")
+  userId                BigInt?   @map("user_id")
+  checked               Boolean?  @map("checked")
+  name                  String?   @map("name")
+  eventType             String?   @map("event_type")
+  filterIdsTxt          String?   @map("filter_ids_txt")
+  filterNamesTxt        String?   @map("filter_names_txt")
+  guests                Int?      @map("guests")
+  guestsPreEvent        Int?      @map("guests_pre_event")
+  preEvent              String?   @map("pre_event")
+  preEventTime          String?   @map("pre_event_time")
+  profileTypesTxt       String?   @map("profile_types_txt")
+  restaurant            String?   @map("restaurant")
+  restaurantAddress     String?   @map("restaurant_address")
+  gesAgent              Boolean?  @map("ges_agent")
+  preDrinkAddress      String?   @map("pre_drink_address")
+  preDrinkGuests        Int?      @map("pre_drink_guests")
+  preDrinkName          String?   @map("pre_drink_name")
+  preDrinkTime          DateTime?   @map("pre_drink_time")
+  recurrencePattern     String?   @map("recurrence_pattern")
+  weeklyRecurrenceDay   String?   @map("weekly_recurrence_day")
+  clubDescription       String?   @map("club_description")
+  dinnerDescription     String?   @map("dinner_description")
+  preDrinkDescription   String?   @map("pre_drink_description")
+  monthlyRecurrenceDate Int?      @map("monthly_recurrence_date")
+
+  @@map("events")
 }

@@ -2,15 +2,15 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventDto } from './event.dto';
 import { UpdateEventDto } from './event.dto';
-import { Event } from '@prisma/client';
+import { Events } from '@prisma/client';
 
 @Injectable()
 export class EventService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createEventDto: CreateEventDto, promoterId: number): Promise<Event> {
+  async create(createEventDto: CreateEventDto, promoterId: number): Promise<Events> {
     const data: any = {
-      promoterId,
+      userId: BigInt(promoterId),
       name: createEventDto.name,
       type: createEventDto.type,
       city: createEventDto.city,
@@ -26,37 +26,37 @@ export class EventService {
       data.end_time = new Date(createEventDto.end_time);
     }
 
-    return this.prisma.event.create({ data });
+    return this.prisma.events.create({ data });
   }
 
-  async findByPromoter(promoterId: number): Promise<Event[]> {
-    return this.prisma.event.findMany({
-      where: { promoterId },
+  async findByPromoter(promoterId: number): Promise<Events[]> {
+    return this.prisma.events.findMany({
+      where: { userId: BigInt(promoterId) },
       orderBy: {
         createdAt: 'desc',
       },
     });
   }
 
-  async findOne(id: number, promoterId: number): Promise<Event> {
-    const event = await this.prisma.event.findUnique({
-      where: { id },
+  async findOne(id: number, promoterId: number): Promise<Events> {
+    const event = await this.prisma.events.findUnique({
+      where: { id: BigInt(id) },
     });
 
     if (!event) {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
 
-    if (event.promoterId !== promoterId) {
+    if (event.userId?.toString() !== promoterId.toString()) {
       throw new ForbiddenException('You do not have access to this event');
     }
 
     return event;
   }
 
-  async update(id: number, updateEventDto: UpdateEventDto, promoterId: number): Promise<Event> {
+  async update(id: number, updateEventDto: UpdateEventDto, promoterId: number): Promise<Events> {
     // Check if event exists and belongs to promoter
-    const event = await this.findOne(id, promoterId);
+    await this.findOne(id, promoterId);
 
     // Prepare update data, converting date strings to Date objects
     const updateData: any = {};
@@ -85,18 +85,18 @@ export class EventService {
       updateData.reach_time = new Date(updateEventDto.reach_time);
     }
 
-    return this.prisma.event.update({
-      where: { id },
+    return this.prisma.events.update({
+      where: { id: BigInt(id) },
       data: updateData,
     });
   }
 
-  async remove(id: number, promoterId: number): Promise<Event> {
+  async remove(id: number, promoterId: number): Promise<Events> {
     // Check if event exists and belongs to promoter
     await this.findOne(id, promoterId);
 
-    return this.prisma.event.delete({
-      where: { id },
+    return this.prisma.events.delete({
+      where: { id: BigInt(id) },
     });
   }
 }

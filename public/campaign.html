@@ -17,20 +17,115 @@
         <a href="index.html" class="btn btn-secondary mb-3">← Back to Campaigns</a>
         <h1 id="campaignName">Campaign</h1>
 
-        <!-- Invite Talents Form -->
+        <!-- Campaign Stats -->
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Invite Talents</h5>
-                <form id="inviteForm">
-                    <div class="mb-3">
-                        <input type="text" class="form-control mb-2" id="inviteTalentSearch" placeholder="Search talents...">
-                        <div id="inviteTalentsList" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px;">
-                            <div class="text-center text-muted">Loading talents...</div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="card-title mb-0">Campaign Stats</h5>
+                    <div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Batch stats toggle">
+                            <button type="button" class="btn btn-outline-primary active" id="statsBatchAllBtn" data-batch="all">All Batches</button>
+                            <button type="button" class="btn btn-outline-primary" id="statsBatch1Btn" data-batch="1">Batch 1</button>
+                            <button type="button" class="btn btn-outline-primary" id="statsBatch2Btn" data-batch="2">Batch 2</button>
                         </div>
-                        <small class="text-muted">Selected: <span id="inviteSelectedCount">0</span></small>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-sm">Invite Selected Talents</button>
+                </div>
+                <div id="campaignStatsContent">
+                    <div class="text-center text-muted">Loading stats...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Talent Recommendations Form -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Talent Recommendations</h5>
+                <form id="recommendationsForm">
+                    <div class="mb-3">
+                        <label class="form-label">Batch</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="recommendBatchId" id="recommendBatch1" value="1" checked>
+                            <label class="form-check-label" for="recommendBatch1">Batch 1</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="recommendBatchId" id="recommendBatch2" value="2">
+                            <label class="form-check-label" for="recommendBatch2">Batch 2</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Filters</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="filterOpenchat" name="openchat">
+                                    <label class="form-check-label" for="filterOpenchat">Openchat</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="filterDmSent" name="dmSent">
+                                    <label class="form-check-label" for="filterDmSent">DM Sent</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="filterFirstChoice" name="firstChoice">
+                                    <label class="form-check-label" for="filterFirstChoice">FirstChoice</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="filterBackupGuests" name="backupGuests">
+                                    <label class="form-check-label" for="filterBackupGuests">Backup Guests</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="filterBlacklist" name="blacklist">
+                                    <label class="form-check-label" for="filterBlacklist">Blacklist</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="filterLiked" name="liked">
+                                    <label class="form-check-label" for="filterLiked">Liked</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="filterHide" name="hide">
+                                    <label class="form-check-label" for="filterHide">Hide</label>
+                                </div>
+                                <div class="mb-2">
+                                    <label for="filterTalentType" class="form-label small">Talent Type</label>
+                                    <input type="text" class="form-control form-control-sm" id="filterTalentType" name="talentType" placeholder="e.g., civilian">
+                                </div>
+                                <div class="mb-2">
+                                    <label for="filterTrustScore" class="form-label small">Trust Score (minimum)</label>
+                                    <input type="number" class="form-control form-control-sm" id="filterTrustScore" name="trustScore" placeholder="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Search Recommendations</button>
                 </form>
+                
+                <div class="mt-4">
+                    <input type="text" class="form-control mb-2" id="recommendationsSearch" placeholder="Search recommendations...">
+                    <div id="talentRecommendationsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px;">
+                        <div class="text-center text-muted">Use the form above to search for talent recommendations...</div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="selectAllRecommendations">
+                                <label class="form-check-label small" for="selectAllRecommendations">
+                                    Select all
+                                </label>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="selectRandom10Btn">
+                                Random 10
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="selectRandom20Btn">
+                                Random 20
+                            </button>
+                            <small class="text-muted mb-0">Selected: <span id="recommendationsSelectedCount">0</span></small>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" id="inviteSelectedRecommendationsBtn">Invite Selected Talents</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -65,98 +160,6 @@
             window.location.href = 'index.html';
         }
 
-        // Load all talents
-        let allTalents = [];
-        async function loadTalents() {
-            try {
-                allTalents = await $.ajax({
-                    url: `${API_BASE}/talents`,
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                displayInviteTalents(allTalents);
-                // Reload invitations to show talent names
-                if (campaignId) {
-                    loadInvitations();
-                }
-            } catch (error) {
-                $('#inviteTalentsList').html('<div class="alert alert-danger">Error loading talents</div>');
-            }
-        }
-
-        // Display talents for invite
-        function displayInviteTalents(talents) {
-            if (talents.length === 0) {
-                $('#inviteTalentsList').html('<div class="text-muted">No talents found</div>');
-                return;
-            }
-            let html = '';
-            talents.forEach(talent => {
-                html += `
-                    <div class="form-check invite-talent-item" data-talent-id="${talent.id}">
-                        <input class="form-check-input invite-talent-checkbox" type="checkbox" value="${talent.id}" id="invite-talent-${talent.id}">
-                        <label class="form-check-label" for="invite-talent-${talent.id}">
-                            <strong>${escapeHtml(talent.name || 'Unknown')}</strong> 
-                            <span class="text-muted">@${escapeHtml(talent.accountId || 'unknown')}</span>
-                            ${talent.city ? `<small class="text-muted"> - ${escapeHtml(talent.city)}</small>` : ''}
-                        </label>
-                    </div>
-                `;
-            });
-            $('#inviteTalentsList').html(html);
-            updateInviteSelectedCount();
-        }
-
-        // Update invite selected count
-        function updateInviteSelectedCount() {
-            const selected = $('.invite-talent-checkbox:checked').length;
-            $('#inviteSelectedCount').text(selected);
-        }
-
-        // Invite talent search
-        $('#inviteTalentSearch').on('input', function() {
-            const searchTerm = $(this).val().toLowerCase();
-            $('.invite-talent-item').each(function() {
-                const text = $(this).text().toLowerCase();
-                $(this).toggle(text.includes(searchTerm));
-            });
-        });
-
-        // Invite talent checkbox change
-        $(document).on('change', '.invite-talent-checkbox', function() {
-            updateInviteSelectedCount();
-        });
-
-        // Invite talents form
-        $('#inviteForm').on('submit', async function(e) {
-            e.preventDefault();
-            const selectedTalents = $('.invite-talent-checkbox:checked').map(function() {
-                return parseInt($(this).val());
-            }).get();
-
-            if (selectedTalents.length === 0) {
-                alert('Please select at least one talent');
-                return;
-            }
-
-            try {
-                await $.ajax({
-                    url: `${API_BASE}/campaigns/${campaignId}/invitations`,
-                    method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    data: JSON.stringify({ talentIds: selectedTalents })
-                });
-                alert('Talents invited!');
-                $('.invite-talent-checkbox').prop('checked', false);
-                updateInviteSelectedCount();
-                loadCampaign();
-            } catch (error) {
-                alert('Error inviting talents: ' + (error.responseJSON?.message || error.statusText));
-            }
-        });
-
         // Load campaign
         async function loadCampaign() {
             try {
@@ -186,7 +189,7 @@
         async function loadInvitations() {
             try {
                 const invitations = await $.ajax({
-                    url: `${API_BASE}/campaigns/${campaignId}/invitations`,
+                    url: `${API_BASE}/campaign-invitations/campaign/${campaignId}`,
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 displayInvitations(invitations);
@@ -209,9 +212,8 @@
             html += '</tr></thead><tbody>';
 
             invitations.forEach(inv => {
-                const talent = allTalents.find(t => t.id === inv.talentId);
-                const talentName = talent ? (talent.name || 'Unknown') : 'Unknown';
-                const talentAccountId = talent ? (talent.accountId || '') : '';
+                const talentName = 'Unknown';
+                const talentAccountId = '';
                 
                 html += `<tr data-invitation-id="${inv.id}">`;
                 html += `<td>${inv.id}</td>`;
@@ -323,7 +325,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             $('.reply-form').on('submit', async function(e) {
                 e.preventDefault();
                 const form = $(this);
-                const talentId = parseInt(form.data('talent-id'));
+                const talentId = form.data('talent-id').toString();
                 const message = form.find('textarea').val();
                 const button = form.find('button');
 
@@ -361,8 +363,310 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             return new Date(date).toLocaleString();
         }
 
+        // Load campaign stats (all batches or specific batch)
+        async function loadCampaignStats(batchMode = 'all') {
+            try {
+                $('#campaignStatsContent').html('<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Loading stats...</div>');
+
+                let url = `${API_BASE}/campaigns/${campaignId}/stats`;
+                if (batchMode === '1' || batchMode === '2') {
+                    url = `${API_BASE}/campaigns/${campaignId}/batches/${batchMode}/stats`;
+                }
+
+                const stats = await $.ajax({
+                    url,
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+
+                renderCampaignStats(stats, batchMode);
+            } catch (error) {
+                $('#campaignStatsContent').html(`<div class="alert alert-danger">Error loading stats: ${error.responseJSON?.message || error.statusText}</div>`);
+            }
+        }
+
+        function renderCampaignStats(stats, batchMode) {
+            if (!stats) {
+                $('#campaignStatsContent').html('<div class="alert alert-info">No stats available</div>');
+                return;
+            }
+
+            const batches = stats.batches || [];
+            let selectedBatchLabel = 'All Batches';
+            if (batchMode === '1') selectedBatchLabel = 'Batch 1';
+            if (batchMode === '2') selectedBatchLabel = 'Batch 2';
+
+            let html = '';
+            html += '<div class="row mb-3">';
+            html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Total Contacted</div><div class="fs-5 fw-bold">' + (stats.totalContacted ?? 0) + '</div></div></div>';
+            html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Sent</div><div class="fs-5 fw-bold">' + (stats.sent ?? 0) + '</div></div></div>';
+            html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Delivered</div><div class="fs-5 fw-bold">' + (stats.delivered ?? 0) + '</div></div></div>';
+            html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Replied</div><div class="fs-5 fw-bold">' + (stats.replied ?? 0) + '</div></div></div>';
+            html += '</div>';
+
+            if (stats.responseClassification) {
+                const rc = stats.responseClassification;
+                html += '<div class="row mb-3">';
+                html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Confirmed</div><div class="fw-bold text-success">' + (rc.confirmed ?? 0) + '</div></div></div>';
+                html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Interested</div><div class="fw-bold text-info">' + (rc.interested ?? 0) + '</div></div></div>';
+                html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Declined</div><div class="fw-bold text-danger">' + (rc.declined ?? 0) + '</div></div></div>';
+                html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Seen, No Reply</div><div class="fw-bold text-warning">' + (rc.seenNoReply ?? 0) + '</div></div></div>';
+                html += '</div>';
+            }
+
+            if (batches.length > 0) {
+                html += `<h6 class="mt-3">Batch Details (${selectedBatchLabel})</h6>`;
+                html += '<div class="table-responsive"><table class="table table-sm mb-0">';
+                html += '<thead><tr><th>Batch</th><th>Invites</th><th>Pending</th><th>Sent</th><th>Delivered</th><th>Replied</th><th>First Sent</th><th>Time Spent</th><th>Est. Remaining</th><th>Est. Completion</th><th>Expected Replies</th></tr></thead><tbody>';
+
+                batches.forEach(batch => {
+                    const firstSent = batch.sentAt ? formatDate(batch.sentAt) : '-';
+                    const pending = batch.pendingInvites ?? Math.max((batch.invites || 0) - (batch.sent || 0), 0);
+                    const remainingSec = batch.estimatedRemainingSeconds ?? null;
+                    const remainingLabel = remainingSec !== null ? `${Math.floor(remainingSec / 60)} min` : '-';
+                    const completionAt = batch.estimatedCompletionAt ? formatDate(batch.estimatedCompletionAt) : '-';
+                    const expectedReplies = batch.expectedReplies ?? '-';
+                    const timeSpentSec = batch.totalTimeSpentSeconds ?? null;
+                    const timeSpentLabel = timeSpentSec !== null ? `${Math.floor(timeSpentSec / 60)} min` : '-';
+
+                    html += '<tr>';
+                    html += `<td>${batch.batch}</td>`;
+                    html += `<td>${batch.invites}</td>`;
+                    html += `<td>${pending}</td>`;
+                    html += `<td>${batch.sent}</td>`;
+                    html += `<td>${batch.delivered}</td>`;
+                    html += `<td>${batch.replied}</td>`;
+                    html += `<td>${firstSent}</td>`;
+                    html += `<td>${timeSpentLabel}</td>`;
+                    html += `<td>${remainingLabel}</td>`;
+                    html += `<td>${completionAt}</td>`;
+                    html += `<td>${expectedReplies}</td>`;
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+            } else {
+                html += '<div class="alert alert-info mb-0">No batch stats available yet.</div>';
+            }
+
+            $('#campaignStatsContent').html(html);
+        }
+
+        // Handle stats batch toggle buttons
+        function setStatsBatchMode(mode) {
+            $('#statsBatchAllBtn, #statsBatch1Btn, #statsBatch2Btn').removeClass('active');
+            if (mode === '1') {
+                $('#statsBatch1Btn').addClass('active');
+            } else if (mode === '2') {
+                $('#statsBatch2Btn').addClass('active');
+            } else {
+                $('#statsBatchAllBtn').addClass('active');
+            }
+            loadCampaignStats(mode);
+        }
+
+        $('#statsBatchAllBtn').on('click', () => setStatsBatchMode('all'));
+        $('#statsBatch1Btn').on('click', () => setStatsBatchMode('1'));
+        $('#statsBatch2Btn').on('click', () => setStatsBatchMode('2'));
+
+        // Load talent recommendations with filters
+        async function loadTalentRecommendations(batchId, filters = {}) {
+            try {
+                $('#talentRecommendationsList').html('<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Loading recommendations...</div>');
+                
+                // Build query string from filters
+                const queryParams = new URLSearchParams();
+                Object.keys(filters).forEach(key => {
+                    if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
+                        queryParams.append(key, filters[key]);
+                    }
+                });
+                
+                const queryString = queryParams.toString();
+                // Always request up to 200 talents
+                const url = `${API_BASE}/campaign-invitations/campaign/${campaignId}/${batchId}/recommendations${queryString ? '?' + queryString + '&' : '?'}limit=200`;
+                
+                const recommendations = await $.ajax({
+                    url: url,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                displayTalentRecommendations(recommendations);
+            } catch (error) {
+                $('#talentRecommendationsList').html(`<div class="alert alert-danger">Error loading recommendations: ${error.responseJSON?.message || error.statusText}</div>`);
+            }
+        }
+
+        // Display talent recommendations with checkboxes
+        function displayTalentRecommendations(recommendations) {
+            if (recommendations.length === 0) {
+                $('#talentRecommendationsList').html('<div class="alert alert-info">No talent recommendations found</div>');
+                $('#recommendationsSelectedCount').text('0');
+                return;
+            }
+
+            let html = '';
+            recommendations.forEach(talent => {
+                const promoterState = talent.promoterState || {};
+                const statusBadge = talent.isBlacklisted 
+                    ? '<span class="badge bg-danger">Blacklisted</span>'
+                    : promoterState.liked 
+                        ? '<span class="badge bg-success">Liked</span>'
+                        : promoterState.hide
+                            ? '<span class="badge bg-warning">Hidden</span>'
+                            : '<span class="badge bg-secondary">Available</span>';
+
+                html += `
+                    <div class="form-check recommendation-talent-item" data-talent-id="${talent.id}">
+                        <input class="form-check-input recommendation-talent-checkbox" type="checkbox" value="${talent.id}" id="recommend-talent-${talent.id}">
+                        <label class="form-check-label" for="recommend-talent-${talent.id}">
+                            <strong>${escapeHtml(talent.name || 'Unknown')}</strong> 
+                            <span class="text-muted">@${escapeHtml(talent.accountId || 'unknown')}</span>
+                            ${talent.city ? `<small class="text-muted"> - ${escapeHtml(talent.city)}</small>` : ''}
+                            ${talent.followers ? `<small class="text-muted"> - ${talent.followers.toLocaleString()} followers</small>` : ''}
+                            ${talent.trustScore !== undefined ? `<small class="text-muted"> - Trust: ${talent.trustScore}</small>` : ''}
+                            <span class="ms-2">${statusBadge}</span>
+                        </label>
+                    </div>
+                `;
+            });
+
+            $('#talentRecommendationsList').html(html);
+            updateRecommendationsSelectedCount();
+        }
+
+        // Update recommendations selected count
+        function updateRecommendationsSelectedCount() {
+            const selected = $('.recommendation-talent-checkbox:checked').length;
+            $('#recommendationsSelectedCount').text(selected);
+        }
+
+        // Recommendations search
+        $('#recommendationsSearch').on('input', function() {
+            const searchTerm = $(this).val().toLowerCase();
+            $('.recommendation-talent-item').each(function() {
+                const text = $(this).text().toLowerCase();
+                $(this).toggle(text.includes(searchTerm));
+            });
+        });
+
+        // Recommendation checkbox change
+        $(document).on('change', '.recommendation-talent-checkbox', function() {
+            updateRecommendationsSelectedCount();
+        });
+
+        // Select all / deselect all recommendations
+        $('#selectAllRecommendations').on('change', function() {
+            const checked = $(this).is(':checked');
+            $('.recommendation-talent-checkbox').prop('checked', checked);
+            updateRecommendationsSelectedCount();
+        });
+
+        // Helper to randomly select N recommendations
+        function selectRandomRecommendations(count) {
+            const all = $('.recommendation-talent-checkbox');
+            const total = all.length;
+            if (total === 0) return;
+
+            // Clear current selection and "select all"
+            $('#selectAllRecommendations').prop('checked', false);
+            all.prop('checked', false);
+
+            const indices = Array.from({ length: total }, (_, i) => i);
+            // Shuffle indices
+            for (let i = indices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+
+            const toSelect = indices.slice(0, Math.min(count, total));
+            toSelect.forEach(i => {
+                $(all[i]).prop('checked', true);
+            });
+
+            updateRecommendationsSelectedCount();
+        }
+
+        $('#selectRandom10Btn').on('click', function() {
+            selectRandomRecommendations(10);
+        });
+
+        $('#selectRandom20Btn').on('click', function() {
+            selectRandomRecommendations(20);
+        });
+
+        // Invite selected recommendations
+        $('#inviteSelectedRecommendationsBtn').on('click', async function() {
+            const selectedTalents = $('.recommendation-talent-checkbox:checked').map(function() {
+                // Keep as string since talent IDs are strings
+                return $(this).val();
+            }).get();
+
+            if (selectedTalents.length === 0) {
+                alert('Please select at least one talent');
+                return;
+            }
+
+            const batchId = parseInt($('input[name="recommendBatchId"]:checked').val());
+            const button = $(this);
+
+            button.prop('disabled', true).text('Inviting...');
+            try {
+                await $.ajax({
+                    url: `${API_BASE}/campaign-invitations/campaign/${campaignId}`,
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify({ talentIds: selectedTalents, batchId: batchId })
+                });
+                alert('Talents invited successfully!');
+                $('.recommendation-talent-checkbox').prop('checked', false);
+                updateRecommendationsSelectedCount();
+                loadCampaign();
+            } catch (error) {
+                alert('Error inviting talents: ' + (error.responseJSON?.message || error.statusText));
+            } finally {
+                button.prop('disabled', false).text('Invite Selected Talents');
+            }
+        });
+
+        // Recommendations form submit
+        $('#recommendationsForm').on('submit', async function(e) {
+            e.preventDefault();
+            
+            const batchId = parseInt($('input[name="recommendBatchId"]:checked').val());
+            
+            // Collect filter values
+            const filters = {};
+            
+            // Boolean filters (checkboxes)
+            const booleanFilters = ['openchat', 'dmSent', 'firstChoice', 'backupGuests', 'blacklist', 'liked', 'hide'];
+            booleanFilters.forEach(filter => {
+                const checkbox = $(`#filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
+                if (checkbox.length && checkbox.is(':checked')) {
+                    filters[filter] = true;
+                }
+            });
+            
+            // String filter (talentType)
+            const talentType = $('#filterTalentType').val().trim();
+            if (talentType) {
+                filters.talentType = talentType;
+            }
+            
+            // Number filter (trustScore)
+            const trustScore = $('#filterTrustScore').val();
+            if (trustScore) {
+                filters.trustScore = parseInt(trustScore);
+            }
+            
+            loadTalentRecommendations(batchId, filters);
+        });
+
         loadCampaign();
-        loadTalents();
+        // Initial stats load (all batches)
+        loadCampaignStats('all');
     </script>
 </body>
 </html>

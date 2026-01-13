@@ -3,9 +3,9 @@ import { IsInt, IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateTalentBlacklistDto {
   @ApiProperty({ description: 'ID of the talent to blacklist' })
-  @IsInt()
+  @IsString()
   @IsNotEmpty()
-  talentId: number;
+  talentId: string;
 
   @ApiProperty({ description: 'Reason for blacklisting the talent' })
   @IsString()

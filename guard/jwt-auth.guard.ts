@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { Request } from 'express';
 
-// Extend Express Request type to include promoter
+// Extend Express Request type to include user (promoter)
 declare module 'express' {
   interface Request {
     promoter?: {
@@ -41,19 +41,23 @@ export class JwtAuthGuard implements CanActivate {
         secret,
       });
 
-      // Find promoter from database
-      const promoter = await this.prisma.promoter.findUnique({
-        where: { id: payload.sub },
+      // Find user from database
+      // payload.sub is a string (BigInt converted to string in JWT)
+      // Using type assertion because PrismaService extends PrismaClient
+      // and TypeScript may not immediately recognize new models
+      const userId = BigInt(payload.sub);
+      const user = await (this.prisma as any).user.findUnique({
+        where: { id: userId },
       });
 
-      if (!promoter) {
-        throw new UnauthorizedException('Promoter not found');
+      if (!user) {
+        throw new UnauthorizedException('User not found');
       }
 
-      // Attach promoter to request object
+      // Attach user to request object (keeping promoter name for backward compatibility)
       request.promoter = {
-        id: promoter.id,
-        email: promoter.email,
+        id: Number(user.id), // Convert BigInt to number for compatibility
+        email: user.email || '',
       };
 
       return true;

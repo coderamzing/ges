@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto } from './campaign.dto';
-import { Campaign, CampaignInvitation, InvitationStatus } from '@prisma/client';
+import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto } from './campaign.dto';
+import { Campaign, CampaignStatus } from '@prisma/client';
 import { DEFAULT_TEMPLATES } from '../campaign-template/campaign-template.config';
 import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from '../campaign-template/campaign-template.service';
 
@@ -15,7 +15,7 @@ export class CampaignService {
 
   async create(createCampaignDto: CreateCampaignDto, promoterId: number): Promise<Campaign> {
     // Verify that the event exists and belongs to the promoter
-    const event = await this.prisma.event.findUnique({
+    const event = await this.prisma.events.findUnique({
       where: { id: createCampaignDto.eventId },
     });
 
@@ -23,19 +23,19 @@ export class CampaignService {
       throw new NotFoundException(`Event with ID ${createCampaignDto.eventId} not found`);
     }
 
-    if (event.promoterId !== promoterId) {
+    if (event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Event with ID ${createCampaignDto.eventId} does not belong to this promoter`);
     }
 
     // Create the campaign and default templates in a single transaction
     const campaign = await this.prisma.$transaction(async (tx) => {
-      // Create the campaign
+      // Create the campaign with defaults
       const createdCampaign = await tx.campaign.create({
         data: {
           eventId: createCampaignDto.eventId,
-          name: createCampaignDto.name,
-          status: createCampaignDto.status,
-          lang: createCampaignDto.lang,
+          name: createCampaignDto.name ?? event.name ?? 'Untitled Campaign',
+          status: createCampaignDto.status ?? CampaignStatus.draft,
+          lang: createCampaignDto.lang ?? 'en',
         },
       });
 
@@ -67,14 +67,6 @@ export class CampaignService {
     return campaign.campaign;
   }
 
-  async findAll(): Promise<Campaign[]> {
-    return this.prisma.campaign.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-  }
-
   async findOne(id: number): Promise<Campaign> {
     const campaign = await this.prisma.campaign.findUnique({
       where: { id },
@@ -89,12 +81,12 @@ export class CampaignService {
 
   async findByPromoter(promoterId: number): Promise<Campaign[]> {
     // Get all events for this promoter first
-    const events = await this.prisma.event.findMany({
-      where: { promoterId },
+    const events = await this.prisma.events.findMany({
+      where: { userId: BigInt(promoterId) },
       select: { id: true },
     });
 
-    const eventIds = events.map(event => event.id);
+    const eventIds = events.map(event => Number(event.id));
 
     if (eventIds.length === 0) {
       return [];
@@ -118,7 +110,7 @@ export class CampaignService {
 
     // Verify that the event belongs to the promoter (if eventId is being updated or for existing campaign)
     let eventId = updateCampaignDto.eventId ?? campaign.eventId;
-    const event = await this.prisma.event.findUnique({
+    const event = await this.prisma.events.findUnique({
       where: { id: eventId },
     });
 
@@ -126,7 +118,7 @@ export class CampaignService {
       throw new NotFoundException(`Event with ID ${eventId} not found`);
     }
 
-    if (event.promoterId !== promoterId) {
+    if (event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Event with ID ${eventId} does not belong to this promoter`);
     }
 
@@ -156,11 +148,11 @@ export class CampaignService {
     const campaign = await this.findOne(id);
 
     // Verify that the event belongs to the promoter
-    const event = await this.prisma.event.findUnique({
+    const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
 
-    if (!event || event.promoterId !== promoterId) {
+    if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Campaign does not belong to this promoter`);
     }
 
@@ -177,11 +169,11 @@ export class CampaignService {
     const campaign = await this.findOne(id);
 
     // Verify that the event belongs to the promoter
-    const event = await this.prisma.event.findUnique({
+    const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
 
-    if (!event || event.promoterId !== promoterId) {
+    if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Campaign does not belong to this promoter`);
     }
 
@@ -190,126 +182,5 @@ export class CampaignService {
     });
   }
 
-  async getInvitations(campaignId: number, promoterId: number): Promise<CampaignInvitation[]> {
-    // Check if campaign exists
-    const campaign = await this.findOne(campaignId);
-
-    // Verify that the event belongs to the promoter
-    const event = await this.prisma.event.findUnique({
-      where: { id: campaign.eventId },
-    });
-
-    if (!event || event.promoterId !== promoterId) {
-      throw new NotFoundException(`Campaign does not belong to this promoter`);
-    }
-
-    return this.prisma.campaignInvitation.findMany({
-      where: { campaignId },
-      orderBy: { id: 'asc' },
-    });
-  }
-
-  async addTalentsToCampaign(
-    campaignId: number,
-    addTalentsDto: AddTalentsToCampaignDto,
-    promoterId: number,
-  ): Promise<CampaignInvitation[]> {
-    // Check if campaign exists
-    const campaign = await this.findOne(campaignId);
-
-    // Verify that the event belongs to the promoter
-    const event = await this.prisma.event.findUnique({
-      where: { id: campaign.eventId },
-    });
-
-    if (!event || event.promoterId !== promoterId) {
-      throw new NotFoundException(`Campaign does not belong to this promoter`);
-    }
-
-    // Verify that all talents exist
-    const talents = await this.prisma.talent.findMany({
-      where: {
-        id: { in: addTalentsDto.talentIds },
-      },
-    });
-
-    if (talents.length !== addTalentsDto.talentIds.length) {
-      const foundIds = talents.map(t => t.id);
-      const missingIds = addTalentsDto.talentIds.filter(id => !foundIds.includes(id));
-      throw new BadRequestException(`Talents with IDs ${missingIds.join(', ')} not found`);
-    }
-
-    // Check which invitations already exist (due to unique constraint on [campaignId, talentId])
-    const existingInvitations = await this.prisma.campaignInvitation.findMany({
-      where: {
-        campaignId,
-        talentId: { in: addTalentsDto.talentIds },
-      },
-      select: { talentId: true },
-    });
-
-    const existingTalentIds = existingInvitations.map(inv => inv.talentId);
-    const newTalentIds = addTalentsDto.talentIds.filter(id => !existingTalentIds.includes(id));
-
-    if (newTalentIds.length === 0) {
-      return this.prisma.campaignInvitation.findMany({
-        where: {
-          campaignId,
-          talentId: { in: addTalentsDto.talentIds },
-        },
-      });
-    }
-
-    // Create new invitations
-    await this.prisma.campaignInvitation.createMany({
-      data: newTalentIds.map(talentId => ({
-        campaignId,
-        eventId: campaign.eventId,
-        promoterId,
-        talentId,
-        batch: 1,
-        status: InvitationStatus.pending,
-      })),
-    });
-
-    // Return all invitations (existing + newly created)
-    return this.prisma.campaignInvitation.findMany({
-      where: {
-        campaignId,
-        talentId: { in: addTalentsDto.talentIds },
-      },
-    });
-  }
-
-  async removeInvitation(campaignId: number, invitationId: number, promoterId: number): Promise<void> {
-    // Check if campaign exists
-    const campaign = await this.findOne(campaignId);
-
-    // Verify that the event belongs to the promoter
-    const event = await this.prisma.event.findUnique({
-      where: { id: campaign.eventId },
-    });
-
-    if (!event || event.promoterId !== promoterId) {
-      throw new NotFoundException(`Campaign does not belong to this promoter`);
-    }
-
-    // Check if invitation exists and belongs to the campaign
-    const invitation = await this.prisma.campaignInvitation.findUnique({
-      where: { id: invitationId },
-    });
-
-    if (!invitation) {
-      throw new NotFoundException(`Invitation with ID ${invitationId} not found`);
-    }
-
-    if (invitation.campaignId !== campaignId) {
-      throw new NotFoundException(`Invitation does not belong to this campaign`);
-    }
-
-    await this.prisma.campaignInvitation.delete({
-      where: { id: invitationId },
-    });
-  }
 }
 

@@ -9,6 +9,7 @@ import {
   ArrayMinSize,
   IsEnum,
 } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 import { CampaignStatus } from '@prisma/client';
 
 export class CreateCampaignDto {
@@ -17,24 +18,24 @@ export class CreateCampaignDto {
   @IsNotEmpty()
   eventId: number;
 
-  @ApiProperty({ description: 'Name of the campaign' })
+  @ApiPropertyOptional({ description: 'Name of the campaign. If not provided, will use the event name.' })
   @IsString()
-  @IsNotEmpty()
-  name: string;
+  @IsOptional()
+  name?: string;
 
-  @ApiProperty({ 
-    description: 'Status of the campaign',
+  @ApiPropertyOptional({ 
+    description: 'Status of the campaign. Defaults to draft if not provided.',
     enum: CampaignStatus,
     example: CampaignStatus.draft
   })
   @IsEnum(CampaignStatus)
-  @IsNotEmpty()
-  status: CampaignStatus;
+  @IsOptional()
+  status?: CampaignStatus;
 
-  @ApiProperty({ description: 'Language of the campaign' })
+  @ApiPropertyOptional({ description: 'Language of the campaign. Defaults to "en" if not provided.' })
   @IsString()
-  @IsNotEmpty()
-  lang: string;
+  @IsOptional()
+  lang?: string;
 }
 
 export class UpdateCampaignDto {
@@ -76,13 +77,22 @@ export class UpdateCampaignStatusDto {
 
 export class AddTalentsToCampaignDto {
   @ApiProperty({ 
-    description: 'List of talent IDs to add to the campaign',
-    type: [Number],
-    example: [1, 2, 3]
+    description: 'List of talent IDs to add to the campaign (can be strings or numbers, will be converted to strings)',
+    type: [String],
+    example: ['irinashayk', 'talent2', 'talent3']
   })
   @IsArray()
   @ArrayMinSize(1)
-  @IsInt({ each: true })
-  talentIds: number[];
+  @Transform(({ value }) => value.map((id: any) => String(id)), { toClassOnly: true })
+  @IsString({ each: true })
+  talentIds: string[];
+
+  @ApiPropertyOptional({ 
+    description: 'Batch ID for the invitations. Defaults to 1 if not provided.',
+    example: 1
+  })
+  @IsInt()
+  @IsOptional()
+  batchId?: number;
 }
 

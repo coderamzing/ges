@@ -50,7 +50,7 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Talent ID</label>
-                            <input type="number" class="form-control" id="talentId" placeholder="Enter Talent ID" required>
+                            <input type="text" class="form-control" id="talentId" placeholder="Enter Talent ID" required>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Promoter ID (for reference only)</label>
@@ -125,7 +125,7 @@
         // View form submission
         $('#viewForm').on('submit', async function(e) {
             e.preventDefault();
-            const talentId = parseInt($('#talentId').val());
+            const talentId = $('#talentId').val().toString().trim();
             const promoterId = parseInt($('#promoterId').val());
 
             if (!talentId) {

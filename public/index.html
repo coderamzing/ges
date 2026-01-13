@@ -14,7 +14,10 @@
 </head>
 <body>
     <div class="container mt-5">
-        <h1 class="mb-4">Campaigns</h1>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">Campaigns</h1>
+            <button id="logoutBtn" class="btn btn-outline-secondary btn-sm" style="display: none;">Logout</button>
+        </div>
 
         <!-- Login Form -->
         <div class="card mb-4" id="loginCard">
@@ -61,14 +64,7 @@
                             </select>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Select Talents to Invite</label>
-                        <input type="text" class="form-control mb-2" id="talentSearch" placeholder="Search talents...">
-                        <div id="talentsList" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px;">
-                            <div class="text-center text-muted">Loading talents...</div>
-                        </div>
-                        <small class="text-muted">Selected: <span id="selectedCount">0</span></small>
-                    </div>
+                    <!-- Talents selection temporarily removed -->
                     <button type="submit" class="btn btn-primary">Create Campaign</button>
                 </form>
             </div>
@@ -84,14 +80,35 @@
         const API_BASE = '/api';
         let token = localStorage.getItem('token');
 
-        // Check if already logged in
-        if (token) {
-            $('#loginCard').hide();
-            $('#createForm').show();
-            loadCampaigns();
-            loadEvents();
-            loadTalents();
-        }
+        // Check if already logged in and token is still valid
+        $(async function() {
+            token = localStorage.getItem('token');
+            if (!token) {
+                $('#loginCard').show();
+                $('#createForm').hide();
+                return;
+            }
+
+            try {
+                // Lightweight check to validate token; if it fails, fall back to login
+                await $.ajax({
+                    url: `${API_BASE}/campaigns/promoter`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                $('#loginCard').hide();
+                $('#createForm').show();
+                $('#logoutBtn').show();
+                loadCampaigns();
+                loadEvents();
+            } catch (error) {
+                console.error('Stored token invalid, showing login again:', error);
+                localStorage.removeItem('token');
+                token = null;
+                $('#loginCard').show();
+                $('#createForm').hide();
+                $('#logoutBtn').hide();
+            }
+        });
 
         // Login
         $('#loginForm').on('submit', async function(e) {
@@ -108,9 +125,9 @@
                 localStorage.setItem('token', token);
                 $('#loginCard').hide();
                 $('#createForm').show();
+                $('#logoutBtn').show();
                 loadCampaigns();
                 loadEvents();
-                loadTalents();
             } catch (error) {
                 alert('Login failed: ' + (error.responseJSON?.message || error.statusText));
             }
@@ -133,63 +150,6 @@
                 console.error('Error loading events:', error);
             }
         }
-
-        // Load Talents
-        let allTalents = [];
-        async function loadTalents() {
-            try {
-                allTalents = await $.ajax({
-                    url: `${API_BASE}/talents`,
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                displayTalents(allTalents);
-            } catch (error) {
-                $('#talentsList').html('<div class="alert alert-danger">Error loading talents</div>');
-            }
-        }
-
-        // Display Talents
-        function displayTalents(talents) {
-            if (talents.length === 0) {
-                $('#talentsList').html('<div class="text-muted">No talents found</div>');
-                return;
-            }
-            let html = '';
-            talents.forEach(talent => {
-                html += `
-                    <div class="form-check talent-item" data-talent-id="${talent.id}">
-                        <input class="form-check-input talent-checkbox" type="checkbox" value="${talent.id}" id="talent-${talent.id}">
-                        <label class="form-check-label" for="talent-${talent.id}">
-                            <strong>${escapeHtml(talent.name || 'Unknown')}</strong> 
-                            <span class="text-muted">@${escapeHtml(talent.accountId || 'unknown')}</span>
-                            ${talent.city ? `<small class="text-muted"> - ${escapeHtml(talent.city)}</small>` : ''}
-                        </label>
-                    </div>
-                `;
-            });
-            $('#talentsList').html(html);
-            updateSelectedCount();
-        }
-
-        // Update selected count
-        function updateSelectedCount() {
-            const selected = $('.talent-checkbox:checked').length;
-            $('#selectedCount').text(selected);
-        }
-
-        // Talent search
-        $('#talentSearch').on('input', function() {
-            const searchTerm = $(this).val().toLowerCase();
-            $('.talent-item').each(function() {
-                const text = $(this).text().toLowerCase();
-                $(this).toggle(text.includes(searchTerm));
-            });
-        });
-
-        // Talent checkbox change
-        $(document).on('change', '.talent-checkbox', function() {
-            updateSelectedCount();
-        });
 
         // Load Campaigns
         async function loadCampaigns() {
@@ -319,12 +279,9 @@
             }
         }
 
-        // Create Campaign
+        // Create Campaign (without initial talent invitations)
         $('#campaignForm').on('submit', async function(e) {
             e.preventDefault();
-            const selectedTalents = $('.talent-checkbox:checked').map(function() {
-                return parseInt($(this).val());
-            }).get();
 
             const data = {
                 name: $('#campaignName').val(),
@@ -334,7 +291,7 @@
             };
             try {
                 // Create campaign
-                const campaign = await $.ajax({
+                await $.ajax({
                     url: `${API_BASE}/campaigns`,
                     method: 'POST',
                     headers: { 
@@ -344,27 +301,22 @@
                     data: JSON.stringify(data)
                 });
 
-                // Add talents to campaign if any selected
-                if (selectedTalents.length > 0) {
-                    await $.ajax({
-                        url: `${API_BASE}/campaigns/${campaign.id}/invitations`,
-                        method: 'POST',
-                        headers: { 
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        data: JSON.stringify({ talentIds: selectedTalents })
-                    });
-                }
-
-                alert('Campaign created!');
+                //alert('Campaign created!');
                 $('#campaignForm')[0].reset();
-                $('.talent-checkbox').prop('checked', false);
-                updateSelectedCount();
                 loadCampaigns();
             } catch (error) {
                 alert('Error creating campaign: ' + (error.responseJSON?.message || error.statusText));
             }
+        });
+
+        // Logout
+        $('#logoutBtn').on('click', function() {
+            localStorage.removeItem('token');
+            token = null;
+            $('#loginCard').show();
+            $('#createForm').hide();
+            $('#campaignsList').empty();
+            $('#logoutBtn').hide();
         });
 
         function escapeHtml(text) {

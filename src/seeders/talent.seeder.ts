@@ -10,19 +10,19 @@ export class TalentSeeder {
     const talents = TalentFactory.makeMany(count);
     
     for (const talentData of talents) {
-      await this.prisma.talent.create({
+      await this.prisma.talentPool.create({
         data: talentData,
       });
     }
     
     console.log(`✓ Seeded ${count} talents`);
     
-    return this.prisma.talent.findMany();
+    return this.prisma.talentPool.findMany();
   }
 
   async clear() {
     console.log('Clearing talents...');
-    await this.prisma.talent.deleteMany({});
+    await this.prisma.talentPool.deleteMany({});
     console.log('✓ Cleared talents');
   }
 }

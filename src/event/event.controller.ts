@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { EventService } from './event.service';
 import { CreateEventDto } from './event.dto';
 import { UpdateEventDto } from './event.dto';
-import { Event } from '@prisma/client';
+import { Events } from '@prisma/client';
 import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
 import { GetPromoter } from '../../guard/get-promoter.decorator';
 
@@ -34,7 +34,7 @@ export class EventController {
   async create(
     @Body() createEventDto: CreateEventDto,
     @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<Event> {
+  ): Promise<Events> {
     return this.eventService.create(createEventDto, promoter.id);
   }
 
@@ -44,7 +44,7 @@ export class EventController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(
     @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<Event[]> {
+  ): Promise<Events[]> {
     return this.eventService.findByPromoter(promoter.id);
   }
 
@@ -57,7 +57,7 @@ export class EventController {
   async findOne(
     @Param('id', ParseIntPipe) id: number,
     @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<Event> {
+  ): Promise<Events> {
     return this.eventService.findOne(id, promoter.id);
   }
 
@@ -72,7 +72,7 @@ export class EventController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateEventDto: UpdateEventDto,
     @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<Event> {
+  ): Promise<Events> {
     return this.eventService.update(id, updateEventDto, promoter.id);
   }
 

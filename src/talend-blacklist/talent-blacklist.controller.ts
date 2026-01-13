@@ -55,7 +55,7 @@ export class TalentBlacklistController {
   @ApiResponse({ status: 200, description: 'Blacklist entry found (if exists)' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async checkTalent(
-    @Param('talentId', ParseIntPipe) talentId: number,
+    @Param('talentId') talentId: string,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<TalentBlacklist | null> {
     return this.talentBlacklistService.findByTalentAndPromoter(talentId, promoter.id);
@@ -110,7 +110,7 @@ export class TalentBlacklistController {
   @ApiResponse({ status: 404, description: 'Talent is not blacklisted' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async removeByTalent(
-    @Param('talentId', ParseIntPipe) talentId: number,
+    @Param('talentId') talentId: string,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<void> {
     await this.talentBlacklistService.removeByTalentAndPromoter(talentId, promoter.id);

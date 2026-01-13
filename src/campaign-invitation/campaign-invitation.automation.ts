@@ -9,6 +9,42 @@ import { renderTemplate } from 'utils/handlebar';
 export class CampaignInvitationAutomationService {
   private readonly logger = new Logger(CampaignInvitationAutomationService.name);
 
+  private getRandomGapMs(): number {
+    const minutes = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3 minutes
+    return minutes * 60 * 1000;
+  }
+
+  /**
+   * Check if enough time has passed since last sent message for a promoter
+   * Returns true if we should send, false if we should wait
+   */
+  private async shouldSendMessage(promoterId: bigint): Promise<boolean> {
+    // Get the last sent message for this promoter
+    const lastMessage = await this.prisma.campaignMessage.findFirst({
+      where: {
+        promoterId: promoterId,
+        direction: MessageDirection.sent,
+        sentAt: { not: null },
+      },
+      orderBy: {
+        sentAt: 'desc',
+      },
+      select: {
+        sentAt: true,
+      },
+    });
+
+    if (!lastMessage || !lastMessage.sentAt) {
+      return true; // No previous message, can send
+    }
+
+    const now = Date.now();
+    const lastSent = lastMessage.sentAt.getTime();
+    const randomGapMs = this.getRandomGapMs();
+
+    return now - lastSent >= randomGapMs;
+  }
+
   constructor(
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
@@ -19,7 +55,7 @@ export class CampaignInvitationAutomationService {
     this.logger.log('Process sending initial messages');
 
     try {
-      // Find all pending invitations that haven't been sent yet (invitationAt is null)
+      // Find one pending invitation that hasn't been sent yet
       const pendingInvitations = await this.prisma.campaignInvitation.findMany({
         where: {
           AND: [
@@ -34,19 +70,32 @@ export class CampaignInvitationAutomationService {
         include: {
           campaign: true,
         },
+        orderBy: { id: 'asc' },
+        take: 1,
       });
 
-      this.logger.log(`Found ${pendingInvitations.length} pending invitations to process`);
+      if (!pendingInvitations.length) {
+        this.logger.log('No pending invitations to process for initial messages');
+        return;
+      }
 
-      for (const invitation of pendingInvitations) {
-        try {
-          await this.sendInitialMessage(invitation);
-        } catch (error) {
-          this.logger.error(
-            `Failed to send initial message for invitation ${invitation.id}:`,
-            error,
-          );
-        }
+      const invitation = pendingInvitations[0];
+      const promoterId = invitation.promoterId;
+
+      // Check if enough time has passed since last send for this promoter
+      if (!(await this.shouldSendMessage(promoterId))) {
+        this.logger.debug(`Skipping send for promoter ${promoterId}, waiting for random gap`);
+        return;
+      }
+
+      try {
+        await this.sendInitialMessage(invitation);
+        this.logger.log(`Sent initial message for invitation ${invitation.id}, promoter ${promoterId}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send initial message for invitation ${invitation.id}:`,
+          error,
+        );
       }
 
       this.logger.log('Completed automation to send initial messages');
@@ -65,10 +114,10 @@ export class CampaignInvitationAutomationService {
 
     // Get related data
     const [talent, event] = await Promise.all([
-        this.prisma.talent.findUnique({
+        this.prisma.talentPool.findUnique({
           where: { id: invitation.talentId },
         }),
-        this.prisma.event.findUnique({
+        this.prisma.events.findUnique({
           where: { id: invitation.eventId },
         }),
     ]);
@@ -86,7 +135,7 @@ export class CampaignInvitationAutomationService {
     }
 
     // Get talent's preferred language or default to 'en'
-    let talentLang = talent.langPreferred || 'en';
+    let talentLang = talent.language || 'en';
     
     // Find spintax templates matching the talent's language or fallback to 'en'
     let spintaxTemplates = await this.prisma.campaignSpintaxTemplate.findMany({
@@ -94,7 +143,7 @@ export class CampaignInvitationAutomationService {
         campaignId: campaign.id,
         type: TemplateType.invitation,
         lang: {
-          in: ['en', talent.langPreferred || 'en'],
+          in: ['en', talent.language || 'en'],
         },
       },
     });
@@ -124,13 +173,9 @@ export class CampaignInvitationAutomationService {
     const variables = {
       name: talent.name,
       eventName: event.name,
-      eventType: event.type,
-      eventCity: event.city,
-      eventDate: event.date.toLocaleDateString(),
-      eventStartTime: event.start_time
-        ? event.start_time.toLocaleTimeString()
-        : '',
-      eventEndTime: event.end_time ? event.end_time.toLocaleTimeString() : '',
+      eventType: event.eventType || '',
+      eventCity: event.city || '',
+      eventDate: event.dt ? event.dt.toLocaleDateString() : '',
     };
     
     // Render the template with variables using handlebar
@@ -139,7 +184,7 @@ export class CampaignInvitationAutomationService {
     // Create the message entry
     await this.campaignMessagesService.createMessage({
       campaignId: campaign.id,
-      promoterId: invitation.promoterId,
+      promoterId: Number(invitation.promoterId),
       invitationId: invitation.id,
       talentId: talent.id,
       direction: MessageDirection.sent,
@@ -151,6 +196,7 @@ export class CampaignInvitationAutomationService {
     await this.prisma.campaignInvitation.update({
       where: { id: invitation.id },
       data: {
+        status: InvitationStatus.sent,
         invitationAt: new Date(),
       },
     });
@@ -169,21 +215,20 @@ export class CampaignInvitationAutomationService {
     this.logger.log('Process sending followup messages');
 
     try {
+      // Calculate the date 5 minutes ago
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
       // Find invitations that need followup:
-      // - status is "maybe" OR hasReplied is false
+      // - followup = true (explicitly marked for followup)
       // - followupSent is false
       // - invitationAt is not null (initial message has been sent)
+      // - invitationAt is at least 5 minutes ago
       const invitationsNeedingFollowup = await this.prisma.campaignInvitation.findMany({
         where: {
           AND: [
-            {
-              OR: [
-                { status: InvitationStatus.maybe },
-                { hasReplied: false },
-              ],
-            },
+            { followup: true },
             { followupSent: false },
-            { invitationAt: { not: null } },
+            { invitationAt: { not: null, lte: fiveMinutesAgo } },
             {
               campaign: {
                 status: CampaignStatus.active
@@ -194,19 +239,32 @@ export class CampaignInvitationAutomationService {
         include: {
           campaign: true,
         },
+        orderBy: { id: 'asc' },
+        take: 1,
       });
 
-      this.logger.log(`Found ${invitationsNeedingFollowup.length} invitations needing followup`);
+      if (!invitationsNeedingFollowup.length) {
+        this.logger.log('No invitations needing followup this run');
+        return;
+      }
 
-      for (const invitation of invitationsNeedingFollowup) {
-        try {
-          await this.sendFollowupMessage(invitation);
-        } catch (error) {
-          this.logger.error(
-            `Failed to send followup message for invitation ${invitation.id}:`,
-            error,
-          );
-        }
+      const invitation = invitationsNeedingFollowup[0];
+      const promoterId = invitation.promoterId;
+
+      // Check if enough time has passed since last send for this promoter
+      if (!(await this.shouldSendMessage(promoterId))) {
+        this.logger.debug(`Skipping followup for promoter ${promoterId}, waiting for random gap`);
+        return;
+      }
+
+      try {
+        await this.sendFollowupMessage(invitation);
+        this.logger.log(`Sent followup message for invitation ${invitation.id}, promoter ${promoterId}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send followup message for invitation ${invitation.id}:`,
+          error,
+        );
       }
 
       this.logger.log('Completed automation to send followup messages');
@@ -225,10 +283,10 @@ export class CampaignInvitationAutomationService {
 
     // Get related data
     const [talent, event] = await Promise.all([
-      this.prisma.talent.findUnique({
+      this.prisma.talentPool.findUnique({
         where: { id: invitation.talentId },
       }),
-      this.prisma.event.findUnique({
+      this.prisma.events.findUnique({
         where: { id: invitation.eventId },
       }),
     ]);
@@ -246,7 +304,7 @@ export class CampaignInvitationAutomationService {
     }
 
     // Get talent's preferred language or default to 'en'
-    let talentLang = talent.langPreferred || 'en';
+    let talentLang = talent.language || 'en';
     
     // Find spintax templates for followup matching the talent's language or fallback to 'en'
     let spintaxTemplates = await this.prisma.campaignSpintaxTemplate.findMany({
@@ -254,7 +312,7 @@ export class CampaignInvitationAutomationService {
         campaignId: campaign.id,
         type: TemplateType.followup,
         lang: {
-          in: ['en', talent.langPreferred || 'en'],
+          in: ['en', talent.language || 'en'],
         },
       },
     });
@@ -284,13 +342,9 @@ export class CampaignInvitationAutomationService {
     const variables = {
       name: talent.name,
       eventName: event.name,
-      eventType: event.type,
-      eventCity: event.city,
-      eventDate: event.date.toLocaleDateString(),
-      eventStartTime: event.start_time
-        ? event.start_time.toLocaleTimeString()
-        : '',
-      eventEndTime: event.end_time ? event.end_time.toLocaleTimeString() : '',
+      eventType: event.eventType || '',
+      eventCity: event.city || '',
+      eventDate: event.dt ? event.dt.toLocaleDateString() : '',
     };
     // Render the template with variables using handlebar
     const message = renderTemplate(randomTemplate.content, variables);
@@ -298,7 +352,7 @@ export class CampaignInvitationAutomationService {
     // Create the message entry
     await this.campaignMessagesService.createMessage({
       campaignId: campaign.id,
-      promoterId: invitation.promoterId,
+      promoterId: Number(invitation.promoterId),
       invitationId: invitation.id,
       talentId: talent.id,
       direction: MessageDirection.sent,
@@ -353,19 +407,32 @@ export class CampaignInvitationAutomationService {
         include: {
           campaign: true,
         },
+        orderBy: { id: 'asc' },
+        take: 1,
       });
 
-      this.logger.log(`Found ${invitationsNeedingThankYou.length} invitations needing thank you messages`);
+      if (!invitationsNeedingThankYou.length) {
+        this.logger.log('No invitations needing thank you messages this run');
+        return;
+      }
 
-      for (const invitation of invitationsNeedingThankYou) {
-        try {
-          await this.sendThankYouMessage(invitation);
-        } catch (error) {
-          this.logger.error(
-            `Failed to send thank you message for invitation ${invitation.id}:`,
-            error,
-          );
-        }
+      const invitation = invitationsNeedingThankYou[0];
+      const promoterId = invitation.promoterId;
+
+      // Check if enough time has passed since last send for this promoter
+      if (!(await this.shouldSendMessage(promoterId))) {
+        this.logger.debug(`Skipping thank you for promoter ${promoterId}, waiting for random gap`);
+        return;
+      }
+
+      try {
+        await this.sendThankYouMessage(invitation);
+        this.logger.log(`Sent thank you message for invitation ${invitation.id}, promoter ${promoterId}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send thank you message for invitation ${invitation.id}:`,
+          error,
+        );
       }
 
       this.logger.log('Completed automation to send thank you messages');
@@ -392,10 +459,10 @@ export class CampaignInvitationAutomationService {
 
     // Get related data
     const [talent, event] = await Promise.all([
-      this.prisma.talent.findUnique({
+      this.prisma.talentPool.findUnique({
         where: { id: invitation.talentId },
       }),
-      this.prisma.event.findUnique({
+      this.prisma.events.findUnique({
         where: { id: invitation.eventId },
       }),
     ]);
@@ -413,7 +480,7 @@ export class CampaignInvitationAutomationService {
     }
 
     // Get talent's preferred language or default to 'en'
-    let talentLang = talent.langPreferred || 'en';
+    let talentLang = talent.language || 'en';
     
     // Find spintax templates for postevent matching the talent's language or fallback to 'en'
     let spintaxTemplates = await this.prisma.campaignSpintaxTemplate.findMany({
@@ -421,7 +488,7 @@ export class CampaignInvitationAutomationService {
         campaignId: campaign.id,
         type: TemplateType.postevent,
         lang: {
-          in: ['en', talent.langPreferred || 'en'],
+          in: ['en', talent.language || 'en'],
         },
       },
     });
@@ -451,13 +518,9 @@ export class CampaignInvitationAutomationService {
     const variables = {
       name: talent.name,
       eventName: event.name,
-      eventType: event.type,
-      eventCity: event.city,
-      eventDate: event.date.toLocaleDateString(),
-      eventStartTime: event.start_time
-        ? event.start_time.toLocaleTimeString()
-        : '',
-      eventEndTime: event.end_time ? event.end_time.toLocaleTimeString() : '',
+      eventType: event.eventType || '',
+      eventCity: event.city || '',
+      eventDate: event.dt ? event.dt.toLocaleDateString() : '',
     };
 
     // Render the template with variables using handlebar
@@ -466,7 +529,7 @@ export class CampaignInvitationAutomationService {
     // Create the message entry
     await this.campaignMessagesService.createMessage({
       campaignId: campaign.id,
-      promoterId: invitation.promoterId,
+      promoterId: Number(invitation.promoterId),
       invitationId: invitation.id,
       talentId: talent.id,
       direction: MessageDirection.sent,

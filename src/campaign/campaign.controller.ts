@@ -10,19 +10,24 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CampaignService } from './campaign.service';
 import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto } from './campaign.dto';
 import { Campaign, CampaignInvitation } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
+import { CampaignInvitationService } from '../campaign-invitation/campaign-invitation.service';
 
 @ApiTags('campaigns')
 @ApiBearerAuth()
 @Controller('campaigns')
 @UseGuards(JwtAuthGuard)
 export class CampaignController {
-  constructor(private readonly campaignService: CampaignService) {}
+  constructor(
+    private readonly campaignService: CampaignService,
+    private readonly campaignInvitationService: CampaignInvitationService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new campaign' })
@@ -34,13 +39,6 @@ export class CampaignController {
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<Campaign> {
     return this.campaignService.create(createCampaignDto, promoter.id);
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'Get all campaigns' })
-  @ApiResponse({ status: 200, description: 'List of all campaigns' })
-  async findAll(): Promise<Campaign[]> {
-    return this.campaignService.findAll();
   }
 
   @Get('promoter')
@@ -86,42 +84,6 @@ export class CampaignController {
     return this.campaignService.update(id, updateCampaignDto, promoter.id);
   }
 
-  @Get(':id/invitations')
-  @ApiOperation({ summary: 'Get all invitations for a campaign' })
-  @ApiResponse({ status: 200, description: 'List of campaign invitations' })
-  @ApiResponse({ status: 404, description: 'Campaign not found or does not belong to promoter' })
-  async getInvitations(
-    @Param('id', ParseIntPipe) id: number,
-    @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<CampaignInvitation[]> {
-    return this.campaignService.getInvitations(id, promoter.id);
-  }
-
-  @Post(':id/invitations')
-  @ApiOperation({ summary: 'Add talents to campaign invitations' })
-  @ApiResponse({ status: 201, description: 'Talents added to campaign invitations successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request - validation failed or talents not found' })
-  @ApiResponse({ status: 404, description: 'Campaign not found or does not belong to promoter' })
-  async addTalentsToCampaign(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() addTalentsDto: AddTalentsToCampaignDto,
-    @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<CampaignInvitation[]> {
-    return this.campaignService.addTalentsToCampaign(id, addTalentsDto, promoter.id);
-  }
-
-  @Delete(':id/invitations/:invitationId')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Remove a talent from campaign invitations' })
-  @ApiResponse({ status: 204, description: 'Invitation removed successfully' })
-  @ApiResponse({ status: 404, description: 'Campaign or invitation not found or does not belong to promoter' })
-  async removeInvitation(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('invitationId', ParseIntPipe) invitationId: number,
-    @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<void> {
-    await this.campaignService.removeInvitation(id, invitationId, promoter.id);
-  }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

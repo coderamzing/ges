@@ -22,7 +22,8 @@ import {
 import { CampaignTemplateService } from './campaign-template.service';
 import { CreateCampaignTemplateDto } from './campaign-template.dto';
 import { UpdateCampaignTemplateDto } from './campaign-template.dto';
-import { CampaignTemplate } from '@prisma/client';
+import { PreviewTemplateDto } from './campaign-template.dto';
+import { CampaignTemplate, TemplateType } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 
 @ApiTags('campaign-templates')
@@ -89,6 +90,36 @@ export class CampaignTemplateController {
     return this.campaignTemplateService.findByPromoter(promoter.id);
   }
 
+  @Get('by-campaign-and-type')
+  @ApiOperation({
+    summary: 'Get campaign templates filtered by campaign ID and template type',
+  })
+  @ApiQuery({
+    name: 'campaignId',
+    required: true,
+    type: Number,
+    description: 'Campaign ID to filter templates',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: true,
+    enum: TemplateType,
+    description: 'Template type to filter (invitation, followup, postevent)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of campaign templates matching the campaign ID and type',
+  })
+  async findByCampaignAndType(
+    @Query('campaignId', ParseIntPipe) campaignId: number,
+    @Query('type') type: TemplateType,
+  ): Promise<CampaignTemplate[]> {
+    return this.campaignTemplateService.findByCampaignAndType(
+      campaignId,
+      type,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a campaign template by ID' })
   @ApiResponse({ status: 200, description: 'Campaign template found' })
@@ -138,6 +169,24 @@ export class CampaignTemplateController {
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<void> {
     await this.campaignTemplateService.remove(id, promoter.id);
+  }
+
+  @Post('preview')
+  @ApiOperation({ summary: 'Preview a template with event details' })
+  @ApiResponse({
+    status: 200,
+    description: 'Template preview rendered successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  @ApiResponse({ status: 404, description: 'Event not found' })
+  async preview(
+    @Body() previewTemplateDto: PreviewTemplateDto,
+  ): Promise<{ preview: string }> {
+    const preview = await this.campaignTemplateService.previewTemplate(
+      previewTemplateDto.eventId,
+      previewTemplateDto.template,
+    );
+    return { preview };
   }
 }
 

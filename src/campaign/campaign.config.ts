@@ -5,8 +5,6 @@
 // {eventType} - Event type
 // {eventCity} - Event city
 // {eventDate} - Event date
-// {eventStartTime} - Event start time
-// {eventEndTime} - Event end time
 //
 // Note: OpenAI generates messages from templates with spintax processing.
 

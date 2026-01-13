@@ -15,15 +15,14 @@ export class TempService {
       ],
     });
 
-    // Get talents
+    // Get talents (talentId in messages is now a string)
     const talentIds = [...new Set(messages.map(m => m.talentId))];
-    const talents = await this.prisma.talent.findMany({
+    const talents = await this.prisma.talentPool.findMany({
       where: { id: { in: talentIds } },
       select: {
         id: true,
         name: true,
-        accountId: true,
-        profilePic: true,
+        profilePicture: true,
       },
     });
 
@@ -46,7 +45,7 @@ export class TempService {
 
   async sendTalentMessage(
     campaignId: number,
-    talentId: number,
+    talentId: string,
     message: string,
     promoterId: number,
   ) {
@@ -61,22 +60,22 @@ export class TempService {
     return this.prisma.campaignMessage.create({
       data: {
         campaignId,
-        promoterId,
+        promoterId: BigInt(promoterId),
         invitationId: invitation.id,
         talentId,
         direction: MessageDirection.received,
         message,
         receivedAt: new Date(),
-      } as any,
+      },
     });
   }
 
-  async getTalentPromoterState(talentId: number, promoterId: number) {
+  async getTalentPromoterState(talentId: string, promoterId: number) {
     const state = await this.prisma.talentPromoterState.findUnique({
       where: {
         talentId_promoterId: {
           talentId,
-          promoterId,
+          promoterId: BigInt(promoterId),
         },
       },
     });
@@ -91,11 +90,11 @@ export class TempService {
     };
   }
 
-  async getTrustScoreLogs(talentId: number, promoterId: number) {
+  async getTrustScoreLogs(talentId: string, promoterId: number) {
     return this.prisma.trustScoreLog.findMany({
       where: {
         talentId,
-        promoterId,
+        promoterId: BigInt(promoterId),
       },
       orderBy: {
         createdAt: 'desc',

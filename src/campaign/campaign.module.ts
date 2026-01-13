@@ -5,13 +5,17 @@ import { CampaignController } from './campaign.controller';
 import { CampaignService } from './campaign.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
+import { CampaignInvitationModule } from '../campaign-invitation/campaign-invitation.module';
 
 @Module({
   imports: [
+    CampaignInvitationModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'your-secret-key-change-in-production',
+        secret:
+          configService.get<string>('JWT_SECRET') ||
+          'your-secret-key-change-in-production',
         signOptions: { expiresIn: '7d' },
       }),
       inject: [ConfigService],

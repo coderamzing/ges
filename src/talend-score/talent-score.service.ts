@@ -7,7 +7,7 @@ export class TalentScoreService {
   constructor(private prisma: PrismaService) {}
 
   async getTalentScore(
-    talentId: number,
+    talentId: string,
     promoterId: number,
   ): Promise<TalentScoreDto> {
     // Fetch the state for the talent-promoter pair
@@ -15,7 +15,7 @@ export class TalentScoreService {
       where: {
         talentId_promoterId: {
           talentId,
-          promoterId,
+          promoterId: BigInt(promoterId),
         },
       },
     });
@@ -24,7 +24,7 @@ export class TalentScoreService {
     const logs = await this.prisma.trustScoreLog.findMany({
       where: {
         talentId,
-        promoterId,
+        promoterId: BigInt(promoterId),
       },
       orderBy: {
         createdAt: 'desc',
@@ -36,7 +36,7 @@ export class TalentScoreService {
         ? {
             id: state.id,
             talentId: state.talentId,
-            promoterId: state.promoterId,
+            promoterId: Number(state.promoterId),
             trustScore: state.trustScore,
             lastContacted: state.lastContacted,
             lastReply: state.lastReply,
@@ -46,7 +46,7 @@ export class TalentScoreService {
       logs: logs.map((log) => ({
         id: log.id,
         talentId: log.talentId,
-        promoterId: log.promoterId,
+        promoterId: Number(log.promoterId),
         eventId: log.eventId,
         change: log.change,
         reason: log.reason,

@@ -22,7 +22,7 @@ export class TalentScoreController {
   @ApiResponse({ status: 200, description: 'Talent score retrieved successfully', type: TalentScoreDto })
   @ApiResponse({ status: 404, description: 'Talent not found' })
   async getTalentScore(
-    @Param('id', ParseIntPipe) talentId: number,
+    @Param('id') talentId: string,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<TalentScoreDto> {
     return this.talentScoreService.getTalentScore(talentId, promoter.id);

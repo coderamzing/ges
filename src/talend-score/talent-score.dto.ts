@@ -5,7 +5,7 @@ export class TrustScoreLogDto {
   id: number;
 
   @ApiProperty({ description: 'Talent ID' })
-  talentId: number;
+  talentId: string;
 
   @ApiProperty({ description: 'Promoter ID' })
   promoterId: number;
@@ -28,7 +28,7 @@ export class TalentPromoterStateDto {
   id: number;
 
   @ApiProperty({ description: 'Talent ID' })
-  talentId: number;
+  talentId: string;
 
   @ApiProperty({ description: 'Promoter ID' })
   promoterId: number;

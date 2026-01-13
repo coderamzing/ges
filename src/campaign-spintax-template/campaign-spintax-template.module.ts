@@ -1,13 +1,18 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CampaignTemplateService } from './campaign-template.service';
+import { CampaignSpintaxTemplateController } from './campaign-spintax-template.controller';
+import { CampaignSpintaxTemplateService } from './campaign-spintax-template.service';
+import { CampaignSpintaxTemplateListener } from './campaign-spintax-template.listener';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
 import { OpenAIModule } from '../openai/openai.module';
+import { CampaignTemplateModule } from '../campaign-template/campaign-template.module';
 
 @Module({
   imports: [
+    OpenAIModule,
+    CampaignTemplateModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -16,14 +21,15 @@ import { OpenAIModule } from '../openai/openai.module';
       }),
       inject: [ConfigService],
     }),
-    OpenAIModule,
   ],
-  controllers: [],
+  controllers: [CampaignSpintaxTemplateController],
   providers: [
-    CampaignTemplateService,
+    CampaignSpintaxTemplateService,
+    CampaignSpintaxTemplateListener,
     PrismaService,
     JwtAuthGuard,
   ],
-  exports: [CampaignTemplateService],
+  exports: [CampaignSpintaxTemplateService],
 })
-export class CampaignTemplateModule {}
+export class CampaignSpintaxTemplateModule {}
+

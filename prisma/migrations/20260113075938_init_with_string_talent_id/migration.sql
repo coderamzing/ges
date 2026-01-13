@@ -5,37 +5,10 @@ CREATE TYPE "CampaignStatus" AS ENUM ('draft', 'active', 'paused', 'completed', 
 CREATE TYPE "TemplateType" AS ENUM ('invitation', 'followup', 'postevent');
 
 -- CreateEnum
-CREATE TYPE "InvitationStatus" AS ENUM ('pending', 'confirmed', 'declined', 'maybe', 'ignored', 'attended');
+CREATE TYPE "InvitationStatus" AS ENUM ('pending', 'sent', 'confirmed', 'declined', 'maybe', 'ignored', 'attended');
 
 -- CreateEnum
 CREATE TYPE "MessageDirection" AS ENUM ('sent', 'received');
-
--- CreateTable
-CREATE TABLE "Promoter" (
-    "id" SERIAL NOT NULL,
-    "email" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "Promoter_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Event" (
-    "id" SERIAL NOT NULL,
-    "promoterId" INTEGER NOT NULL,
-    "name" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
-    "city" TEXT NOT NULL,
-    "date" TIMESTAMP(3) NOT NULL,
-    "capacity" INTEGER NOT NULL,
-    "start_time" TIMESTAMP(3),
-    "end_time" TIMESTAMP(3),
-    "reach_time" TIMESTAMP(3) NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Event_pkey" PRIMARY KEY ("id")
-);
 
 -- CreateTable
 CREATE TABLE "Campaign" (
@@ -47,6 +20,7 @@ CREATE TABLE "Campaign" (
     "start_at" TIMESTAMP(3),
     "end_at" TIMESTAMP(3),
     "postEventTriggerAt" TIMESTAMP(3),
+    "followup_delay" INTEGER NOT NULL DEFAULT 12,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -76,6 +50,7 @@ CREATE TABLE "CampaignSpintaxTemplate" (
     "type" "TemplateType" NOT NULL,
     "name" TEXT NOT NULL,
     "content" TEXT NOT NULL,
+    "batch" INTEGER NOT NULL DEFAULT 1,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -83,29 +58,10 @@ CREATE TABLE "CampaignSpintaxTemplate" (
 );
 
 -- CreateTable
-CREATE TABLE "Talent" (
-    "id" SERIAL NOT NULL,
-    "name" TEXT NOT NULL,
-    "accountId" TEXT NOT NULL,
-    "talentType" TEXT NOT NULL,
-    "currentCity" TEXT,
-    "currentCountry" TEXT,
-    "city" TEXT,
-    "country" TEXT,
-    "langPreferred" TEXT,
-    "profilePic" TEXT,
-    "followers" INTEGER NOT NULL DEFAULT 0,
-    "rating" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "Talent_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "TalentPromoterState" (
     "id" SERIAL NOT NULL,
-    "talentId" INTEGER NOT NULL,
-    "promoterId" INTEGER NOT NULL,
+    "talentId" TEXT NOT NULL,
+    "promoterId" BIGINT NOT NULL,
     "trustScore" INTEGER NOT NULL DEFAULT 0,
     "lastContacted" TIMESTAMP(3),
     "lastReply" TIMESTAMP(3),
@@ -117,8 +73,8 @@ CREATE TABLE "TalentPromoterState" (
 -- CreateTable
 CREATE TABLE "TrustScoreLog" (
     "id" SERIAL NOT NULL,
-    "talentId" INTEGER NOT NULL,
-    "promoterId" INTEGER NOT NULL,
+    "talentId" TEXT NOT NULL,
+    "promoterId" BIGINT NOT NULL,
     "eventId" INTEGER,
     "change" INTEGER NOT NULL,
     "reason" TEXT NOT NULL,
@@ -132,13 +88,14 @@ CREATE TABLE "CampaignInvitation" (
     "id" SERIAL NOT NULL,
     "campaignId" INTEGER NOT NULL,
     "eventId" INTEGER NOT NULL,
-    "promoterId" INTEGER NOT NULL,
-    "talentId" INTEGER NOT NULL,
+    "promoterId" BIGINT NOT NULL,
+    "talentId" TEXT NOT NULL,
     "batch" INTEGER NOT NULL,
     "status" "InvitationStatus" NOT NULL DEFAULT 'pending',
     "invitationAt" TIMESTAMP(3),
     "isSeen" BOOLEAN NOT NULL DEFAULT false,
     "followupSent" BOOLEAN NOT NULL DEFAULT false,
+    "followup" BOOLEAN NOT NULL DEFAULT false,
     "thankYouSent" BOOLEAN NOT NULL DEFAULT false,
     "hasReplied" BOOLEAN NOT NULL DEFAULT false,
 
@@ -149,9 +106,9 @@ CREATE TABLE "CampaignInvitation" (
 CREATE TABLE "CampaignMessage" (
     "id" SERIAL NOT NULL,
     "campaignId" INTEGER NOT NULL,
-    "promoterId" INTEGER NOT NULL,
+    "promoterId" BIGINT NOT NULL,
     "invitationId" INTEGER NOT NULL,
-    "talentId" INTEGER NOT NULL,
+    "talentId" TEXT NOT NULL,
     "direction" "MessageDirection" NOT NULL,
     "message" TEXT NOT NULL,
     "sentAt" TIMESTAMP(3),
@@ -166,19 +123,13 @@ CREATE TABLE "CampaignMessage" (
 -- CreateTable
 CREATE TABLE "TalentBlacklist" (
     "id" SERIAL NOT NULL,
-    "talentId" INTEGER NOT NULL,
-    "promoterId" INTEGER NOT NULL,
+    "talentId" TEXT NOT NULL,
+    "promoterId" BIGINT NOT NULL,
     "reason" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "TalentBlacklist_pkey" PRIMARY KEY ("id")
 );
-
--- CreateIndex
-CREATE UNIQUE INDEX "Promoter_email_key" ON "Promoter"("email");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Talent_accountId_key" ON "Talent"("accountId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "TalentPromoterState_talentId_promoterId_key" ON "TalentPromoterState"("talentId", "promoterId");
@@ -198,6 +149,9 @@ ALTER TABLE "CampaignSpintaxTemplate" ADD CONSTRAINT "CampaignSpintaxTemplate_Ca
 -- AddForeignKey
 ALTER TABLE "CampaignSpintaxTemplate" ADD CONSTRAINT "CampaignSpintaxTemplate_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- Foreign keys to legacy tables (users, talent_pool) are not created
+-- These tables are managed outside of Prisma migrations
+
 -- AddForeignKey
 ALTER TABLE "CampaignInvitation" ADD CONSTRAINT "CampaignInvitation_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -206,3 +160,6 @@ ALTER TABLE "CampaignMessage" ADD CONSTRAINT "CampaignMessage_invitationId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "CampaignMessage" ADD CONSTRAINT "CampaignMessage_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Foreign keys to legacy tables (users, talent_pool) are not created
+-- These tables are managed outside of Prisma migrations

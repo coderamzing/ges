@@ -2,14 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { OpenAIService } from '../openai/openai.service';
-import { CampaignTemplateService } from './campaign-template.service';
-import { TEMPLATE_VARIATION_PROMPT, DEFAULT_VARIATIONS_COUNT } from './campaign-template.config';
-import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from './campaign-template.service';
+import { CampaignTemplateService } from '../campaign-template/campaign-template.service';
+import { TEMPLATE_VARIATION_PROMPT, DEFAULT_VARIATIONS_COUNT } from '../campaign-template/campaign-template.config';
+import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from '../campaign-template/campaign-template.service';
 import { renderTemplate } from 'utils/handlebar';
 
 @Injectable()
-export class CampaignTemplateListener {
-  private readonly logger = new Logger(CampaignTemplateListener.name);
+export class CampaignSpintaxTemplateListener {
+  private readonly logger = new Logger(CampaignSpintaxTemplateListener.name);
 
   constructor(
     private prisma: PrismaService,
@@ -44,8 +44,9 @@ export class CampaignTemplateListener {
         return;
       }
 
+      const totalVariations = DEFAULT_VARIATIONS_COUNT * 2;
       this.logger.log(
-        `Generating 12 variations for active template ${template.id} (${template.lang})`,
+        `Generating ${totalVariations} variations (${DEFAULT_VARIATIONS_COUNT} for batch 1, ${DEFAULT_VARIATIONS_COUNT} for batch 2) for active template ${template.id} (${template.lang})`,
       );
 
       // Build the prompt for OpenAI
@@ -53,7 +54,7 @@ export class CampaignTemplateListener {
         templateContent: template.content,
         language: template.lang,
         typeDescription: template.type,
-        variationsCount: DEFAULT_VARIATIONS_COUNT,
+        variationsCount: totalVariations,
       });
 
       // Call OpenAI to generate variations (returns JSON object with variations array)
@@ -65,15 +66,27 @@ export class CampaignTemplateListener {
         throw new Error('No valid variations returned from OpenAI');
       }
 
+      if (variations.length !== totalVariations) {
+        this.logger.warn(
+          `Expected ${totalVariations} variations but received ${variations.length}. Proceeding with available variations.`,
+        );
+      }
+
       // Save the variations to CampaignSpintaxTemplate
-      const spintaxTemplates = variations.map((variation: string, index: number) => ({
-        CampaignTemplateId: template.id,
-        campaignId: template.campaignId,
-        lang: template.lang,
-        type: template.type,
-        name: `${template.name} Variation ${index + 1}`,
-        content: variation.trim(),
-      }));
+      // First 12 go to batch 1, next 12 go to batch 2
+      const spintaxTemplates = variations.map((variation: string, index: number) => {
+        const batch = index < DEFAULT_VARIATIONS_COUNT ? 1 : 2;
+        const variationNumber = (index % DEFAULT_VARIATIONS_COUNT) + 1;
+        return {
+          CampaignTemplateId: template.id,
+          campaignId: template.campaignId,
+          lang: template.lang,
+          type: template.type,
+          name: `${template.name} Variation ${variationNumber} (Batch ${batch})`,
+          content: variation.trim(),
+          batch: batch,
+        };
+      });
 
       // Delete existing spintax templates and create new ones in a transaction
       await this.prisma.$transaction(async (tx) => {

@@ -6,6 +6,7 @@ import { EventStatsModule } from './event-stats/event-stats.module';
 import { CampaignModule } from './campaign/campaign.module';
 import { CampaignStatsModule } from './campaign-stats/campaign-stats.module';
 import { CampaignTemplateModule } from './campaign-template/campaign-template.module';
+import { CampaignSpintaxTemplateModule } from './campaign-spintax-template/campaign-spintax-template.module';
 import { CampaignInvitationModule } from './campaign-invitation/campaign-invitation.module';
 import { CampaignMessagesModule } from './campaign-messages/campaign-messages.module';
 import { CampaignMembersModule } from './campaign-members/campaign-members.module';
@@ -41,7 +42,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     EventStatsModule, 
     CampaignModule, 
     CampaignStatsModule,
-    CampaignTemplateModule, 
+    CampaignTemplateModule,
+    CampaignSpintaxTemplateModule,
     CampaignInvitationModule, 
     CampaignMessagesModule, 
     CampaignMembersModule, 

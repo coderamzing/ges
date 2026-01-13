@@ -91,3 +91,15 @@ export class UpdateCampaignTemplateDto {
   status?: string;
 }
 
+export class PreviewTemplateDto {
+  @ApiProperty({ description: 'ID of the event to use for template variables' })
+  @IsInt()
+  @IsNotEmpty()
+  eventId: number;
+
+  @ApiProperty({ description: 'Template string with variables to preview' })
+  @IsString()
+  @IsNotEmpty()
+  template: string;
+}
+

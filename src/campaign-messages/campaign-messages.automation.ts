@@ -69,7 +69,7 @@ export class CampaignMessagesAutomationService {
 
           const fullMessage = threads.map((msg) => msg.message).join('\n\n');
           await this.processTalentMessages(
-            message as unknown as CampaignMessage & { invitation: { id: number; promoterId: number; eventId: number; campaignId: number; talentId: number } | null },
+            message as unknown as CampaignMessage & { invitation: { id: number; promoterId: bigint; eventId: number; campaignId: number; talentId: string } | null },
             fullMessage
           );
       }
@@ -83,7 +83,7 @@ export class CampaignMessagesAutomationService {
    * Process messages for a specific talent in a campaign
    */
   private async processTalentMessages(
-    message: CampaignMessage & { invitation: { id: number; promoterId: number; eventId: number; campaignId: number; talentId: number } | null },
+    message: CampaignMessage & { invitation: { id: number; promoterId: bigint; eventId: number; campaignId: number; talentId: string } | null },
     fullMessage: string
   ): Promise<void> {
     try {
@@ -134,7 +134,7 @@ export class CampaignMessagesAutomationService {
         where: {
           talentId_promoterId: {
             talentId,
-            promoterId,
+            promoterId: BigInt(promoterId),
           },
         },
       });
@@ -143,7 +143,7 @@ export class CampaignMessagesAutomationService {
         talentPromoterState = await this.prisma.talentPromoterState.create({
           data: {
             talentId,
-            promoterId,
+            promoterId: BigInt(promoterId),
             trustScore: 0,
             lastReply: new Date(),
           },
@@ -158,7 +158,7 @@ export class CampaignMessagesAutomationService {
         where: {
           talentId_promoterId: {
             talentId,
-            promoterId,
+            promoterId: BigInt(promoterId),
           },
         },
         data: {
@@ -171,7 +171,7 @@ export class CampaignMessagesAutomationService {
       await this.prisma.trustScoreLog.create({
         data: {
           talentId,
-          promoterId,
+          promoterId: BigInt(promoterId),
           eventId,
           change: interpretation.score,
           reason: interpretation.score_reason,
@@ -180,7 +180,7 @@ export class CampaignMessagesAutomationService {
 
       // Update talent's current location if provided and different from default
       if (interpretation.current_location && interpretation.current_location !== 'default') {
-        await this.prisma.talent.update({
+        await this.prisma.talentPool.update({
           where: { id: talentId },
           data: {
             currentCity: interpretation.current_location,

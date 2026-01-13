@@ -9,8 +9,8 @@ export class TalentBlacklistService {
   constructor(private prisma: PrismaService) {}
 
   async create(createTalentBlacklistDto: CreateTalentBlacklistDto, promoterId: number): Promise<TalentBlacklist> {
-    // Check if talent exists
-    const talent = await this.prisma.talent.findUnique({
+    // Check if talent exists (talentId is now a string)
+    const talent = await this.prisma.talentPool.findUnique({
       where: { id: createTalentBlacklistDto.talentId },
     });
 
@@ -23,7 +23,7 @@ export class TalentBlacklistService {
       where: {
         talentId_promoterId: {
           talentId: createTalentBlacklistDto.talentId,
-          promoterId: promoterId,
+          promoterId: BigInt(promoterId),
         },
       },
     });
@@ -35,7 +35,7 @@ export class TalentBlacklistService {
     return this.prisma.talentBlacklist.create({
       data: {
         talentId: createTalentBlacklistDto.talentId,
-        promoterId: promoterId,
+        promoterId: BigInt(promoterId),
         reason: createTalentBlacklistDto.reason,
       },
     });
@@ -59,19 +59,19 @@ export class TalentBlacklistService {
       throw new NotFoundException(`Blacklist entry with ID ${id} not found`);
     }
 
-    if (blacklistEntry.promoterId !== promoterId) {
+    if (blacklistEntry.promoterId.toString() !== promoterId.toString()) {
       throw new ForbiddenException('You do not have access to this blacklist entry');
     }
 
     return blacklistEntry;
   }
 
-  async findByTalentAndPromoter(talentId: number, promoterId: number): Promise<TalentBlacklist | null> {
+  async findByTalentAndPromoter(talentId: string, promoterId: number): Promise<TalentBlacklist | null> {
     return this.prisma.talentBlacklist.findUnique({
       where: {
         talentId_promoterId: {
           talentId,
-          promoterId,
+          promoterId: BigInt(promoterId),
         },
       },
     });
@@ -101,7 +101,7 @@ export class TalentBlacklistService {
     });
   }
 
-  async removeByTalentAndPromoter(talentId: number, promoterId: number): Promise<void> {
+  async removeByTalentAndPromoter(talentId: string, promoterId: number): Promise<void> {
     const blacklistEntry = await this.findByTalentAndPromoter(talentId, promoterId);
     
     if (!blacklistEntry) {
@@ -112,7 +112,7 @@ export class TalentBlacklistService {
       where: {
         talentId_promoterId: {
           talentId,
-          promoterId,
+          promoterId: BigInt(promoterId),
         },
       },
     });
