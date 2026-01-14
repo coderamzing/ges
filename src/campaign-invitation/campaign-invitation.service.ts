@@ -6,7 +6,7 @@ import { AddTalentsToCampaignDto } from '../campaign/campaign.dto';
 
 @Injectable()
 export class CampaignInvitationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -73,6 +73,7 @@ export class CampaignInvitationService {
     promoterId: number,
     filters?: GetInvitationsQueryDto,
   ): Promise<CampaignInvitation[]> {
+    // Ownership check
     await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
 
     const where: any = {
@@ -80,12 +81,33 @@ export class CampaignInvitationService {
       batch: batchId,
     };
 
-    if (filters?.status !== undefined) {
-      where.status = filters.status;
-    }
+    // Dynamically apply filters
+    if (filters) {
+      // if (filters.id !== undefined) {
+      //   where.id = filters.id;
+      // }
 
-    if (filters?.hasReplied !== undefined) {
-      where.hasReplied = filters.hasReplied;
+      if (filters?.status?.length) {
+        where.status = {
+          in: filters.status,
+        };
+      }
+
+      if (filters.isSeen !== undefined) {
+        where.isSeen = filters.isSeen;
+      }
+
+      if (filters.followupSent !== undefined) {
+        where.followupSent = filters.followupSent;
+      }
+
+      if (filters.thankYouSent !== undefined) {
+        where.thankYouSent = filters.thankYouSent;
+      }
+
+      if (filters.hasReplied !== undefined) {
+        where.hasReplied = filters.hasReplied;
+      }
     }
 
     return this.prisma.campaignInvitation.findMany({
@@ -93,6 +115,7 @@ export class CampaignInvitationService {
       orderBy: { id: 'asc' },
     });
   }
+
 
   /**
    * Get invitations for a campaign, optionally filtered by batch.
@@ -257,7 +280,6 @@ export class CampaignInvitationService {
     if (!campaign) {
       throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
     }
-
     // Verify that the event belongs to the promoter
     const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
@@ -266,7 +288,6 @@ export class CampaignInvitationService {
     if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Campaign does not belong to this promoter`);
     }
-
     // Verify that all invitations exist and belong to the campaign
     const invitations = await this.prisma.campaignInvitation.findMany({
       where: {
@@ -274,7 +295,6 @@ export class CampaignInvitationService {
         campaignId: campaignId,
       },
     });
-
     if (invitations.length !== invitationIds.length) {
       const foundIds = invitations.map((inv) => inv.id);
       const missingIds = invitationIds.filter((id) => !foundIds.includes(id));
@@ -282,7 +302,6 @@ export class CampaignInvitationService {
         `Some invitations not found or don't belong to this campaign: ${missingIds.join(', ')}`,
       );
     }
-
     // Update all invitations to attended status
     const result = await this.prisma.campaignInvitation.updateMany({
       where: {
@@ -291,6 +310,7 @@ export class CampaignInvitationService {
       },
       data: {
         status: InvitationStatus.attended,
+        // thankyou: true
       },
     });
 

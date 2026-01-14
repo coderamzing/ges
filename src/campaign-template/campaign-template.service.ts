@@ -14,7 +14,7 @@ export class CampaignTemplateService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async create(
     createCampaignTemplateDto: CreateCampaignTemplateDto,
@@ -203,11 +203,42 @@ export class CampaignTemplateService {
     return updatedTemplate;
   }
 
+  // async remove(id: number, promoterId: number): Promise<CampaignTemplate> {
+
+  //   console.log(id, promoterId, "incoming data a")
+  //   // Check if template exists
+  //   const template = await this.findOne(id);
+
+  //   // Verify that the campaign belongs to the promoter
+  //   const campaign = await this.prisma.campaign.findUnique({
+  //     where: { id: template.campaignId },
+  //   });
+
+  //   if (!campaign) {
+  //     throw new NotFoundException(
+  //       `Campaign with ID ${template.campaignId} not found`,
+  //     );
+  //   }
+
+  //   const event = await this.prisma.events.findUnique({
+  //     where: { id: campaign.eventId },
+  //   });
+
+  //   if (!event || event.userId?.toString() !== promoterId.toString()) {
+  //     throw new NotFoundException(
+  //       `CampaignTemplate does not belong to this promoter`,
+  //     );
+  //   }
+
+  //   return this.prisma.campaignTemplate.delete({
+  //     where: { id },
+  //   });
+  // }
+
   async remove(id: number, promoterId: number): Promise<CampaignTemplate> {
-    // Check if template exists
+
     const template = await this.findOne(id);
 
-    // Verify that the campaign belongs to the promoter
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: template.campaignId },
     });
@@ -222,16 +253,22 @@ export class CampaignTemplateService {
       where: { id: campaign.eventId },
     });
 
-    if (!event || event.userId?.toString() !== promoterId.toString()) {
+    if (!event || event.userId !== BigInt(promoterId)) {
       throw new NotFoundException(
-        `CampaignTemplate does not belong to this promoter`,
+        'CampaignTemplate does not belong to this promoter',
       );
     }
+
+    await this.prisma.campaignSpintaxTemplate.deleteMany({
+      where: { CampaignTemplateId: id },
+    });
 
     return this.prisma.campaignTemplate.delete({
       where: { id },
     });
   }
+
+
 
   async previewTemplate(eventId: number, template: string): Promise<string> {
     // Fetch the event

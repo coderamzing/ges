@@ -50,7 +50,7 @@ export class CampaignInvitationAutomationService {
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
     private campaignInvitationService: CampaignInvitationService,
-  ) {}
+  ) { }
 
   @Cron(CronExpression.EVERY_MINUTE)
   async sendInitialMessages() {
@@ -151,12 +151,12 @@ export class CampaignInvitationAutomationService {
 
     // Get related data
     const [talent, event] = await Promise.all([
-        this.prisma.talentPool.findUnique({
-          where: { id: invitation.talentId },
-        }),
-        this.prisma.events.findUnique({
-          where: { id: invitation.eventId },
-        }),
+      this.prisma.talentPool.findUnique({
+        where: { id: invitation.talentId },
+      }),
+      this.prisma.events.findUnique({
+        where: { id: invitation.eventId },
+      }),
     ]);
 
     if (!campaign) {
@@ -173,7 +173,7 @@ export class CampaignInvitationAutomationService {
 
     // Get talent's preferred language or default to 'en'
     let talentLang = talent.language || 'en';
-    
+
     // Find spintax templates matching the talent's language or fallback to 'en'
     let spintaxTemplates = await this.prisma.campaignSpintaxTemplate.findMany({
       where: {
@@ -184,14 +184,14 @@ export class CampaignInvitationAutomationService {
         },
       },
     });
-    
+
     let preferredTemplates = spintaxTemplates.filter(template => template.lang === talentLang);
 
     if (!preferredTemplates.length) {
       preferredTemplates = spintaxTemplates.filter(template => template.lang === 'en');
     }
 
-    if(!preferredTemplates.length) {
+    if (!preferredTemplates.length) {
       this.logger.warn(
         `No spintax templates found for campaign ${campaign.id} with language ${talentLang} or 'en'`,
       );
@@ -214,7 +214,7 @@ export class CampaignInvitationAutomationService {
       eventCity: event.city || '',
       eventDate: event.dt ? event.dt.toLocaleDateString() : '',
     };
-    
+
     // Render the template with variables using handlebar
     const message = renderTemplate(randomTemplate.content, variables);
 
@@ -342,7 +342,7 @@ export class CampaignInvitationAutomationService {
 
     // Get talent's preferred language or default to 'en'
     let talentLang = talent.language || 'en';
-    
+
     // Find spintax templates for followup matching the talent's language or fallback to 'en'
     let spintaxTemplates = await this.prisma.campaignSpintaxTemplate.findMany({
       where: {
@@ -353,14 +353,14 @@ export class CampaignInvitationAutomationService {
         },
       },
     });
-    
+
     let preferredTemplates = spintaxTemplates.filter(template => template.lang === talentLang);
 
     if (!preferredTemplates.length) {
       preferredTemplates = spintaxTemplates.filter(template => template.lang === 'en');
     }
 
-    if(!preferredTemplates.length) {
+    if (!preferredTemplates.length) {
       this.logger.warn(
         `No followup spintax templates found for campaign ${campaign.id} with language ${talentLang} or 'en'`,
       );
@@ -419,7 +419,9 @@ export class CampaignInvitationAutomationService {
     this.logger.log('Process sending thank you messages');
 
     try {
+      // const now = new Date();
       const now = new Date();
+
 
       // Find invitations that need thank you messages:
       // - Campaign's postEventTriggerAt has passed
@@ -430,6 +432,7 @@ export class CampaignInvitationAutomationService {
           AND: [
             { thankYouSent: false },
             { status: InvitationStatus.attended },
+            // { thankyou: true},
             {
               campaign: {
                 status: CampaignStatus.completed,
@@ -518,7 +521,7 @@ export class CampaignInvitationAutomationService {
 
     // Get talent's preferred language or default to 'en'
     let talentLang = talent.language || 'en';
-    
+
     // Find spintax templates for postevent matching the talent's language or fallback to 'en'
     let spintaxTemplates = await this.prisma.campaignSpintaxTemplate.findMany({
       where: {
@@ -529,14 +532,14 @@ export class CampaignInvitationAutomationService {
         },
       },
     });
-    
+
     let preferredTemplates = spintaxTemplates.filter(template => template.lang === talentLang);
 
     if (!preferredTemplates.length) {
       preferredTemplates = spintaxTemplates.filter(template => template.lang === 'en');
     }
 
-    if(!preferredTemplates.length) {
+    if (!preferredTemplates.length) {
       this.logger.warn(
         `No postevent spintax templates found for campaign ${campaign.id} with language ${talentLang} or 'en'`,
       );
@@ -586,7 +589,7 @@ export class CampaignInvitationAutomationService {
       `Successfully sent thank you message for invitation ${invitation.id}`,
     );
   }
-  
+
 }
 
 

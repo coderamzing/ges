@@ -8,6 +8,8 @@ import {
   IsArray,
   ArrayMinSize,
   IsEnum,
+  IsISO8601,
+  IsDate,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { CampaignStatus } from '@prisma/client';
@@ -23,7 +25,7 @@ export class CreateCampaignDto {
   @IsOptional()
   name?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Status of the campaign. Defaults to draft if not provided.',
     enum: CampaignStatus,
     example: CampaignStatus.draft
@@ -49,7 +51,7 @@ export class UpdateCampaignDto {
   @IsOptional()
   name?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Status of the campaign',
     enum: CampaignStatus,
     example: CampaignStatus.active
@@ -65,7 +67,7 @@ export class UpdateCampaignDto {
 }
 
 export class UpdateCampaignStatusDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Status of the campaign',
     enum: CampaignStatus,
     example: CampaignStatus.active
@@ -75,8 +77,22 @@ export class UpdateCampaignStatusDto {
   status: CampaignStatus;
 }
 
+export class UpdateCampaignPostEventTimeDto {
+  @ApiProperty({
+    description: 'Post event trigger time (UTC DateTime)',
+    example: '2026-01-14T16:10:11.122Z',
+    type: String,
+    format: 'date-time',
+  })
+  @Type(() => Date)
+  @IsDate()
+  @IsNotEmpty()
+  postEventTriggerAt: Date;
+}
+
+
 export class AddTalentsToCampaignDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'List of talent IDs to add to the campaign (can be strings or numbers, will be converted to strings)',
     type: [String],
     example: ['irinashayk', 'talent2', 'talent3']
@@ -87,7 +103,7 @@ export class AddTalentsToCampaignDto {
   @IsString({ each: true })
   talentIds: string[];
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Batch ID for the invitations. Defaults to 1 if not provided.',
     example: 1
   })

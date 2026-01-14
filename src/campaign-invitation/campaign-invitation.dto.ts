@@ -1,17 +1,69 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsEnum, IsBoolean, IsInt, IsArray, IsNotEmpty, ArrayMinSize } from 'class-validator';
 import { InvitationStatus } from '@prisma/client';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class GetInvitationsQueryDto {
+  // @ApiPropertyOptional({
+  //   description: 'Filter by invitation ID',
+  //   example: 13,
+  // })
+  // @IsOptional()
+  // @Type(() => Number)
+  // @IsInt()
+  // id?: number;
+
   @ApiPropertyOptional({
-    description: 'Filter invitations by status',
+    description: 'Filter by one or multiple invitation statuses',
     enum: InvitationStatus,
-    example: InvitationStatus.sent,
+    isArray: true,
+    example: ['sent', 'attended'],
   })
   @IsOptional()
-  @IsEnum(InvitationStatus)
-  status?: InvitationStatus;
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') return value.split(',');
+    return value;
+  })
+  @IsEnum(InvitationStatus, { each: true })
+  status?: InvitationStatus[];
+
+
+  @ApiPropertyOptional({
+    description: 'Filter invitations by seen status',
+    type: Boolean,
+    example: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  isSeen?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filter invitations by followup sent status',
+    type: Boolean,
+    example: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  followupSent?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filter invitations by thank you sent status',
+    type: Boolean,
+    example: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  thankYouSent?: boolean;
 
   @ApiPropertyOptional({
     description: 'Filter invitations by reply status (true = has replied, false = no reply)',
@@ -19,11 +71,9 @@ export class GetInvitationsQueryDto {
     example: false,
   })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    return value;
-  })
+  @Transform(({ value }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
   @IsBoolean()
   hasReplied?: boolean;
 }

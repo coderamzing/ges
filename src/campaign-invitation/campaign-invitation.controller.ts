@@ -27,7 +27,7 @@ export class CampaignInvitationController {
   constructor(
     private readonly campaignInvitationService: CampaignInvitationService,
     private readonly talentService: TalentService,
-  ) {}
+  ) { }
 
   @Get('campaign/:campaignId')
   @ApiOperation({
@@ -206,7 +206,7 @@ export class CampaignInvitationController {
     @Param('batchId', ParseIntPipe) batchId: number,
     @Query() query: GetInvitationsQueryDto,
     @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<CampaignInvitation[]> {
+  ) {
     return this.campaignInvitationService.getInvitationsByCampaignAndBatch(
       campaignId,
       batchId,
@@ -214,6 +214,7 @@ export class CampaignInvitationController {
       query,
     );
   }
+
 
   @Get('campaign/:campaignId/:batchId/recommendations')
   @ApiOperation({

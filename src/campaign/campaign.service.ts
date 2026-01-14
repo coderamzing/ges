@@ -1,17 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto } from './campaign.dto';
+import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignPostEventTimeDto, UpdateCampaignStatusDto } from './campaign.dto';
 import { Campaign, CampaignStatus } from '@prisma/client';
 import { DEFAULT_TEMPLATES } from '../campaign-template/campaign-template.config';
 import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from '../campaign-template/campaign-template.service';
 
 @Injectable()
 export class CampaignService {
+  private readonly logger = new Logger(CampaignService.name)
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async create(createCampaignDto: CreateCampaignDto, promoterId: number): Promise<Campaign> {
     // Verify that the event exists and belongs to the promoter
@@ -164,23 +165,81 @@ export class CampaignService {
     });
   }
 
-  async remove(id: number, promoterId: number): Promise<Campaign> {
-    // Check if campaign exists
-    const campaign = await this.findOne(id);
+  async updatePostEventTime(
+    campaignId: number,
+    dto: UpdateCampaignPostEventTimeDto,
+    promoterId: number,
+  ): Promise<Campaign> {
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
 
-    // Verify that the event belongs to the promoter
+    if (!campaign) {
+      throw new NotFoundException('Campaign not found');
+    }
+
+    // Verify ownership
     const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
 
-    if (!event || event.userId?.toString() !== promoterId.toString()) {
-      throw new NotFoundException(`Campaign does not belong to this promoter`);
+    if (!event || event.userId !== BigInt(promoterId)) {
+      throw new NotFoundException('Campaign does not belong to this promoter');
     }
+
+    return this.prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        postEventTriggerAt: new Date(dto.postEventTriggerAt),
+      },
+    });
+  }
+
+  async remove(id: number, promoterId: number): Promise<Campaign> {
+
+
+    const campaign = await this.findOne(id);
+
+
+    const event = await this.prisma.events.findUnique({
+      where: { id: campaign.eventId },
+    });
+
+    if (!event || event.userId !== BigInt(promoterId)) {
+      throw new NotFoundException('Campaign does not belong to this promoter');
+    }
+
+
+    await this.prisma.campaignMessage.deleteMany({
+      where: {
+        invitation: {
+          campaignId: id,
+        },
+      },
+    });
+
+    await this.prisma.campaignInvitation.deleteMany({
+      where: { campaignId: id },
+    });
+
+    await this.prisma.campaignSpintaxTemplate.deleteMany({
+      where: { campaignId: id },
+    });
+
+    await this.prisma.campaignTemplate.deleteMany({
+      where: { campaignId: id },
+    });
+
 
     return this.prisma.campaign.delete({
       where: { id },
     });
   }
+
+
+
+
+
 
 }
 

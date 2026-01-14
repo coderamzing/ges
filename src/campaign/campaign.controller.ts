@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CampaignService } from './campaign.service';
-import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto } from './campaign.dto';
+import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto, UpdateCampaignPostEventTimeDto } from './campaign.dto';
 import { Campaign, CampaignInvitation } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 import { CampaignInvitationService } from '../campaign-invitation/campaign-invitation.service';
@@ -27,7 +27,7 @@ export class CampaignController {
   constructor(
     private readonly campaignService: CampaignService,
     private readonly campaignInvitationService: CampaignInvitationService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new campaign' })
@@ -70,6 +70,23 @@ export class CampaignController {
   ): Promise<Campaign> {
     return this.campaignService.updateStatus(id, updateCampaignStatusDto, promoter.id);
   }
+
+
+  @Patch(':id/post-event-time')
+  @ApiOperation({ summary: 'Update post-event message trigger time' })
+  @ApiResponse({ status: 200, description: 'Post-event trigger time updated successfully' })
+  @ApiResponse({ status: 404, description: 'Campaign not found or does not belong to promoter' })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  async updatePostEventTime(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCampaignPostEventTimeDto,
+    @GetPromoter() promoter: { id: number },
+  ): Promise<Campaign> {
+    return this.campaignService.updatePostEventTime(id, dto, promoter.id);
+  }
+
+
+
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a campaign' })
