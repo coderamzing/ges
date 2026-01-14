@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campaign Templates - Temp Testing</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .template-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: #fff;
+        }
+        .template-card.inactive {
+            background-color: #f8f9fa;
+            opacity: 0.8;
+        }
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .template-content {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 100px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .edit-mode .template-content {
+            background-color: #fff;
+            border: 1px solid #ced4da;
+        }
+        .badge-type {
+            font-size: 0.9em;
+        }
+        .status-toggle {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <a href="index.html" class="btn btn-secondary mb-3">← Back to Campaigns</a>
+        <h1 id="campaignName">Campaign Templates</h1>
+
+        <div id="templatesContainer">
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = '/api';
+        const token = localStorage.getItem('token');
+        const urlParams = new URLSearchParams(window.location.search);
+        const campaignId = urlParams.get('campaignId');
+
+        if (!token) {
+            window.location.href = 'index.html';
+        }
+
+        if (!campaignId) {
+            alert('Campaign ID is required');
+            window.location.href = 'index.html';
+        }
+
+        // Load campaign and templates
+        async function loadCampaignAndTemplates() {
+            try {
+                // Get campaign name
+                const campaign = await $.ajax({
+                    url: `${API_BASE}/campaigns/${campaignId}`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                $('#campaignName').text(`Templates - ${campaign.name}`);
+
+                // Get templates
+                const templates = await $.ajax({
+                    url: `${API_BASE}/campaign-templates?campaignId=${campaignId}`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                displayTemplates(templates);
+            } catch (error) {
+                $('#templatesContainer').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.message || error.statusText}</div>`);
+            }
+        }
+
+        // Display templates
+        function displayTemplates(templates) {
+            if (templates.length === 0) {
+                $('#templatesContainer').html('<div class="alert alert-info">No templates found for this campaign</div>');
+                return;
+            }
+
+            // Group templates by type
+            const grouped = {
+                invitation: [],
+                followup: [],
+                postevent: []
+            };
+
+            templates.forEach(template => {
+                grouped[template.type].push(template);
+            });
+
+            let html = '';
+
+            // Display each type group
+            ['invitation', 'followup', 'postevent'].forEach(type => {
+                if (grouped[type].length === 0) return;
+
+                html += `<h3 class="mt-4 mb-3">${type.charAt(0).toUpperCase() + type.slice(1)} Templates</h3>`;
+
+                grouped[type].forEach(template => {
+                    const isActive = template.isActive;
+                    const statusClass = isActive ? 'success' : 'secondary';
+                    const statusText = isActive ? 'Active' : 'Inactive';
+                    const isCurrentlyEditing = isEditing(template.id);
+
+                    html += `
+                        <div class="template-card ${!isActive ? 'inactive' : ''} ${isCurrentlyEditing ? 'edit-mode' : ''}" data-template-id="${template.id}">
+                            <div class="template-header">
+                                <div>
+                                    <h5 class="mb-1">${escapeHtml(template.name)}</h5>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-${statusClass} status-toggle" data-template-id="${template.id}" data-current-status="${isActive}">
+                                            ${statusText}
+                                        </span>
+                                        <span class="badge bg-info badge-type">${template.type}</span>
+                                        <span class="badge bg-secondary">${template.lang}</span>
+                                        <small class="text-muted">Created: ${formatDate(template.createdAt)}</small>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary edit-template-btn" data-template-id="${template.id}">
+                                    ${isCurrentlyEditing ? 'Cancel' : 'Edit'}
+                                </button>
+                            </div>
+                            ${isCurrentlyEditing ? `
+                                <div class="mt-3">
+                                    <textarea class="form-control" id="edit-content-${template.id}" rows="8">${escapeHtml(template.content)}</textarea>
+                                    <div class="mt-2">
+                                        <button class="btn btn-sm btn-success save-template-btn" data-template-id="${template.id}">Save</button>
+                                        <button class="btn btn-sm btn-secondary cancel-edit-btn" data-template-id="${template.id}">Cancel</button>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="template-content" id="content-${template.id}">${escapeHtml(template.content)}</div>
+                            `}
+                        </div>
+                    `;
+                });
+            });
+
+            $('#templatesContainer').html(html);
+
+            // Attach event handlers
+            attachEventHandlers();
+        }
+
+        let editingTemplates = new Set();
+
+        function isEditing(templateId) {
+            return editingTemplates.has(templateId);
+        }
+
+        function setEditing(templateId, editing) {
+            if (editing) {
+                editingTemplates.add(templateId);
+            } else {
+                editingTemplates.delete(templateId);
+            }
+        }
+
+        function attachEventHandlers() {
+            // Edit button
+            $('.edit-template-btn').on('click', function() {
+                const templateId = parseInt($(this).data('template-id'));
+                toggleEditMode(templateId);
+            });
+
+            // Cancel edit button
+            $('.cancel-edit-btn').on('click', function() {
+                const templateId = parseInt($(this).data('template-id'));
+                toggleEditMode(templateId);
+            });
+
+            // Save button
+            $('.save-template-btn').on('click', async function() {
+                const templateId = parseInt($(this).data('template-id'));
+                await saveTemplate(templateId);
+            });
+
+            // Status toggle
+            $('.status-toggle').on('click', async function() {
+                const templateId = parseInt($(this).data('template-id'));
+                const currentStatus = $(this).data('current-status') === 'true' || $(this).data('current-status') === true;
+                await toggleTemplateStatus(templateId, !currentStatus);
+            });
+        }
+
+        function toggleEditMode(templateId) {
+            const isCurrentlyEditing = isEditing(templateId);
+            setEditing(templateId, !isCurrentlyEditing);
+            
+            // Toggle UI without reloading
+            const card = $(`.template-card[data-template-id="${templateId}"]`);
+            const contentDiv = $(`#content-${templateId}`);
+            const editDiv = card.find('.mt-3').first();
+            
+            if (!isCurrentlyEditing) {
+                // Switch to edit mode - get content from the div (text() automatically decodes HTML entities)
+                const currentContent = contentDiv.text();
+                
+                const editDiv = $('<div class="mt-3"></div>');
+                const textarea = $(`<textarea class="form-control" id="edit-content-${templateId}" rows="8"></textarea>`);
+                textarea.val(currentContent);
+                
+                const buttonDiv = $('<div class="mt-2"></div>');
+                buttonDiv.append('<button class="btn btn-sm btn-success save-template-btn" data-template-id="' + templateId + '">Save</button>');
+                buttonDiv.append('<button class="btn btn-sm btn-secondary cancel-edit-btn" data-template-id="' + templateId + '">Cancel</button>');
+                
+                editDiv.append(textarea);
+                editDiv.append(buttonDiv);
+                
+                contentDiv.hide();
+                card.addClass('edit-mode');
+                card.append(editDiv);
+                card.find('.edit-template-btn').text('Cancel');
+                
+                // Reattach handlers for new buttons
+                $(`.save-template-btn[data-template-id="${templateId}"]`).on('click', async function() {
+                    await saveTemplate(templateId);
+                });
+                $(`.cancel-edit-btn[data-template-id="${templateId}"]`).on('click', function() {
+                    toggleEditMode(templateId);
+                });
+            } else {
+                // Switch back to view mode
+                card.removeClass('edit-mode');
+                card.find('.mt-3').first().remove();
+                contentDiv.show();
+                card.find('.edit-template-btn').text('Edit');
+            }
+        }
+
+        async function saveTemplate(templateId) {
+            const newContent = $(`#edit-content-${templateId}`).val();
+            if (!newContent || newContent.trim() === '') {
+                alert('Content cannot be empty');
+                return;
+            }
+
+            const button = $(`.save-template-btn[data-template-id="${templateId}"]`);
+            button.prop('disabled', true).text('Saving...');
+
+            try {
+                await $.ajax({
+                    url: `${API_BASE}/campaign-templates/${templateId}`,
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify({
+                        content: newContent.trim()
+                    })
+                });
+
+                setEditing(templateId, false);
+                // Reload to show updated content
+                loadCampaignAndTemplates();
+            } catch (error) {
+                alert('Error saving template: ' + (error.responseJSON?.message || error.statusText));
+            } finally {
+                button.prop('disabled', false).text('Save');
+            }
+        }
+
+        async function toggleTemplateStatus(templateId, newStatus) {
+            try {
+                await $.ajax({
+                    url: `${API_BASE}/campaign-templates/${templateId}`,
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify({
+                        status: newStatus ? 'active' : 'draft'
+                    })
+                });
+
+                loadCampaignAndTemplates();
+            } catch (error) {
+                alert('Error updating template status: ' + (error.responseJSON?.message || error.statusText));
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(date) {
+            if (!date) return '';
+            return new Date(date).toLocaleString();
+        }
+
+        loadCampaignAndTemplates();
+    </script>
+</body>
+</html>
+

@@ -242,9 +242,14 @@
                                 <small class="text-muted">Status: ${campaign.status} | Lang: ${campaign.lang}</small>
                                 ${statsHtml}
                             </div>
-                            <button class="btn btn-danger btn-sm delete-btn" data-campaign-id="${campaign.id}" data-campaign-name="${escapeHtml(campaign.name)}">
-                                Delete
-                            </button>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-info btn-sm view-templates-btn" data-campaign-id="${campaign.id}" onclick="event.stopPropagation(); window.location.href='template.html?campaignId=${campaign.id}'">
+                                    View Templates
+                                </button>
+                                <button class="btn btn-danger btn-sm delete-btn" data-campaign-id="${campaign.id}" data-campaign-name="${escapeHtml(campaign.name)}">
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;

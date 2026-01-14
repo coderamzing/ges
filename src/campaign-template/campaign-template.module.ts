@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CampaignTemplateService } from './campaign-template.service';
+import { CampaignTemplateController } from './campaign-template.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
 import { OpenAIModule } from '../openai/openai.module';
@@ -18,7 +19,7 @@ import { OpenAIModule } from '../openai/openai.module';
     }),
     OpenAIModule,
   ],
-  controllers: [],
+  controllers: [CampaignTemplateController],
   providers: [
     CampaignTemplateService,
     PrismaService,
