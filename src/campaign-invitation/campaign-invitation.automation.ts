@@ -435,7 +435,7 @@ export class CampaignInvitationAutomationService {
             // { thankyou: true},
             {
               campaign: {
-                status: CampaignStatus.completed,
+                // status: CampaignStatus.completed,
                 postEventTriggerAt: {
                   not: null,
                   lte: now, // less than or equal to now (has passed)
