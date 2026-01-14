@@ -180,3 +180,36 @@ $ npm run test:e2e
 # test coverage
 $ npm run test:cov
 ```
+
+
+
+
+
+# Connect to the ges database using connection URL
+$ psql postgresql://postgres:root@localhost:5432/ges
+
+
+# List all tables in the database
+$ \dt
+
+
+# Import ges.sql(or any file) database dump
+$ psql "postgresql://postgres:root@localhost:5432/ges" -f ~/Downloads/ges.sql
+
+# Import ges-local.sql using postgres user (alternative)
+$ cat ges-local.sql | sudo -u postgres psql -d ges
+
+# Login as postgres user and connect to database
+$ sudo -i -u postgres psql -d ges
+
+# Verify tables after import
+$ \dt
+
+# Fix campaign delete logic (code change)(if getting any issue take backend first)
+- Fixed delete campaign issue (delete all related records)
+- Fixed delete campaign template issue
+
+# Sync Prisma schema with existing database
+$ npx prisma db pull
+$ npx prisma generate
+$ npx prisma studio
