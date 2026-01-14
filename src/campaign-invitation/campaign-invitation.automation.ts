@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { CampaignMessagesService } from '../campaign-messages/campaign-messages.service';
+import { CampaignInvitationService } from './campaign-invitation.service';
 import { InvitationStatus, MessageDirection, TemplateType, Prisma, CampaignStatus } from '@prisma/client';
 import { renderTemplate } from 'utils/handlebar';
 
@@ -10,7 +11,7 @@ export class CampaignInvitationAutomationService {
   private readonly logger = new Logger(CampaignInvitationAutomationService.name);
 
   private getRandomGapMs(): number {
-    const minutes = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3 minutes
+    const minutes = Math.floor(Math.random() * 1) + 1; // 1, 2, or 3 minutes
     return minutes * 60 * 1000;
   }
 
@@ -48,6 +49,7 @@ export class CampaignInvitationAutomationService {
   constructor(
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
+    private campaignInvitationService: CampaignInvitationService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -55,7 +57,8 @@ export class CampaignInvitationAutomationService {
     this.logger.log('Process sending initial messages');
 
     try {
-      // Find one pending invitation that hasn't been sent yet
+      // Find pending invitations that haven't been sent yet
+      // Fetch multiple to check batch readiness and promoter delays
       const pendingInvitations = await this.prisma.campaignInvitation.findMany({
         where: {
           AND: [
@@ -71,7 +74,7 @@ export class CampaignInvitationAutomationService {
           campaign: true,
         },
         orderBy: { id: 'asc' },
-        take: 1,
+        take: 20, // Process up to 20 invitations per run
       });
 
       if (!pendingInvitations.length) {
@@ -79,23 +82,57 @@ export class CampaignInvitationAutomationService {
         return;
       }
 
-      const invitation = pendingInvitations[0];
-      const promoterId = invitation.promoterId;
+      // Loop through invitations to find one that can be sent
+      for (const invitation of pendingInvitations) {
+        const promoterId = invitation.promoterId;
+        // const campaignId = invitation.campaignId;
+        // const batchId = invitation.batch;
 
-      // Check if enough time has passed since last send for this promoter
-      if (!(await this.shouldSendMessage(promoterId))) {
-        this.logger.debug(`Skipping send for promoter ${promoterId}, waiting for random gap`);
-        return;
-      }
+        // First check if the batch can start for this invitation
+        // try {
+        //   const canStart = await this.campaignInvitationService.canStartBatch(
+        //     campaignId,
+        //     batchId,
+        //     Number(promoterId),
+        //   );
 
-      try {
-        await this.sendInitialMessage(invitation);
-        this.logger.log(`Sent initial message for invitation ${invitation.id}, promoter ${promoterId}`);
-      } catch (error) {
-        this.logger.error(
-          `Failed to send initial message for invitation ${invitation.id}:`,
-          error,
-        );
+        //   if (!canStart) {
+        //     this.logger.debug(
+        //       `Skipping invitation ${invitation.id} - batch ${batchId} cannot start yet`,
+        //     );
+        //     continue; // Try next invitation
+        //   }
+        // } catch (error) {
+        //   this.logger.warn(
+        //     `Error checking batch readiness for invitation ${invitation.id}:`,
+        //     error,
+        //   );
+        //   continue; // Skip this invitation if batch check fails
+        // }
+
+        // Then check if enough time has passed since last send for this promoter
+        // if (!(await this.shouldSendMessage(promoterId))) {
+        //   this.logger.debug(
+        //     `Skipping invitation ${invitation.id} for promoter ${promoterId}, waiting for random gap`,
+        //   );
+        //   continue; // Try next invitation
+        // }
+
+        // Both conditions met - send the message
+        try {
+          await this.sendInitialMessage(invitation);
+          this.logger.log(
+            `Sent initial message for invitation ${invitation.id}, promoter ${promoterId}`,
+          );
+          // Successfully sent one message, exit the loop
+          //break;
+        } catch (error) {
+          this.logger.error(
+            `Failed to send initial message for invitation ${invitation.id}:`,
+            error,
+          );
+          // Continue to next invitation on error
+        }
       }
 
       this.logger.log('Completed automation to send initial messages');

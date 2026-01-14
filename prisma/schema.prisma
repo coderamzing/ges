@@ -172,6 +172,9 @@ enum InvitationStatus {
   maybe
   ignored
   attended
+  interested
+  optout
+  moved
 }
 
 model CampaignInvitation {

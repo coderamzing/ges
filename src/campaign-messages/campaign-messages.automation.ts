@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { OpenAIService } from '../openai/openai.service';
 import { MessageDirection, InvitationStatus, CampaignMessage } from '@prisma/client';
-import { MESSAGE_INTERPRETATION_PROMPT } from './campaign-messages.config';
+import { MESSAGE_INTERPRETATION_PROMPT, MESSAGE_INTERPRETATION_SYSTEM_PROMPT } from './campaign-messages.config';
 import { renderTemplate } from 'utils/handlebar';
 
 interface MessageInterpretationResponse {
@@ -98,11 +98,13 @@ export class CampaignMessagesAutomationService {
 
       // Prepare the prompt
       const prompt = renderTemplate(MESSAGE_INTERPRETATION_PROMPT, { messages: fullMessage });
+      const sysPrompt = MESSAGE_INTERPRETATION_SYSTEM_PROMPT;
 
       // Call OpenAI to interpret
       let interpretation: MessageInterpretationResponse;
       try {
-        const response = await this.openAIService.query(prompt);
+        const response = await this.openAIService.query(prompt, sysPrompt);
+        console.log(response, invitation);
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
@@ -218,12 +220,16 @@ export class CampaignMessagesAutomationService {
    */
   private mapStatusToEnum(status: string): InvitationStatus {
     const statusMap: Record<string, InvitationStatus> = {
+      pending: InvitationStatus.pending,
+      sent: InvitationStatus.sent,
       confirmed: InvitationStatus.confirmed,
       declined: InvitationStatus.declined,
       maybe: InvitationStatus.maybe,
       ignored: InvitationStatus.ignored,
-      pending: InvitationStatus.pending,
       attended: InvitationStatus.attended,
+      interested: InvitationStatus.interested,
+      optout: InvitationStatus.optout,
+      moved: InvitationStatus.moved,
     };
 
     return statusMap[status.toLowerCase()] || InvitationStatus.pending;

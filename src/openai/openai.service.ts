@@ -30,14 +30,18 @@ export class OpenAIService {
     }
   }
 
-  async query(prompt: string): Promise<any> {
+  async query(prompt: string, sysPrompt: string = ''): Promise<any> {
     if (!this.isAvailable || !this.openai) {
       throw new Error('OpenAI service is not available. Please set OPENAI_API_KEY.');
     }
 
     const completion = await this.openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: prompt }],
+      model: 'gpt-4o',
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: sysPrompt },
+        { role: 'user', content: prompt }
+      ],
       response_format: { type: 'json_object' },
     });
 
