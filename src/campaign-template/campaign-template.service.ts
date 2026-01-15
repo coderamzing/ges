@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCampaignTemplateDto } from './campaign-template.dto';
@@ -191,6 +191,29 @@ export class CampaignTemplateService {
     if (updateCampaignTemplateDto.status !== undefined) {
       updateData.isActive = updateCampaignTemplateDto.status === 'active';
     }
+
+    if (updateCampaignTemplateDto.status === 'draft'
+    ) {
+      const typeToCheck = updateCampaignTemplateDto.type ?? template.type;
+      const campaignToCheck = updateCampaignTemplateDto.campaignId ?? template.campaignId;
+
+      const activeCount = await this.prisma.campaignTemplate.count({
+        where: {
+          campaignId: campaignToCheck,
+          type: typeToCheck,
+          isActive: true,
+          NOT: { id },
+        },
+      });
+
+      if (activeCount === 0) {
+        throw new BadRequestException(
+          `At least one ACTIVE template is required for type '${typeToCheck}' in this campaign`
+        );
+      }
+    }
+
+
 
     const updatedTemplate = await this.prisma.campaignTemplate.update({
       where: { id },

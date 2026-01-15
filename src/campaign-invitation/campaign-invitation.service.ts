@@ -67,13 +67,59 @@ export class CampaignInvitationService {
   /**
    * Get invitations for a specific campaign and batch, with optional status/hasReplied filters.
    */
+  // async getInvitationsByCampaignAndBatch(
+  //   campaignId: number,
+  //   batchId: number,
+  //   promoterId: number,
+  //   filters?: GetInvitationsQueryDto,
+  // ): Promise<CampaignInvitation[]> {
+  //   // Ownership check
+  //   await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
+
+  //   const where: any = {
+  //     campaignId,
+  //     batch: batchId,
+  //   };
+
+  //   // Dynamically apply filters
+  //   if (filters) {
+
+  //     if (filters?.status?.length) {
+  //       where.status = {
+  //         in: filters.status,
+  //       };
+  //     }
+
+  //     if (filters.isSeen !== undefined) {
+  //       where.isSeen = filters.isSeen;
+  //     }
+
+  //     if (filters.followupSent !== undefined) {
+  //       where.followupSent = filters.followupSent;
+  //     }
+
+  //     if (filters.thankYouSent !== undefined) {
+  //       where.thankYouSent = filters.thankYouSent;
+  //     }
+
+  //     if (filters.hasReplied !== undefined) {
+  //       where.hasReplied = filters.hasReplied;
+  //     }
+  //   }
+
+  //   return this.prisma.campaignInvitation.findMany({
+  //     where,
+  //     orderBy: { id: 'asc' },
+  //   });
+  // }
+
+
   async getInvitationsByCampaignAndBatch(
     campaignId: number,
     batchId: number,
     promoterId: number,
     filters?: GetInvitationsQueryDto,
-  ): Promise<CampaignInvitation[]> {
-    // Ownership check
+  ) {
     await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
 
     const where: any = {
@@ -81,40 +127,64 @@ export class CampaignInvitationService {
       batch: batchId,
     };
 
-    // Dynamically apply filters
     if (filters) {
-      // if (filters.id !== undefined) {
-      //   where.id = filters.id;
-      // }
-
       if (filters?.status?.length) {
-        where.status = {
-          in: filters.status,
-        };
+        where.status = { in: filters.status };
       }
-
-      if (filters.isSeen !== undefined) {
-        where.isSeen = filters.isSeen;
-      }
-
-      if (filters.followupSent !== undefined) {
-        where.followupSent = filters.followupSent;
-      }
-
-      if (filters.thankYouSent !== undefined) {
-        where.thankYouSent = filters.thankYouSent;
-      }
-
-      if (filters.hasReplied !== undefined) {
-        where.hasReplied = filters.hasReplied;
-      }
+      if (filters.isSeen !== undefined) where.isSeen = filters.isSeen;
+      if (filters.followupSent !== undefined) where.followupSent = filters.followupSent;
+      if (filters.thankYouSent !== undefined) where.thankYouSent = filters.thankYouSent;
+      if (filters.hasReplied !== undefined) where.hasReplied = filters.hasReplied;
     }
 
-    return this.prisma.campaignInvitation.findMany({
+    const invitations = await this.prisma.campaignInvitation.findMany({
       where,
-      orderBy: { id: 'asc' },
+      orderBy: { id: "asc" },
     });
+
+    // Fetch related talent data in parallel
+    const enrichedInvitations = await Promise.all(
+      invitations.map(async (inv) => {
+        const talentProfile = await this.prisma.talentPool.findUnique({
+          where: { id: inv.talentId },
+          select: {
+            id: true,
+            name: true,
+            profilePicture: true,
+            city: true,
+            country: true,
+            location: true,
+            instagramLink: true,
+            trustScore: true,
+          },
+        });
+
+        const promoterRating = await this.prisma.talentPromoterState.findUnique({
+          where: {
+            talentId_promoterId: {
+              talentId: inv.talentId,
+              promoterId: promoterId,
+            },
+          },
+          select: {
+            trustScore: true,
+            optedOut: true,
+            lastContacted: true,
+            lastReply: true,
+          },
+        });
+
+        return {
+          ...inv,
+          talent: talentProfile,
+          promoterState: promoterRating,
+        };
+      })
+    );
+
+    return enrichedInvitations;
   }
+
 
 
   /**
