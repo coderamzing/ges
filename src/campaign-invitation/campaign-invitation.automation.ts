@@ -85,38 +85,38 @@ export class CampaignInvitationAutomationService {
       // Loop through invitations to find one that can be sent
       for (const invitation of pendingInvitations) {
         const promoterId = invitation.promoterId;
-        const campaignId = invitation.campaignId;
-        const batchId = invitation.batch;
+        // const campaignId = invitation.campaignId;
+        // const batchId = invitation.batch;
 
-        // First check if the batch can start for this invitation
-        try {
-          const canStart = await this.campaignInvitationService.canStartBatch(
-            campaignId,
-            batchId,
-            Number(promoterId),
-          );
+        // // First check if the batch can start for this invitation
+        // try {
+        //   const canStart = await this.campaignInvitationService.canStartBatch(
+        //     campaignId,
+        //     batchId,
+        //     Number(promoterId),
+        //   );
 
-          if (!canStart) {
-            this.logger.debug(
-              `Skipping invitation ${invitation.id} - batch ${batchId} cannot start yet`,
-            );
-            continue; // Try next invitation
-          }
-        } catch (error) {
-          this.logger.warn(
-            `Error checking batch readiness for invitation ${invitation.id}:`,
-            error,
-          );
-          continue; // Skip this invitation if batch check fails
-        }
+        //   if (!canStart) {
+        //     this.logger.debug(
+        //       `Skipping invitation ${invitation.id} - batch ${batchId} cannot start yet`,
+        //     );
+        //     continue; // Try next invitation
+        //   }
+        // } catch (error) {
+        //   this.logger.warn(
+        //     `Error checking batch readiness for invitation ${invitation.id}:`,
+        //     error,
+        //   );
+        //   continue; // Skip this invitation if batch check fails
+        // }
 
-        // Then check if enough time has passed since last send for this promoter
-        if (!(await this.shouldSendMessage(promoterId))) {
-          this.logger.debug(
-            `Skipping invitation ${invitation.id} for promoter ${promoterId}, waiting for random gap`,
-          );
-          continue; // Try next invitation
-        }
+        // // Then check if enough time has passed since last send for this promoter
+        // if (!(await this.shouldSendMessage(promoterId))) {
+        //   this.logger.debug(
+        //     `Skipping invitation ${invitation.id} for promoter ${promoterId}, waiting for random gap`,
+        //   );
+        //   continue; // Try next invitation
+        // }
 
         // Both conditions met - send the message
         try {
@@ -313,74 +313,75 @@ export class CampaignInvitationAutomationService {
 
 
 
-  @Cron(CronExpression.EVERY_MINUTE)
-  async sendFollowupMessagesWithDelay() {
-    this.logger.log('Process sending followup messages');
+  // @Cron(CronExpression.EVERY_MINUTE)
+  // async sendFollowupMessagesWithDelay() {
+  //   this.logger.log('Process sending followup messages');
 
-    try {
-      // Fetch invitations that are eligible for followup
-      // Multiple invitations per run (batch)
-      const invitationsNeedingFollowup = await this.prisma.campaignInvitation.findMany({
-        where: {
-          followupSent: false,
-          invitationAt: { not: null },
-          campaign: { followup_delay: { gt: 0 } }, // Only campaigns with followup_delay > 0
-        },
-        include: { campaign: true },
-        orderBy: { invitationAt: 'asc' },
-        take: 10, // Max 10 followups per run to avoid flooding
-      });
+  //   try {
+  //     // Fetch invitations that are eligible for followup
+  //     // Multiple invitations per run (batch)
+  //     const invitationsNeedingFollowup = await this.prisma.campaignInvitation.findMany({
+  //       where: {
+  //         followupSent: false,
+  //         invitationAt: { not: null },
+  //         campaign: { followup_delay: { gt: 0 } }, // Only campaigns with followup_delay > 0
+  //         hasReplied:false
+  //       },
+  //       include: { campaign: true },
+  //       orderBy: { invitationAt: 'asc' },
+  //       take: 10, // Max 10 followups per run to avoid flooding
+  //     });
 
-      if (!invitationsNeedingFollowup.length) {
-        this.logger.log('No invitations needing followup this run');
-        return;
-      }
+  //     if (!invitationsNeedingFollowup.length) {
+  //       this.logger.log('No invitations needing followup this run');
+  //       return;
+  //     }
 
-      for (const invitation of invitationsNeedingFollowup) {
-        const promoterId = invitation.promoterId;
+  //     for (const invitation of invitationsNeedingFollowup) {
+  //       const promoterId = invitation.promoterId;
 
-        // Calculate dynamic followup time based on campaign.followup_delay
-        const followupTime = new Date(invitation.invitationAt!.getTime() + invitation.campaign.followup_delay * 60 * 1000);
-        if (new Date() < followupTime) {
-          // Not yet time to send followup
-          continue;
-        }
+  //       // Calculate dynamic followup time based on campaign.followup_delay
+  //       const followupTime = new Date(invitation.invitationAt!.getTime() + invitation.campaign.followup_delay * 60 * 1000);
+  //       if (new Date() < followupTime) {
+  //         // Not yet time to send followup
+  //         continue;
+  //       }
 
-        // Check promoter-specific rate limiting
-        if (!(await this.shouldSendMessage(promoterId))) {
-          this.logger.debug(`Skipping followup for promoter ${promoterId}, waiting for random gap in delay`);
-          continue;
-        }
+  //       // Check promoter-specific rate limiting
+  //       if (!(await this.shouldSendMessage(promoterId))) {
+  //         this.logger.debug(`Skipping followup for promoter ${promoterId}, waiting for random gap in delay`);
+  //         continue;
+  //       }
 
-        // Try sending the follow-up with retry/backoff
-        let attempts = 0;
-        const maxAttempts = 3;
-        const backoffDelay = 2000; // 2 seconds between retries
+  //       // Try sending the follow-up with retry/backoff
+  //       let attempts = 0;
+  //       const maxAttempts = 3;
+  //       const backoffDelay = 2000; // 2 seconds between retries
 
-        while (attempts < maxAttempts) {
-          try {
-            await this.sendFollowupMessage(invitation);
-            this.logger.log(`Sent followup message for invitation ${invitation.id}, promoter ${promoterId} in delay`);
-            break; // success → exit retry loop
-          } catch (error) {
-            attempts++;
-            this.logger.error(`Attempt ${attempts} failed for invitation ${invitation.id}:`, error);
-            if (attempts < maxAttempts) {
-              await new Promise((res) => setTimeout(res, backoffDelay * attempts)); // exponential backoff
-            } else {
-              this.logger.error(`Max retry attempts reached for invitation ${invitation.id}`);
-            }
-          }
-        }
-      }
+  //       while (attempts < maxAttempts) {
+  //         try {
+  //           await this.sendFollowupMessage(invitation);
+  //           this.logger.log(`Sent followup message for invitation ${invitation.id}, promoter ${promoterId} in delay`);
+  //           break; // success → exit retry loop
+  //         } catch (error) {
+  //           attempts++;
+  //           this.logger.error(`Attempt ${attempts} failed for invitation ${invitation.id}:`, error);
+  //           if (attempts < maxAttempts) {
+  //             await new Promise((res) => setTimeout(res, backoffDelay * attempts)); // exponential backoff
+  //           } else {
+  //             this.logger.error(`Max retry attempts reached for invitation ${invitation.id}`);
+  //           }
+  //         }
+  //       }
+  //     }
 
-      this.logger.log('Completed automation to send followup messages');
-    } catch (error) {
-      this.logger.error('Error in sendFollowupMessages automation:', error);
-    }
+  //     this.logger.log('Completed automation to send followup messages');
+  //   } catch (error) {
+  //     this.logger.error('Error in sendFollowupMessages automation:', error);
+  //   }
 
-    this.logger.log('END Process sending followup messages');
-  }
+  //   this.logger.log('END Process sending followup messages');
+  // }
 
 
 
