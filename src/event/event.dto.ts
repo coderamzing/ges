@@ -93,3 +93,27 @@ export class UpdateEventDto {
   reach_time?: string;
 }
 
+
+
+export class EventDto {
+  @ApiProperty({ description: 'Event ID' })
+  id: number;
+
+  @ApiProperty({ description: 'Event name' })
+  name: string;
+
+  @ApiProperty({ description: 'Type of event (e.g., club, dinner)' })
+  eventType: string;
+
+  @ApiProperty({ description: 'Event date', required: false })
+  date?: Date;
+
+  @ApiProperty({ description: 'City where event takes place', required: false })
+  city?: string;
+
+  @ApiProperty({ description: 'Number of guests expected', required: false })
+  guests?: number;
+
+  @ApiProperty({ description: 'ID of the user/promoter who owns the event' })
+  userId: number;
+}

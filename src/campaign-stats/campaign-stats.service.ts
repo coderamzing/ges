@@ -3,13 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CampaignService } from '../campaign/campaign.service';
 import { CampaignStatsDto, BatchStatsDto } from './campaign-stats.dto';
 import { InvitationStatus, MessageDirection } from '@prisma/client';
+import { EventDto } from 'src/event/event.dto';
 
 @Injectable()
 export class CampaignStatsService {
   constructor(
     private prisma: PrismaService,
     private campaignService: CampaignService,
-  ) {}
+  ) { }
 
   // Average gap between messages in milliseconds, based on automation (1–3 minutes random gap)
   private readonly averageSendGapMs = 2 * 60 * 1000; // 2 minutes
@@ -30,6 +31,7 @@ export class CampaignStatsService {
     const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
+
 
     if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Campaign does not belong to this promoter`);
@@ -72,10 +74,10 @@ export class CampaignStatsService {
     const confirmed = invitations.filter(inv => inv.status === InvitationStatus.confirmed).length;
     const interested = invitations.filter(inv => inv.status === InvitationStatus.maybe).length;
     const declined = invitations.filter(inv => inv.status === InvitationStatus.declined).length;
-    
+
     // Get talent IDs that have received messages
     const repliedTalentIds = new Set(receivedMessages.map(msg => msg.talentId));
-    const seenNoReply = invitations.filter(inv => 
+    const seenNoReply = invitations.filter(inv =>
       inv.isSeen && !repliedTalentIds.has(inv.talentId)
     ).length;
 
@@ -193,7 +195,18 @@ export class CampaignStatsService {
       })
       .sort((a, b) => a.batch - b.batch);
 
+    const eventDto: EventDto = {
+      id: Number(event.id),
+      name: event.name ?? '',
+      eventType: event.eventType ?? '',
+      date: event.dt ?? undefined,
+      city: event.city ?? undefined,
+      guests: event.guests ?? undefined,
+      userId: Number(event.userId),
+    };
+
     return {
+      event: eventDto,
       totalContacted,
       sent,
       delivered,

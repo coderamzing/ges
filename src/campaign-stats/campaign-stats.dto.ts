@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { EventDto } from 'src/event/event.dto';
 
 export class BatchStatsDto {
   @ApiProperty({ description: 'Batch number' })
@@ -68,6 +69,9 @@ export class ResponseClassificationDto {
 }
 
 export class CampaignStatsDto {
+  @ApiProperty({ description: 'Event details', type: EventDto })
+  event: EventDto;
+
   @ApiProperty({ description: 'Total profiles contacted' })
   totalContacted: number;
 
