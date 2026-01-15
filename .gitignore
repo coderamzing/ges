@@ -56,7 +56,6 @@ coverage/
 # ===============================
 # Database dumps / backups
 # ===============================
-*.sql
 *.dump
 *.bak
 package-lock.json
