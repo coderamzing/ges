@@ -181,35 +181,58 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+# Use Cat to Pipe the File
+This bypasses the directory permission issue by reading the file as bb8 and "piping" the content into the psql command.
+```bash
+cat ges-local.sql | sudo -u postgres psql -d ges
+```
+
+# TEST USER
+email - admin@ges.io
+
 
 
 
 
 # Connect to the ges database using connection URL
-$ psql postgresql://postgres:root@localhost:5432/ges
-
+```bash
+psql postgresql://postgres:root@localhost:5432/ges
+```
 
 # List all tables in the database
-$ \dt
+```bash
+\dt
+```
 
 
 # Import ges.sql(or any file) database dump
-$ psql "postgresql://postgres:root@localhost:5432/ges" -f ~/Downloads/ges.sql
+```bash
+psql "postgresql://postgres:root@localhost:5432/ges" -f ~/Downloads/ges.sql
+```
 
 # Import ges-local.sql using postgres user (alternative)
-$ cat ges-local.sql | sudo -u postgres psql -d ges
+```bash
+cat ges-local.sql | sudo -u postgres psql -d ges
+```
 
 # Login as postgres user and connect to database
-$ sudo -i -u postgres psql -d ges
+```bash
+sudo -i -u postgres psql -d ges
+```
 
 # Verify tables after import
-$ \dt
+```bash
+\dt
+```
 
 # Fix campaign delete logic (code change)(if getting any issue take backend first)
 - Fixed delete campaign issue (delete all related records)
 - Fixed delete campaign template issue
 
 # Sync Prisma schema with existing database
-$ npx prisma db pull
-$ npx prisma generate
-$ npx prisma studio
+```bash
+npx prisma db pull
+npx prisma generate
+npx prisma studio
+```
+

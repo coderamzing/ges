@@ -119,7 +119,7 @@ export class CampaignMessagesAutomationService {
         return;
       }
 
-      // Update CampaignInvitation status and mark as replied using invitationId
+      // Update CampaignInvitation status, mark as replied and mark as seen using invitationId
       await this.prisma.campaignInvitation.update({
         where: {
           id: invitationId,
@@ -127,6 +127,7 @@ export class CampaignMessagesAutomationService {
         data: {
           status: interpretation.status,
           hasReplied: true,
+          isSeen: true,
         },
       });
 

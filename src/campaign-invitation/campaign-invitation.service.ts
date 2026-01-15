@@ -64,55 +64,6 @@ export class CampaignInvitationService {
     });
   }
 
-  /**
-   * Get invitations for a specific campaign and batch, with optional status/hasReplied filters.
-   */
-  // async getInvitationsByCampaignAndBatch(
-  //   campaignId: number,
-  //   batchId: number,
-  //   promoterId: number,
-  //   filters?: GetInvitationsQueryDto,
-  // ): Promise<CampaignInvitation[]> {
-  //   // Ownership check
-  //   await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
-
-  //   const where: any = {
-  //     campaignId,
-  //     batch: batchId,
-  //   };
-
-  //   // Dynamically apply filters
-  //   if (filters) {
-
-  //     if (filters?.status?.length) {
-  //       where.status = {
-  //         in: filters.status,
-  //       };
-  //     }
-
-  //     if (filters.isSeen !== undefined) {
-  //       where.isSeen = filters.isSeen;
-  //     }
-
-  //     if (filters.followupSent !== undefined) {
-  //       where.followupSent = filters.followupSent;
-  //     }
-
-  //     if (filters.thankYouSent !== undefined) {
-  //       where.thankYouSent = filters.thankYouSent;
-  //     }
-
-  //     if (filters.hasReplied !== undefined) {
-  //       where.hasReplied = filters.hasReplied;
-  //     }
-  //   }
-
-  //   return this.prisma.campaignInvitation.findMany({
-  //     where,
-  //     orderBy: { id: 'asc' },
-  //   });
-  // }
-
 
   async getInvitationsByCampaignAndBatch(
     campaignId: number,
