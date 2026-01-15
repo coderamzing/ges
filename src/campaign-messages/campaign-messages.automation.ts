@@ -20,7 +20,7 @@ export class CampaignMessagesAutomationService {
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
-  ) {}
+  ) { }
 
   /**
    * Process messages that haven't been interpreted yet
@@ -51,27 +51,27 @@ export class CampaignMessagesAutomationService {
       }
 
       this.logger.log(`Found ${messages.length} messages to process`);
-      
-      for(const message of messages) {
-          const threads = await this.prisma.campaignMessage.findMany({
-            select: {
-              message: true,
-              receivedAt: true,
-            },
-            where: {
-              invitationId: (message as any).invitationId || (message as any).invitation?.id,
-              direction: MessageDirection.received,
-            } as any,
-            orderBy: {
-              receivedAt: 'asc',
-            },
-          });
 
-          const fullMessage = threads.map((msg) => msg.message).join('\n\n');
-          await this.processTalentMessages(
-            message as unknown as CampaignMessage & { invitation: { id: number; promoterId: bigint; eventId: number; campaignId: number; talentId: string } | null },
-            fullMessage
-          );
+      for (const message of messages) {
+        const threads = await this.prisma.campaignMessage.findMany({
+          select: {
+            message: true,
+            receivedAt: true,
+          },
+          where: {
+            invitationId: (message as any).invitationId || (message as any).invitation?.id,
+            direction: MessageDirection.received,
+          } as any,
+          orderBy: {
+            receivedAt: 'asc',
+          },
+        });
+
+        const fullMessage = threads.map((msg) => msg.message).join('\n\n');
+        await this.processTalentMessages(
+          message as unknown as CampaignMessage & { invitation: { id: number; promoterId: bigint; eventId: number; campaignId: number; talentId: string } | null },
+          fullMessage
+        );
       }
     } catch (error) {
       this.logger.error('Error processing last minute messages:', error);
@@ -104,7 +104,6 @@ export class CampaignMessagesAutomationService {
       let interpretation: MessageInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
-        console.log(response, invitation);
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
