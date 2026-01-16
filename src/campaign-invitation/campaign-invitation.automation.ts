@@ -55,12 +55,72 @@ export class CampaignInvitationAutomationService {
       minutes = Math.floor(Math.random() * 3) + 1;
     }
 
-    console.log("Delay timing value (minutes):", minutes);
+    this.logger.log(`Delay timing value (minutes):${minutes}`)
 
     const requiredGapMs = minutes * 60 * 1000;
 
     return now - lastSent >= requiredGapMs;
   }
+
+    private async updateTalentPromoterState(params: {
+  talentId: string;
+  promoterId: bigint;
+  lastContacted?: Date | null;
+  trustScoreIncrement?: number;
+  eventId?: number;
+  scoreReason?: string;
+}) {
+  const {
+    talentId,
+    promoterId,
+    lastContacted,
+    trustScoreIncrement = 0,
+    eventId,
+    scoreReason,
+  } = params;
+
+  const safeLastContacted = lastContacted ?? new Date();
+
+  return this.prisma.$transaction(async (tx) => {
+    const state = await tx.talentPromoterState.upsert({
+      where: {
+        talentId_promoterId: {
+          talentId,
+          promoterId,
+        },
+      },
+      create: {
+        talentId,
+        promoterId,
+        trustScore: trustScoreIncrement,
+        lastContacted: safeLastContacted,
+      },
+      update: {
+        lastContacted: safeLastContacted,
+        ...(trustScoreIncrement > 0 && {
+          trustScore: {
+            increment: trustScoreIncrement,
+          },
+        }),
+      },
+    });
+
+    // Create trust score log ONLY if score increment exists
+    if (trustScoreIncrement > 0) {
+      await tx.trustScoreLog.create({
+        data: {
+          talentId,
+          promoterId,
+          eventId: eventId ?? null,
+          change: trustScoreIncrement,
+          reason: scoreReason ?? 'SYSTEM_UPDATE',
+        },
+      });
+    }
+
+    return state;
+  });
+}
 
   constructor(
     private prisma: PrismaService,
@@ -164,6 +224,7 @@ export class CampaignInvitationAutomationService {
     }>,
   ): Promise<void> {
     const campaign = invitation.campaign;
+    const promoterId = invitation.promoterId;
 
     // Get related data
     const [talent, event] = await Promise.all([
@@ -246,12 +307,18 @@ export class CampaignInvitationAutomationService {
     });
 
     // Update the invitation to mark it as sent
-    await this.prisma.campaignInvitation.update({
+    const UpdatedInviteMessage = await this.prisma.campaignInvitation.update({
       where: { id: invitation.id },
       data: {
         status: InvitationStatus.sent,
         invitationAt: new Date(),
       },
+    });
+
+    await this.updateTalentPromoterState({
+      talentId: talent.id,
+      promoterId: BigInt(promoterId),
+      lastContacted: UpdatedInviteMessage.invitationAt ?? undefined,
     });
 
     this.logger.log(
@@ -411,6 +478,7 @@ export class CampaignInvitationAutomationService {
     }>,
   ): Promise<void> {
     const campaign = invitation.campaign;
+    const promoterId = invitation.promoterId;
 
     // Get related data
     const [talent, event] = await Promise.all([
@@ -498,6 +566,11 @@ export class CampaignInvitationAutomationService {
         followupSent: true,
       },
     });
+
+    await this.updateTalentPromoterState({
+  talentId: talent.id,
+  promoterId: BigInt(promoterId),
+});
 
     this.logger.log(
       `Successfully sent followup message for invitation ${invitation.id}`,
@@ -678,6 +751,15 @@ export class CampaignInvitationAutomationService {
         thankYouSent: true,
       },
     });
+
+    await this.updateTalentPromoterState({
+      talentId: talent.id,
+      promoterId: BigInt(invitation.promoterId),
+      trustScoreIncrement: 10,
+      eventId: invitation.eventId,
+      scoreReason: "attended",
+    });
+
 
     this.logger.log(
       `Successfully sent thank you message for invitation ${invitation.id}`,

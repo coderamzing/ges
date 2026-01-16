@@ -108,7 +108,6 @@ export class TalentService {
     batchId: number,
     filters: TalentRecommendationFiltersDto,
   ): Promise<any[]> {
-    console.log(filters, "incoming filters");
 
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
@@ -163,8 +162,6 @@ export class TalentService {
     const where: any = {
       currentCity: event.city,
     };
-
-    console.log("where", where)
 
     if (filters.talentType?.length) {
       where.talentType = {
