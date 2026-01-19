@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsEnum,
   IsIn,
+  IsBoolean,
 } from 'class-validator';
 import { TemplateType } from '@prisma/client';
 
@@ -103,3 +104,11 @@ export class PreviewTemplateDto {
   template: string;
 }
 
+export class UpdateTemplateSpintaxDto {
+  @ApiProperty({
+    description: 'Enable or disable spintax for this template',
+    example: true,
+  })
+  @IsBoolean()
+  spintaxEnabled: boolean;
+}

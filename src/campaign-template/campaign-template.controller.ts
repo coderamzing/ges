@@ -11,24 +11,28 @@ import {
   HttpStatus,
   UseGuards,
   Query,
-} from '@nestjs/common';
+} from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
-} from '@nestjs/swagger';
-import { CampaignTemplateService } from './campaign-template.service';
-import { CreateCampaignTemplateDto } from './campaign-template.dto';
-import { UpdateCampaignTemplateDto } from './campaign-template.dto';
-import { PreviewTemplateDto } from './campaign-template.dto';
-import { CampaignTemplate, TemplateType } from '@prisma/client';
-import { JwtAuthGuard, GetPromoter } from '../../guard';
+  ApiParam,
+} from "@nestjs/swagger";
+import { CampaignTemplateService } from "./campaign-template.service";
+import {
+  CreateCampaignTemplateDto,
+  UpdateTemplateSpintaxDto,
+} from "./campaign-template.dto";
+import { UpdateCampaignTemplateDto } from "./campaign-template.dto";
+import { PreviewTemplateDto } from "./campaign-template.dto";
+import { CampaignTemplate, TemplateType } from "@prisma/client";
+import { JwtAuthGuard, GetPromoter } from "../../guard";
 
-@ApiTags('campaign-templates')
+@ApiTags("campaign-templates")
 @ApiBearerAuth()
-@Controller('campaign-templates')
+@Controller("campaign-templates")
 @UseGuards(JwtAuthGuard)
 export class CampaignTemplateController {
   constructor(
@@ -36,15 +40,15 @@ export class CampaignTemplateController {
   ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new campaign template' })
+  @ApiOperation({ summary: "Create a new campaign template" })
   @ApiResponse({
     status: 201,
-    description: 'Campaign template created successfully',
+    description: "Campaign template created successfully",
   })
-  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  @ApiResponse({ status: 400, description: "Bad request - validation failed" })
   @ApiResponse({
     status: 404,
-    description: 'Campaign not found or does not belong to promoter',
+    description: "Campaign not found or does not belong to promoter",
   })
   async create(
     @Body() createCampaignTemplateDto: CreateCampaignTemplateDto,
@@ -57,16 +61,16 @@ export class CampaignTemplateController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all campaign templates' })
+  @ApiOperation({ summary: "Get all campaign templates" })
   @ApiQuery({
-    name: 'campaignId',
+    name: "campaignId",
     required: false,
     type: Number,
-    description: 'Filter templates by campaign ID',
+    description: "Filter templates by campaign ID",
   })
-  @ApiResponse({ status: 200, description: 'List of all campaign templates' })
+  @ApiResponse({ status: 200, description: "List of all campaign templates" })
   async findAll(
-    @Query('campaignId') campaignId?: string,
+    @Query("campaignId") campaignId?: string,
   ): Promise<CampaignTemplate[]> {
     if (campaignId) {
       return this.campaignTemplateService.findByCampaign(
@@ -76,13 +80,13 @@ export class CampaignTemplateController {
     return this.campaignTemplateService.findAll();
   }
 
-  @Get('promoter')
+  @Get("promoter")
   @ApiOperation({
-    summary: 'Get all campaign templates for the authenticated promoter',
+    summary: "Get all campaign templates for the authenticated promoter",
   })
   @ApiResponse({
     status: 200,
-    description: 'List of campaign templates for the promoter',
+    description: "List of campaign templates for the promoter",
   })
   async findByPromoter(
     @GetPromoter() promoter: { id: number; email: string },
@@ -90,59 +94,56 @@ export class CampaignTemplateController {
     return this.campaignTemplateService.findByPromoter(promoter.id);
   }
 
-  @Get('by-campaign-and-type')
+  @Get("by-campaign-and-type")
   @ApiOperation({
-    summary: 'Get campaign templates filtered by campaign ID and template type',
+    summary: "Get campaign templates filtered by campaign ID and template type",
   })
   @ApiQuery({
-    name: 'campaignId',
+    name: "campaignId",
     required: true,
     type: Number,
-    description: 'Campaign ID to filter templates',
+    description: "Campaign ID to filter templates",
   })
   @ApiQuery({
-    name: 'type',
+    name: "type",
     required: true,
     enum: TemplateType,
-    description: 'Template type to filter (invitation, followup, postevent)',
+    description: "Template type to filter (invitation, followup, postevent)",
   })
   @ApiResponse({
     status: 200,
-    description: 'List of campaign templates matching the campaign ID and type',
+    description: "List of campaign templates matching the campaign ID and type",
   })
   async findByCampaignAndType(
-    @Query('campaignId', ParseIntPipe) campaignId: number,
-    @Query('type') type: TemplateType,
+    @Query("campaignId", ParseIntPipe) campaignId: number,
+    @Query("type") type: TemplateType,
   ): Promise<CampaignTemplate[]> {
-    return this.campaignTemplateService.findByCampaignAndType(
-      campaignId,
-      type,
-    );
+    return this.campaignTemplateService.findByCampaignAndType(campaignId, type);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a campaign template by ID' })
-  @ApiResponse({ status: 200, description: 'Campaign template found' })
-  @ApiResponse({ status: 404, description: 'Campaign template not found' })
+  @Get(":id")
+  @ApiOperation({ summary: "Get a campaign template by ID" })
+  @ApiResponse({ status: 200, description: "Campaign template found" })
+  @ApiResponse({ status: 404, description: "Campaign template not found" })
   async findOne(
-    @Param('id', ParseIntPipe) id: number,
+    @Param("id", ParseIntPipe) id: number,
   ): Promise<CampaignTemplate> {
     return this.campaignTemplateService.findOne(id);
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update a campaign template' })
+  @Patch(":id")
+  @ApiOperation({ summary: "Update a campaign template" })
   @ApiResponse({
     status: 200,
-    description: 'Campaign template updated successfully',
+    description: "Campaign template updated successfully",
   })
   @ApiResponse({
     status: 404,
-    description: 'Campaign template not found or does not belong to promoter',
+    description: "Campaign template not found or does not belong to promoter",
   })
-  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  @ApiResponse({ status: 400, description: "Bad request - validation failed" })
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param("id", ParseIntPipe) id: number,
     @Body() updateCampaignTemplateDto: UpdateCampaignTemplateDto,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<CampaignTemplate> {
@@ -153,32 +154,32 @@ export class CampaignTemplateController {
     );
   }
 
-  @Delete(':id')
+  @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a campaign template' })
+  @ApiOperation({ summary: "Delete a campaign template" })
   @ApiResponse({
     status: 204,
-    description: 'Campaign template deleted successfully',
+    description: "Campaign template deleted successfully",
   })
   @ApiResponse({
     status: 404,
-    description: 'Campaign template not found or does not belong to promoter',
+    description: "Campaign template not found or does not belong to promoter",
   })
   async remove(
-    @Param('id', ParseIntPipe) id: number,
+    @Param("id", ParseIntPipe) id: number,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<void> {
     await this.campaignTemplateService.remove(id, promoter.id);
   }
 
-  @Post('preview')
-  @ApiOperation({ summary: 'Preview a template with event details' })
+  @Post("preview")
+  @ApiOperation({ summary: "Preview a template with event details" })
   @ApiResponse({
     status: 200,
-    description: 'Template preview rendered successfully',
+    description: "Template preview rendered successfully",
   })
-  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
-  @ApiResponse({ status: 404, description: 'Event not found' })
+  @ApiResponse({ status: 400, description: "Bad request - validation failed" })
+  @ApiResponse({ status: 404, description: "Event not found" })
   async preview(
     @Body() previewTemplateDto: PreviewTemplateDto,
   ): Promise<{ preview: string }> {
@@ -188,5 +189,44 @@ export class CampaignTemplateController {
     );
     return { preview };
   }
-}
 
+  @Patch("campaign/:campaignId/spintax/:type")
+  @ApiOperation({
+    summary: "Enable or disable spintax for campaign templates (all languages)",
+  })
+  @ApiParam({
+    name: "campaignId",
+    type: Number,
+    description: "Campaign ID",
+  })
+  @ApiParam({
+    name: "type",
+    enum: TemplateType,
+    enumName: "TemplateType",
+    description: "Template type (invitation, followup, postevent)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Spintax setting updated successfully",
+  })
+  @ApiResponse({
+    status: 404,
+    description: "Campaign or templates not found",
+  })
+  @ApiOperation({
+    summary: "Enable or disable spintax for campaign templates (all languages)",
+  })
+  async updateSpintaxEnabledByType(
+    @Param("campaignId", ParseIntPipe) campaignId: number,
+    @Param("type") type: TemplateType,
+    @Body() dto: UpdateTemplateSpintaxDto,
+    @GetPromoter() promoter: { id: number; email: string },
+  ) {
+    return this.campaignTemplateService.updateSpintaxEnabledByType(
+      campaignId,
+      type,
+      dto.spintaxEnabled,
+      promoter.id,
+    );
+  }
+}

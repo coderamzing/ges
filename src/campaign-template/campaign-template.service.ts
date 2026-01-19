@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCampaignTemplateDto } from './campaign-template.dto';
+import { CreateCampaignTemplateDto, UpdateTemplateSpintaxDto } from './campaign-template.dto';
 import { UpdateCampaignTemplateDto } from './campaign-template.dto';
 import { CampaignTemplate, TemplateType } from '@prisma/client';
 import { renderTemplate } from '../../utils/handlebar';
@@ -315,5 +315,70 @@ export class CampaignTemplateService {
     // Render the template with variables
     return renderTemplate(template, variables);
   }
+
+  async updateSpintaxEnabledByType(
+  campaignId: number,
+  type: TemplateType,
+  spintaxEnabled: boolean,
+  promoterId: number,
+  ) {
+    // 1️⃣ Validate campaign ownership
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign not found`);
+    }
+
+    const event = await this.prisma.events.findUnique({
+      where: { id: campaign.eventId },
+    });
+
+    if (!event || event.userId?.toString() !== promoterId.toString()) {
+      throw new NotFoundException(`Campaign does not belong to this promoter`);
+    }
+
+    // 2️⃣ Check templates exist (optional but good UX)
+    const templates = await this.prisma.campaignTemplate.findMany({
+      where: {
+        campaignId,
+        type,
+      },
+    });
+
+    if (!templates.length) {
+      throw new NotFoundException(
+        `No templates found for type "${type}" in this campaign`,
+      );
+    }
+
+    // 3️⃣ BULK UPDATE → all languages updated
+    await this.prisma.campaignTemplate.updateMany({
+      where: {
+        campaignId,
+        type,
+      },
+      data: {
+        spintaxEnabled,
+      },
+    });
+
+    // 4️⃣ Emit event once
+    this.eventEmitter.emit(
+      CAMPAIGN_TEMPLATE_SAVED_EVENT,
+      campaignId,
+    );
+
+    return {
+      message: 'Spintax setting updated successfully',
+      campaignId,
+      type,
+      spintaxEnabled,
+      updatedTemplates: templates.length,
+    };
+  }
+
+
 }
 
