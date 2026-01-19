@@ -76,6 +76,16 @@ export class GetInvitationsQueryDto {
   )
   @IsBoolean()
   hasReplied?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Order invitations by ID',
+    enum: ['asc', 'desc'],
+    example: 'desc',
+    default: 'desc',
+  })
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  order?: 'asc' | 'desc';
 }
 
 export class MarkInvitationsAsAttendedDto {

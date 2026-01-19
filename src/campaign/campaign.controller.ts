@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CampaignService } from './campaign.service';
-import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto, UpdateCampaignPostEventTimeDto } from './campaign.dto';
+import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto, UpdateCampaignPostEventTimeDto, UpdateCampaignFollowupDelayDto } from './campaign.dto';
 import { Campaign, CampaignInvitation } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 import { CampaignInvitationService } from '../campaign-invitation/campaign-invitation.service';
@@ -85,8 +85,18 @@ export class CampaignController {
     return this.campaignService.updatePostEventTime(id, dto, promoter.id);
   }
 
-
-
+  @Patch(':id/followup-delay')
+  @ApiOperation({ summary: 'Update campaign follow-up delay' })
+  @ApiResponse({ status: 200, description: 'Follow-up delay updated successfully' })
+  @ApiResponse({ status: 404, description: 'Campaign not found or does not belong to promoter' })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  async updateFollowupDelay(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCampaignFollowupDelayDto,
+    @GetPromoter() promoter: { id: number },
+  ): Promise<Campaign> {
+    return this.campaignService.updateFollowupDelay(id, dto, promoter.id);
+  }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a campaign' })

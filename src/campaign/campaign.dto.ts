@@ -10,6 +10,8 @@ import {
   IsEnum,
   IsISO8601,
   IsDate,
+  IsNumber,
+  Min,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { CampaignStatus } from '@prisma/client';
@@ -110,5 +112,16 @@ export class AddTalentsToCampaignDto {
   @IsInt()
   @IsOptional()
   batchId?: number;
+}
+
+export class UpdateCampaignFollowupDelayDto {
+  @ApiProperty({
+    description: 'Follow-up delay in hours',
+    example: 12,
+    minimum: 1,
+  })
+  @IsInt()
+  @Min(1)
+  followup_delay: number;
 }
 

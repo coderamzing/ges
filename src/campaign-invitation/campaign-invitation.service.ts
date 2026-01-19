@@ -58,9 +58,14 @@ export class CampaignInvitationService {
       where.hasReplied = filters.hasReplied;
     }
 
+     const orderBy = {
+    invitationAt: filters?.order ?? 'desc',
+  };
+
     return this.prisma.campaignInvitation.findMany({
       where,
-      orderBy: { id: 'asc' },
+      orderBy
+      // orderBy: { id: 'asc' },
     });
   }
 
@@ -88,9 +93,14 @@ export class CampaignInvitationService {
       if (filters.hasReplied !== undefined) where.hasReplied = filters.hasReplied;
     }
 
+    const orderBy = {
+    invitationAt: filters?.order ?? 'desc', 
+  };
+
     const invitations = await this.prisma.campaignInvitation.findMany({
       where,
-      orderBy: { id: "asc" },
+      orderBy
+      // orderBy: { id: "asc" },
     });
 
     // Fetch related talent data in parallel
