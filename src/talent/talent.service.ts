@@ -177,7 +177,7 @@ export class TalentService {
 
     if (promoterFilters.length > 0) {
       where.OR = [
-        // CASE 1: talents WITH promoterState that match filters
+
         {
           promoterStates: {
             some: {
@@ -188,7 +188,7 @@ export class TalentService {
           },
         },
 
-        // ✅ CASE 2: talents with NO promoterState for this promoter
+
         {
           promoterStates: {
             none: { promoterId },
@@ -201,6 +201,24 @@ export class TalentService {
         none: { promoterId },
       };
     }
+
+    // where.AND = [
+    //   ...(where.AND || []),
+    //   {
+    //     NOT: {
+    //       promoterStates: {
+    //         some: {
+    //           promoterId,
+    //           lastReply: null,
+    //           lastContacted: {
+    //             gte: new Date(Date.now() - 48 * 60 * 60 * 1000),
+    //           },
+    //         },
+    //       },
+    //     },
+    //   },
+    // ];
+
 
     const talentPools = await this.prisma.talentPool.findMany({
       where,

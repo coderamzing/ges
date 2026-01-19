@@ -3,10 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateCampaignSpintaxTemplateDto } from './campaign-spintax-template.dto';
 import { UpdateCampaignSpintaxTemplateDto } from './campaign-spintax-template.dto';
 import { CampaignSpintaxTemplate, TemplateType } from '@prisma/client';
+import { CampaignTemplateService } from 'src/campaign-template/campaign-template.service';
 
 @Injectable()
 export class CampaignSpintaxTemplateService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly campaignTemplateService: CampaignTemplateService,
+  ) { }
 
   async create(
     createDto: CreateCampaignSpintaxTemplateDto,
@@ -51,27 +55,51 @@ export class CampaignSpintaxTemplateService {
     type?: TemplateType,
     lang?: string,
     batch?: number,
-  ): Promise<CampaignSpintaxTemplate[]> {
+  ): Promise<any[]> {
+
     const where: any = { campaignId };
 
-    if (type) {
-      where.type = type;
+
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    console.log(campaign, "incoming campaign");
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign ${campaignId} not found`);
     }
 
-    if (lang) {
-      where.lang = lang;
-    }
 
-    if (batch !== undefined) {
-      where.batch = batch;
-    }
+    if (type) where.type = type;
+    if (lang) where.lang = lang;
+    if (batch !== undefined) where.batch = batch;
 
-    return this.prisma.campaignSpintaxTemplate.findMany({
+
+    const templates = await this.prisma.campaignSpintaxTemplate.findMany({
       where,
       orderBy: {
         createdAt: 'desc',
       },
     });
+
+
+    const templatesWithPreview = await Promise.all(
+      templates.map(async (tpl) => {
+        const preview = await this.campaignTemplateService.previewTemplate(
+          campaign.eventId,
+          tpl.content
+        );
+
+        return {
+          ...tpl,
+          preview,
+        };
+      }),
+    );
+
+    // -------- 5️⃣ Return final result --------
+    return templatesWithPreview;
   }
 
   async findOne(id: number): Promise<CampaignSpintaxTemplate> {
