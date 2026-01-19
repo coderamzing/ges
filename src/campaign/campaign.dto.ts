@@ -12,6 +12,7 @@ import {
   IsDate,
   IsNumber,
   Min,
+  IsBoolean,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { CampaignStatus } from '@prisma/client';
@@ -124,4 +125,21 @@ export class UpdateCampaignFollowupDelayDto {
   @Min(1)
   followup_delay: number;
 }
+
+
+
+export class UpdateCampaignAutoLangModeDto {
+  @IsOptional()
+  @IsBoolean()
+  invitation_mode?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  followup_mode?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  thankyou_mode?: boolean;
+}
+
 

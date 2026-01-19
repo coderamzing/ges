@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignFollowupDelayDto, UpdateCampaignPostEventTimeDto, UpdateCampaignStatusDto } from './campaign.dto';
-import { Campaign, CampaignStatus } from '@prisma/client';
+import { CreateCampaignDto, UpdateCampaignAutoLangModeDto, UpdateCampaignDto, UpdateCampaignPostEventTimeDto, UpdateCampaignStatusDto } from './campaign.dto';
+import { Campaign, CampaignStatus, Prisma, TemplateType } from '@prisma/client';
 import { DEFAULT_TEMPLATES } from '../campaign-template/campaign-template.config';
 import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from '../campaign-template/campaign-template.service';
 
@@ -236,11 +236,15 @@ export class CampaignService {
     });
   }
 
-  async updateFollowupDelay(
+
+
+  async updateAutoLangMode(
     campaignId: number,
-    dto: UpdateCampaignFollowupDelayDto,
+    dto: UpdateCampaignAutoLangModeDto,
     promoterId: number,
   ): Promise<Campaign> {
+
+
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
     });
@@ -257,11 +261,45 @@ export class CampaignService {
       throw new NotFoundException('Campaign does not belong to this promoter');
     }
 
-    return this.prisma.campaign.update({
-      where: { id: campaignId },
-      data: {
-        followup_delay: dto.followup_delay,
-      },
+
+    const updateData: any = {};
+    if (dto.invitation_mode !== undefined) updateData.invitation_mode = dto.invitation_mode;
+    if (dto.followup_mode !== undefined) updateData.followup_mode = dto.followup_mode;
+    if (dto.thankyou_mode !== undefined) updateData.thankyou_mode = dto.thankyou_mode;
+
+    return this.prisma.$transaction(async (prisma) => {
+
+      const updatedCampaign = await prisma.campaign.update({
+        where: { id: campaignId },
+        data: updateData,
+      });
+
+      const updateTemplates = async (modeValue: boolean | undefined, type: TemplateType) => {
+        if (modeValue === undefined) return;
+
+        if (modeValue === true) {
+
+          await prisma.campaignTemplate.updateMany({
+            where: { campaignId, type },
+            data: { isActive: true },
+          });
+        } else if (modeValue === false) {
+
+          await prisma.campaignTemplate.updateMany({
+            where: {
+              campaignId,
+              type,
+              NOT: { lang: 'en' },
+            },
+            data: { isActive: false },
+          });
+        }
+      };
+      await updateTemplates(dto.invitation_mode, TemplateType.invitation);
+      await updateTemplates(dto.followup_mode, TemplateType.followup);
+      await updateTemplates(dto.thankyou_mode, TemplateType.postevent);
+
+      return updatedCampaign;
     });
   }
 
