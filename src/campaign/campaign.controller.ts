@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CampaignService } from './campaign.service';
-import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto, UpdateCampaignPostEventTimeDto } from './campaign.dto';
+import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto, UpdateCampaignPostEventTimeDto, UpdateCampaignAutoLangModeDto } from './campaign.dto';
 import { Campaign, CampaignInvitation } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 import { CampaignInvitationService } from '../campaign-invitation/campaign-invitation.service';
@@ -113,5 +113,21 @@ export class CampaignController {
   ): Promise<void> {
     await this.campaignService.remove(id, promoter.id);
   }
+
+
+  @Patch(':id/auto-lang-mode')
+  @ApiOperation({ summary: 'Update campaign auto language modes' })
+  @ApiResponse({ status: 200, description: 'Auto language mode updated' })
+  @ApiResponse({ status: 404, description: 'Campaign not found' })
+  async updateAutoLangMode(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCampaignAutoLangModeDto,
+    @GetPromoter() promoter: { id: number },
+  ): Promise<Campaign> {
+    return this.campaignService.updateAutoLangMode(id, dto, promoter.id);
+  }
+
+
+
 }
 

@@ -10,6 +10,7 @@ import {
   IsEnum,
   IsISO8601,
   IsDate,
+  IsBoolean,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { CampaignStatus } from '@prisma/client';
@@ -111,4 +112,21 @@ export class AddTalentsToCampaignDto {
   @IsOptional()
   batchId?: number;
 }
+
+
+
+export class UpdateCampaignAutoLangModeDto {
+  @IsOptional()
+  @IsBoolean()
+  invitation_mode?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  followup_mode?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  thankyou_mode?: boolean;
+}
+
 
