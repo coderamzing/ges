@@ -53,6 +53,8 @@ enum CampaignStatus {
   completed
   stopped
 }
+
+
 model Campaign {
   id                 Int       @id @default(autoincrement())
   eventId            Int
@@ -62,6 +64,9 @@ model Campaign {
   start_at           DateTime?
   end_at             DateTime?
   postEventTriggerAt DateTime?
+  invitation_mode    Boolean      @default(false)  
+  followup_mode      Boolean      @default(false)  
+  thankyou_mode      Boolean      @default(false)  
   followup_delay     Int       @default(12)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
