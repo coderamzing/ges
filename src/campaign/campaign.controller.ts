@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CampaignService } from './campaign.service';
-import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto, UpdateCampaignPostEventTimeDto } from './campaign.dto';
+import { CreateCampaignDto, UpdateCampaignDto, UpdateCampaignStatusDto, AddTalentsToCampaignDto, UpdateCampaignPostEventTimeDto, UpdateCampaignAutoLangModeDto } from './campaign.dto';
 import { Campaign, CampaignInvitation } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 import { CampaignInvitationService } from '../campaign-invitation/campaign-invitation.service';
