@@ -1,12 +1,15 @@
-import { Controller, Get, Post, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Post, Param, Body, ParseIntPipe, UseGuards, Headers } from '@nestjs/common';
+import { ApiBody, ApiHeader, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { TempService } from './temp.service';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
+import { CampaignInvitationService } from 'src/campaign-invitation/campaign-invitation.service';
 
 @Controller('temp')
 @UseGuards(JwtAuthGuard)
 export class TempController {
-  constructor(private readonly tempService: TempService) {}
+  constructor(private readonly tempService: TempService,
+    private readonly campaignInvitationService: CampaignInvitationService,
+  ) { }
 
   @Get('campaigns/:id/messages')
   async getCampaignMessages(@Param('id', ParseIntPipe) id: number) {
@@ -38,5 +41,39 @@ export class TempController {
     @Param('promoterId', ParseIntPipe) promoterId: number,
   ) {
     return this.tempService.getTrustScoreLogs(talentId, promoterId);
+  }
+
+  @Post('send')
+  @ApiOperation({ summary: 'Send chat message to a user' })
+  @ApiHeader({
+    name: 'x-auth-token',
+    description: 'Authentication token',
+    required: true,
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        receiverUsername: { type: 'string', example: 'tesla' },
+        message: { type: 'string', example: 'hi !' },
+      },
+      required: ['receiverUsername', 'message'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Message sent successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request body',
+  })
+  async sendMessage(
+    @Headers('x-auth-token') token: string,
+    @Body() body: { receiverUsername: string; message: string },
+  ) {
+    return this.campaignInvitationService.sendMessage(
+      token
+    );
   }
 }

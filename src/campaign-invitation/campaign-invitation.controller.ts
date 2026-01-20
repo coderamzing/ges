@@ -280,39 +280,7 @@ export class CampaignInvitationController {
   }
 
 
-  @Post('send')
-  @ApiOperation({ summary: 'Send chat message to a user' })
-  @ApiHeader({
-    name: 'x-auth-token',
-    description: 'Authentication token',
-    required: true,
-  })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        receiverUsername: { type: 'string', example: 'tesla' },
-        message: { type: 'string', example: 'hi !' },
-      },
-      required: ['receiverUsername', 'message'],
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Message sent successfully',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid request body',
-  })
-  async sendMessage(
-    @Headers('x-auth-token') token: string,
-    @Body() body: { receiverUsername: string; message: string },
-  ) {
-    return this.campaignInvitationService.sendMessage(
-      token
-    );
-  }
+
 
 }
 

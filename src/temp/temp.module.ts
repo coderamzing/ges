@@ -5,6 +5,7 @@ import { TempController } from './temp.controller';
 import { TempService } from './temp.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
+import { CampaignInvitationService } from 'src/campaign-invitation/campaign-invitation.service';
 
 @Module({
   imports: [
@@ -18,6 +19,6 @@ import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
     }),
   ],
   controllers: [TempController],
-  providers: [TempService, PrismaService, JwtAuthGuard],
+  providers: [TempService, PrismaService, JwtAuthGuard, CampaignInvitationService],
 })
-export class TempModule {}
+export class TempModule { }
