@@ -15,7 +15,7 @@ export class CampaignSpintaxTemplateListener {
     private prisma: PrismaService,
     private openAIService: OpenAIService,
     private campaignTemplateService: CampaignTemplateService,
-  ) {}
+  ) { }
 
   @OnEvent(CAMPAIGN_TEMPLATE_SAVED_EVENT)
   async handleCampaignTemplateSaved(templateId: number) {
@@ -25,17 +25,17 @@ export class CampaignSpintaxTemplateListener {
 
     try {
 
-       // Load the full template
+      // Load the full template
       const template = await this.campaignTemplateService.findOne(templateId);
 
       // Only generate variations if the template is active
-      if (!template.isActive) {
-        this.logger.log(
-          `Template ${template.id} is not active, skipping variation generation`,
-        );
-        return;
-      }
-      
+      // if (!template.isActive) {
+      //   this.logger.log(
+      //     `Template ${template.id} is not active, skipping variation generation`,
+      //   );
+      //   return;
+      // }
+
       // Check if OpenAI service is available
       if (!this.openAIService.isServiceAvailable()) {
         this.logger.warn(
@@ -50,7 +50,7 @@ export class CampaignSpintaxTemplateListener {
       );
 
       // Build the prompt for OpenAI
-      const prompt = renderTemplate(TEMPLATE_VARIATION_PROMPT,{
+      const prompt = renderTemplate(TEMPLATE_VARIATION_PROMPT, {
         templateContent: template.content,
         language: template.lang,
         typeDescription: template.type,

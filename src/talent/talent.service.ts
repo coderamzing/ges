@@ -160,7 +160,7 @@ export class TalentService {
 
 
     const where: any = {
-      currentCity: event.city,
+      // currentCity: event.city,
     };
 
     if (filters.talentType?.length) {
@@ -175,30 +175,47 @@ export class TalentService {
       where.blacklists = { none: { promoterId } };
     }
 
-    if (promoterFilters.length > 0) {
-      where.OR = [
+    // if (promoterFilters.length > 0) {
+    //   where.OR = [
 
-        {
-          promoterStates: {
-            some: {
-              promoterId,
-              optedOut: false,
-              OR: promoterFilters,
-            },
-          },
-        },
+    //     {
+    //       promoterStates: {
+    //         some: {
+    //           promoterId,
+    //           optedOut: false,
+    //           OR: promoterFilters,
+    //         },
+    //       },
+    //     },
 
 
-        {
-          promoterStates: {
-            none: { promoterId },
-          },
-        },
-      ];
-    }
-    else if (filters.trustScoreMin === 0) {
+    //     {
+    //       promoterStates: {
+    //         none: { promoterId },
+    //       },
+    //     },
+    //   ];
+    // }
+    // else if (filters.trustScoreMin === 0) {
+    //   where.promoterStates = {
+    //     none: { promoterId },
+    //   };
+    // }
+
+    if (filters.openchat === false) {
+      // FRESH USERS ONLY
       where.promoterStates = {
         none: { promoterId },
+      };
+    }
+    else if (promoterFilters.length > 0) {
+      // EXISTING USERS WITH MATCHING STATE
+      where.promoterStates = {
+        some: {
+          promoterId,
+          optedOut: false,
+          AND: promoterFilters,   // <-- IMPORTANT change
+        },
       };
     }
 

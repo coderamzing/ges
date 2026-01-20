@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCampaignDto, UpdateCampaignAutoLangModeDto, UpdateCampaignDto, UpdateCampaignPostEventTimeDto, UpdateCampaignStatusDto } from './campaign.dto';
@@ -155,6 +155,23 @@ export class CampaignService {
 
     if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Campaign does not belong to this promoter`);
+    }
+
+    if (updateCampaignStatusDto.status === 'active') {
+
+      const invitationCount = await this.prisma.campaignInvitation.count({
+        where: {
+          campaignId: id,
+          promoterId: BigInt(promoterId),
+          batch: 1,
+        },
+      });
+
+      if (invitationCount < 10) {
+        throw new BadRequestException(
+          `You must send at least 10 invitations in batch 1 before activating the campaign. Currently sent: ${invitationCount}`
+        );
+      }
     }
 
     return this.prisma.campaign.update({

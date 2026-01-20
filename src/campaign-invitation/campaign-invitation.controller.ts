@@ -9,15 +9,17 @@ import {
   Query,
   ParseIntPipe,
   UseGuards,
+  Headers
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOkResponse, ApiNotFoundResponse, ApiHeader, ApiBody } from '@nestjs/swagger';
 import { CampaignInvitationService } from './campaign-invitation.service';
-import { GetInvitationsQueryDto, MarkInvitationsAsAttendedDto, MarkInvitationsForFollowupDto } from './campaign-invitation.dto';
+import { DeleteInvitationResponseDto, GetInvitationsQueryDto, MarkInvitationsAsAttendedDto, MarkInvitationsForFollowupDto, UpdateInvitationStatusDto } from './campaign-invitation.dto';
 import { CampaignInvitation, TalentPool, TalentPromoterState } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 import { TalentService } from '../talent/talent.service';
 import { TalentRecommendationFiltersDto } from '../talent/talent.dto';
 import { AddTalentsToCampaignDto } from '../campaign/campaign.dto';
+
 
 @ApiTags('campaign-invitations')
 @ApiBearerAuth()
@@ -166,26 +168,45 @@ export class CampaignInvitationController {
 
   @Delete('campaign/:campaignId/:invitationId')
   @ApiOperation({ summary: 'Remove a talent from campaign invitations' })
-  @ApiResponse({
-    status: 204,
-    description: 'Invitation removed successfully',
-  })
-  @ApiResponse({
-    status: 404,
-    description:
-      'Campaign or invitation not found or does not belong to promoter',
-  })
+  @ApiOkResponse({ type: DeleteInvitationResponseDto, description: 'Invitation removed successfully' })
+  @ApiNotFoundResponse({ description: 'Campaign or invitation not found or does not belong to promoter' })
   async removeInvitation(
     @Param('campaignId', ParseIntPipe) campaignId: number,
     @Param('invitationId', ParseIntPipe) invitationId: number,
     @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<void> {
-    await this.campaignInvitationService.removeInvitation(
+  ): Promise<DeleteInvitationResponseDto> {
+    return this.campaignInvitationService.removeInvitation(
       campaignId,
       invitationId,
       promoter.id,
     );
   }
+
+
+
+  @Patch('campaign/:campaignId/:invitationId/status')
+  @ApiOperation({ summary: 'Manually update invitation status' })
+  @ApiResponse({ status: 200, description: 'Invitation status updated' })
+  @ApiResponse({
+    status: 404,
+    description:
+      'Campaign or invitation not found or does not belong to promoter',
+  })
+  async updateInvitationStatus(
+    @Param('campaignId', ParseIntPipe) campaignId: number,
+    @Param('invitationId', ParseIntPipe) invitationId: number,
+    @Body() dto: UpdateInvitationStatusDto,
+    @GetPromoter() promoter: { id: number; email: string },
+  ) {
+    return this.campaignInvitationService.updateInvitationStatus(
+      campaignId,
+      invitationId,
+      promoter.id,
+      dto.status,
+    );
+  }
+
+
 
   @Get('campaign/:campaignId/batch/:batchId')
   @ApiOperation({
@@ -257,5 +278,41 @@ export class CampaignInvitationController {
       promoter.id,
     );
   }
+
+
+  @Post('send')
+  @ApiOperation({ summary: 'Send chat message to a user' })
+  @ApiHeader({
+    name: 'x-auth-token',
+    description: 'Authentication token',
+    required: true,
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        receiverUsername: { type: 'string', example: 'tesla' },
+        message: { type: 'string', example: 'hi !' },
+      },
+      required: ['receiverUsername', 'message'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Message sent successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request body',
+  })
+  async sendMessage(
+    @Headers('x-auth-token') token: string,
+    @Body() body: { receiverUsername: string; message: string },
+  ) {
+    return this.campaignInvitationService.sendMessage(
+      token
+    );
+  }
+
 }
 

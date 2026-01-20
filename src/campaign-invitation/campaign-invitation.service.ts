@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CampaignInvitation, InvitationStatus } from '@prisma/client';
+import { CampaignInvitation, InvitationStatus, TemplateType } from '@prisma/client';
 import { GetInvitationsQueryDto } from './campaign-invitation.dto';
 import { AddTalentsToCampaignDto } from '../campaign/campaign.dto';
+import axios from 'axios';
 
 @Injectable()
 export class CampaignInvitationService {
@@ -35,6 +36,35 @@ export class CampaignInvitationService {
     return { campaign, event };
   }
 
+
+
+  private async ensureActiveTemplatesForAllTypes(campaignId: number, requiredType: TemplateType,) {
+    const activeTemplates = await this.prisma.campaignTemplate.groupBy({
+      by: ['type'],
+      where: {
+        campaignId,
+        isActive: true,
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    const requiredTypes = Object.values(TemplateType);
+
+    const missingTypes = requiredTypes.filter(type =>
+      !activeTemplates.some(t => t.type === type)
+    );
+
+    if (missingTypes.length > 0) {
+      throw new BadRequestException(
+        `You must activate at least one ${requiredType} template language before performing this action`
+      );
+    }
+  }
+
+
+
   async getInvitationsByCampaign(
     campaignId: number,
     promoterId: number,
@@ -58,9 +88,9 @@ export class CampaignInvitationService {
       where.hasReplied = filters.hasReplied;
     }
 
-     const orderBy = {
-    invitationAt: filters?.order ?? 'desc',
-  };
+    const orderBy = {
+      invitationAt: filters?.order ?? 'desc',
+    };
 
     return this.prisma.campaignInvitation.findMany({
       where,
@@ -94,8 +124,8 @@ export class CampaignInvitationService {
     }
 
     const orderBy = {
-    invitationAt: filters?.order ?? 'desc', 
-  };
+      invitationAt: filters?.order ?? 'desc',
+    };
 
     const invitations = await this.prisma.campaignInvitation.findMany({
       where,
@@ -180,10 +210,15 @@ export class CampaignInvitationService {
     addTalentsDto: AddTalentsToCampaignDto,
     promoterId: number,
   ): Promise<CampaignInvitation[]> {
+
+
     const { campaign } = await this.ensureCampaignBelongsToPromoter(
       campaignId,
       promoterId,
     );
+
+    await this.ensureActiveTemplatesForAllTypes(campaignId, TemplateType.invitation);
+
 
     // Use batchId from DTO or default to 1
     const batchId = addTalentsDto.batchId ?? 1;
@@ -269,14 +304,43 @@ export class CampaignInvitationService {
    * Remove a single invitation from a campaign.
    * This is moved from CampaignService.removeInvitation.
    */
+  // async removeInvitation(
+  //   campaignId: number,
+  //   invitationId: number,
+  //   promoterId: number,
+  // ): Promise<void> {
+  //   await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
+
+  //   // Check if invitation exists and belongs to the campaign
+  //   const invitation = await this.prisma.campaignInvitation.findUnique({
+  //     where: { id: invitationId },
+  //   });
+
+  //   if (!invitation) {
+  //     throw new NotFoundException(
+  //       `Invitation with ID ${invitationId} not found`,
+  //     );
+  //   }
+
+  //   if (invitation.campaignId !== campaignId) {
+  //     throw new NotFoundException(
+  //       `Invitation does not belong to this campaign`,
+  //     );
+  //   }
+
+  //   await this.prisma.campaignInvitation.delete({
+  //     where: { id: invitationId },
+  //   });
+  // }
+
   async removeInvitation(
     campaignId: number,
     invitationId: number,
     promoterId: number,
-  ): Promise<void> {
+  ): Promise<{ message: string }> {
+
     await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
 
-    // Check if invitation exists and belongs to the campaign
     const invitation = await this.prisma.campaignInvitation.findUnique({
       where: { id: invitationId },
     });
@@ -293,10 +357,51 @@ export class CampaignInvitationService {
       );
     }
 
+    await this.prisma.campaignMessage.deleteMany({
+      where: {
+        invitationId: invitationId,
+      },
+    });
+
     await this.prisma.campaignInvitation.delete({
       where: { id: invitationId },
     });
+    return {
+      message: `Invitation ${invitationId} deleted successfully`,
+    };
   }
+
+
+
+
+  async updateInvitationStatus(
+    campaignId: number,
+    invitationId: number,
+    promoterId: number,
+    status: InvitationStatus,
+  ) {
+    const invitation = await this.prisma.campaignInvitation.findFirst({
+      where: {
+        id: invitationId,
+        campaignId,
+        promoterId: BigInt(promoterId),
+      },
+    });
+
+    if (!invitation) {
+      throw new NotFoundException(
+        'Invitation not found or does not belong to this campaign/promoter',
+      );
+    }
+
+    return this.prisma.campaignInvitation.update({
+      where: { id: invitationId },
+      data: { status },
+    });
+  }
+
+
+
 
   async markInvitationsAsAttended(
     campaignId: number,
@@ -319,6 +424,8 @@ export class CampaignInvitationService {
     if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Campaign does not belong to this promoter`);
     }
+    await this.ensureActiveTemplatesForAllTypes(campaignId, TemplateType.postevent);
+
     // Verify that all invitations exist and belong to the campaign
     const invitations = await this.prisma.campaignInvitation.findMany({
       where: {
@@ -371,6 +478,8 @@ export class CampaignInvitationService {
     if (!campaign) {
       throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
     }
+
+    await this.ensureActiveTemplatesForAllTypes(campaignId, TemplateType.followup);
 
     // Verify that the event belongs to the promoter
     const event = await this.prisma.events.findUnique({
@@ -509,5 +618,44 @@ export class CampaignInvitationService {
     // All conditions satisfied → can start
     return true;
   }
+
+
+
+  async sendMessage(
+    token: string,
+  ) {
+    try {
+      console.log(token, "incoming data ")
+      let receiverUsername = "sarbjeet_me"
+      let message = "hi this is test message !"
+      const response = await axios.post(
+        'https://globalentertainmentsolutions.io/chatbot/message-send',
+        { receiverUsername, message },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-auth-token': token,
+          },
+        },
+      );
+      console.log(response, "incoming respoe")
+      return response.data;
+    } catch (error: any) {
+      console.error('CHATBOT ERROR:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+      });
+
+      throw new HttpException(
+        error?.response?.data || 'Failed to send message',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+
+
+
 }
 

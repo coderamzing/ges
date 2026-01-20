@@ -3,6 +3,20 @@ import { IsOptional, IsEnum, IsBoolean, IsInt, IsArray, IsNotEmpty, ArrayMinSize
 import { InvitationStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 
+
+
+
+export class UpdateInvitationStatusDto {
+  @IsEnum(InvitationStatus)
+  status: InvitationStatus;
+}
+
+
+export class DeleteInvitationResponseDto {
+  @ApiProperty({ example: 'Invitation 42 deleted successfully' })
+  message: string;
+}
+
 export class GetInvitationsQueryDto {
   // @ApiPropertyOptional({
   //   description: 'Filter by invitation ID',
