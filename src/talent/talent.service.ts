@@ -160,7 +160,7 @@ export class TalentService {
 
 
     const where: any = {
-      // currentCity: event.city,
+      currentCity: event.city,
     };
 
     if (filters.talentType?.length) {

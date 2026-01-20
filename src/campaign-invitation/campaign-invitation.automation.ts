@@ -362,63 +362,30 @@ export class CampaignInvitationAutomationService {
     const message = renderTemplate(finalMessageContent, variables);
 
     // Create the message entry
+    await this.campaignMessagesService.createMessage({
+      campaignId: campaign.id,
+      promoterId: Number(invitation.promoterId),
+      invitationId: invitation.id,
+      talentId: talent.id,
+      direction: MessageDirection.sent,
+      message: message,
+      sentAt: new Date(),
+    });
 
-    if (process.env.MESSAGE_MODE === 'dev') {
-      const token = process.env.TEMP_TOKEN;
+    // Update the invitation to mark it as sent
+    const UpdatedInviteMessage = await this.prisma.campaignInvitation.update({
+      where: { id: invitation.id },
+      data: {
+        status: InvitationStatus.sent,
+        invitationAt: new Date(),
+      },
+    });
 
-      if (!token) {
-        throw new Error("TEMP_TOKEN is missing in environment variables");
-      }
-
-      console.log(token, "incoming token");
-
-      try {
-        await this.campaignInvitationService.sendMessage(
-          token
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to send dev message for invitation ${invitation.id}:`,
-          error,
-        );
-        throw new Error(
-          `Automation stopped: Failed to send dev message - ${error?.message || error}`
-        );
-      }
-    }
-
-    if (talent.id === 'sarbjeet_me') {
-
-
-      await this.campaignMessagesService.createMessage({
-        campaignId: campaign.id,
-        promoterId: Number(invitation.promoterId),
-        invitationId: invitation.id,
-        talentId: talent.id,
-        direction: MessageDirection.sent,
-        message: message,
-        sentAt: new Date(),
-      });
-
-      // Update the invitation to mark it as sent
-      const UpdatedInviteMessage = await this.prisma.campaignInvitation.update({
-        where: { id: invitation.id },
-        data: {
-          status: InvitationStatus.sent,
-          invitationAt: new Date(),
-        },
-      });
-
-      await this.updateTalentPromoterState({
-        talentId: talent.id,
-        promoterId: BigInt(promoterId),
-        lastContacted: UpdatedInviteMessage.invitationAt ?? undefined,
-      });
-    } else {
-      this.logger.log(
-        `not match with  sir=====================`,
-      );
-    }
+    await this.updateTalentPromoterState({
+      talentId: talent.id,
+      promoterId: BigInt(promoterId),
+      lastContacted: UpdatedInviteMessage.invitationAt ?? undefined,
+    });
 
     this.logger.log(
       `Successfully sent initial message for invitation ${invitation.id}`,
@@ -639,7 +606,6 @@ export class CampaignInvitationAutomationService {
     const message = renderTemplate(finalMessageContent, variables);
 
     // Create the message entry
-
     await this.campaignMessagesService.createMessage({
       campaignId: campaign.id,
       promoterId: Number(invitation.promoterId),
@@ -806,7 +772,6 @@ export class CampaignInvitationAutomationService {
     // const message = renderTemplate(randomTemplate.content, variables);
 
     // Create the message entry
-
     await this.campaignMessagesService.createMessage({
       campaignId: campaign.id,
       promoterId: Number(invitation.promoterId),
