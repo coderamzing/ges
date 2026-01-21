@@ -4,6 +4,7 @@ import { CampaignInvitation, InvitationStatus, TemplateType } from '@prisma/clie
 import { GetInvitationsQueryDto } from './campaign-invitation.dto';
 import { AddTalentsToCampaignDto } from '../campaign/campaign.dto';
 import axios from 'axios';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CampaignInvitationService {
@@ -642,11 +643,73 @@ export class CampaignInvitationService {
             },
           },
         );
-        console.log(response, "incoming respoe")
         return response.data;
       }
       if (process.env.MESSAGE_MODE === 'dev') {
+        const threadId = randomUUID();
+        const messageId = randomUUID();
+        const senderBigInt = BigInt(senderId);
+        const receiverBigInt = receiverId;
+        const now = new Date();
+        const talent = await this.prisma.talentPool.findUnique({
+          where: { id: receiverId },
+        });
+        if (!talent) {
+          throw new Error(`Talent ${receiverId} not found`);
+        }
 
+        const talentPk = talent.pk ?? BigInt(talent.id);
+
+        const thread = await this.prisma.thread.upsert({
+          where: {
+            user_id_pk2: {
+              user_id: BigInt(senderId),
+              pk2: talentPk,
+            },
+
+          },
+          update: {
+            created_at: now,
+          },
+          create: {
+            id: threadId,
+            created_at: new Date(),
+            pk1: talent.fromTrackerPk,
+            pk2: talentPk,
+            username1: talent.fromTracker,
+            username2: String(talent.id),
+            name2: talent.name ?? null,
+            picture2: talent.profilePicture ?? talent.mainPicture ?? null,
+            user_id: BigInt(senderId),
+          },
+        });
+        await this.prisma.message.create({
+          data: {
+            id: messageId,
+            created_at: now,
+            tm: now,
+            message,
+            sender: senderBigInt,
+            sender_username: receiverId,
+            receiver: Number(receiverBigInt),
+            receiver_username: talent.id,
+            thread_id: thread.id,
+            invite: true,
+            pending_reply: false,
+            tmp: true,
+          },
+        });
+
+        return {
+          msg: {
+            id: messageId,
+            threadId,
+            senderId,
+            receiverId,
+            message,
+            createdAt: now,
+          },
+        };
       }
 
     } catch (error: any) {

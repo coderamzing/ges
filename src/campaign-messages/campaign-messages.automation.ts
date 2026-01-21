@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { OpenAIService } from '../openai/openai.service';
-import { MessageDirection, InvitationStatus, CampaignMessage } from '@prisma/client';
+import { MessageDirection, InvitationStatus, CampaignMessage, Message } from '@prisma/client';
 import { MESSAGE_INTERPRETATION_PROMPT, MESSAGE_INTERPRETATION_SYSTEM_PROMPT } from './campaign-messages.config';
 import { renderTemplate } from 'utils/handlebar';
 

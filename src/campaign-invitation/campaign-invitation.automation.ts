@@ -400,48 +400,6 @@ export class CampaignInvitationAutomationService {
     // const message = renderTemplate(randomTemplate.content, variables);
     const message = renderTemplate(finalMessageContent, variables);
 
-
-
-
-    // const token = process.env.TEMP_TOKEN;
-    // if (!token) {
-    //   throw new Error("TEMP_TOKEN is missing in environment variables");
-    // }
-
-    // let receiverID = talent.id
-    // let senderId = Number(invitation.promoterId)
-
-    // try {
-    //   let response = await this.campaignInvitationService.sendMessage(
-    //     token, receiverID, message, senderId
-    //   );
-    //   console.log(response, "incoming data ")
-    //   const threadId = response.data?.msg?.threadId;
-    //   if (threadId) {
-    //     await this.prisma.campaignInvitation.update({
-    //       where: {
-    //         campaignId_talentId: {
-    //           campaignId: campaign.id,
-    //           talentId: talent.id,
-    //         },
-    //       },
-    //       data: {
-    //         thread_id: threadId,
-    //       },
-    //     });
-    //     console.log("thread Id udpate in campaign invitation ")
-    //   }
-    // } catch (error) {
-    //   this.logger.error(
-    //     `Failed to send dev message for invitation ${invitation.id}:`,
-    //     error,
-    //   );
-    //   throw new Error(
-    //     `Automation stopped: Failed to send dev message - ${error?.message || error}`
-    //   );
-    // }
-
-
     const threadId = await this.sendMessageCommon({
       receiverId: talent.id,
       promoterId: invitation.promoterId,
@@ -548,12 +506,12 @@ export class CampaignInvitationAutomationService {
       const promoterId = invitation.promoterId;
       const delayMinutes = [5, 20];
       // Check if enough time has passed since last send for this promoter
-      if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
-        this.logger.debug(
-          `Skipping followup for promoter ${promoterId}, waiting for random gap`,
-        );
-        return;
-      }
+      // if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
+      //   this.logger.debug(
+      //     `Skipping followup for promoter ${promoterId}, waiting for random gap`,
+      //   );
+      //   return;
+      // }
 
       try {
         await this.sendFollowupMessage(invitation);

@@ -434,6 +434,7 @@ model Thread {
   name2       String?  @db.VarChar(255)
   picture2    String?  @db.VarChar(255)
 
+  @@unique([user_id, pk2]) 
   @@map("thread")
 }
 
