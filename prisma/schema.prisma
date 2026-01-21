@@ -197,6 +197,7 @@ model CampaignInvitation {
   followup     Boolean          @default(false)
   thankYouSent Boolean          @default(false)
   hasReplied   Boolean          @default(false)
+  thread_id    String?          @db.VarChar(255)
 
   // Relations
   campaign Campaign @relation(fields: [campaignId], references: [id])
@@ -394,3 +395,45 @@ model Events {
 
   @@map("events")
 }
+
+model Message {
+  id                 String   @id @db.VarChar(255)
+  created_at         DateTime? @db.Timestamp(6)
+  dt                 DateTime? @db.Date
+  tm                 DateTime? @db.Timestamp(6)
+  message            String?   @db.VarChar(800)
+  receiver           BigInt?
+  receiver_username  String?   @db.VarChar(255)
+  sender             BigInt?
+  sender_username    String?   @db.VarChar(255)
+  thread_id          String?   @db.VarChar(255)
+  user_id            BigInt?
+  removed            Boolean?
+  invite             Boolean?
+  tmp                Boolean?
+  pending_reply      Boolean?  @default(false)
+  client_context     String?   @db.VarChar(255)
+  event_id           BigInt?
+  id_inst            String?   @db.VarChar(255)
+  ai_processed       Boolean?  @default(false)
+  ai_processed_at    DateTime?
+  ai_event_status    String?   @db.VarChar(50)
+  ai_city_detected   String?   @db.VarChar(100)
+
+  @@map("message")
+}
+
+model Thread {
+  id          String   @id @db.VarChar(255)
+  created_at  DateTime? @db.Timestamp(6)
+  pk1         BigInt?
+  pk2         BigInt?
+  user_id     BigInt?
+  username1   String?  @db.VarChar(255)
+  username2   String?  @db.VarChar(255)
+  name2       String?  @db.VarChar(255)
+  picture2    String?  @db.VarChar(255)
+
+  @@map("thread")
+}
+
