@@ -357,15 +357,18 @@ export class CampaignInvitationService {
       );
     }
 
-    await this.prisma.campaignMessage.deleteMany({
-      where: {
-        invitationId: invitationId,
-      },
+
+    await this.prisma.$transaction(async (tx) => {
+
+      await tx.campaignMessage.deleteMany({
+        where: { invitationId },
+      });
+
+      await tx.campaignInvitation.delete({
+        where: { id: invitationId },
+      });
     });
 
-    await this.prisma.campaignInvitation.delete({
-      where: { id: invitationId },
-    });
     return {
       message: `Invitation ${invitationId} deleted successfully`,
     };
