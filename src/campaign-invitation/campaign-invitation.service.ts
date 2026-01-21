@@ -626,11 +626,14 @@ export class CampaignInvitationService {
 
   async sendMessage(
     token: string,
+    receiverUsername: string,
+    message: string,
   ) {
     try {
       console.log(token, "incoming data ")
-      let receiverUsername = "sarbjeet_me"
-      let message = "hi this is test message !"
+      console.log(receiverUsername, "incoming username ")
+      console.log(message, "incoming message ")
+
       const response = await axios.post(
         'https://globalentertainmentsolutions.io/chatbot/message-send',
         { receiverUsername, message },

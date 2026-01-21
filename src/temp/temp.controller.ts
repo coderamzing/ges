@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Param, Body, ParseIntPipe, UseGuards, Headers } from '@nestjs/common';
-import { ApiBody, ApiHeader, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { TempService } from './temp.service';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 import { CampaignInvitationService } from 'src/campaign-invitation/campaign-invitation.service';
@@ -43,6 +43,7 @@ export class TempController {
     return this.tempService.getTrustScoreLogs(talentId, promoterId);
   }
 
+  @ApiBearerAuth()
   @Post('send')
   @ApiOperation({ summary: 'Send chat message to a user' })
   @ApiHeader({
@@ -73,7 +74,9 @@ export class TempController {
     @Body() body: { receiverUsername: string; message: string },
   ) {
     return this.campaignInvitationService.sendMessage(
-      token
+      token,
+      body.receiverUsername,
+      body.message
     );
   }
 }
