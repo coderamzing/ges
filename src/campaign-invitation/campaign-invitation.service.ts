@@ -5,6 +5,7 @@ import { GetInvitationsQueryDto } from './campaign-invitation.dto';
 import { AddTalentsToCampaignDto } from '../campaign/campaign.dto';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
+import { SendMessageResponse } from './campaign-invitation.types';
 
 @Injectable()
 export class CampaignInvitationService {
@@ -630,7 +631,7 @@ export class CampaignInvitationService {
     receiverId: string,  // sender
     message: string,
     senderId: number
-  ) {
+  ): Promise<SendMessageResponse | undefined> {
     try {
       if (process.env.MESSAGE_MODE === 'live') {
         const response = await axios.post(
@@ -649,27 +650,30 @@ export class CampaignInvitationService {
         const threadId = randomUUID();
         const messageId = randomUUID();
         const senderBigInt = BigInt(senderId);
+        console.log(senderBigInt, "sendt id ")
         const receiverBigInt = receiverId;
+        console.log(receiverBigInt, "incmign id ")
         const now = new Date();
         const talent = await this.prisma.talentPool.findUnique({
           where: { id: receiverId },
         });
+        console.log(talent, "taletnt details ")
         if (!talent) {
           throw new Error(`Talent ${receiverId} not found`);
         }
 
         const talentPk = talent.pk ?? BigInt(talent.id);
-
+        console.log(talentPk, "talent pk ")
         const thread = await this.prisma.thread.upsert({
           where: {
             user_id_pk2: {
-              user_id: BigInt(senderId),
+              user_id: senderId,
               pk2: talentPk,
             },
 
           },
           update: {
-            created_at: now,
+            // created_at: now,
           },
           create: {
             id: threadId,
@@ -680,9 +684,11 @@ export class CampaignInvitationService {
             username2: String(talent.id),
             name2: talent.name ?? null,
             picture2: talent.profilePicture ?? talent.mainPicture ?? null,
-            user_id: BigInt(senderId),
+            user_id: senderId,
           },
         });
+
+        console.log(thread, "incoming thread")
         await this.prisma.message.create({
           data: {
             id: messageId,
@@ -701,16 +707,25 @@ export class CampaignInvitationService {
         });
 
         return {
+          message: 'OK',
           msg: {
             id: messageId,
-            threadId,
-            senderId,
-            receiverId,
+            userId: senderId,
+            senderUsername: 'promoter', // replace with real promoter username
+            receiverUsername: talent.id ?? receiverId,
+            receiver: Number(talentPk),
+            threadId: thread.id,
             message,
-            createdAt: now,
+            dt: now.toISOString().split('T')[0],
+            tm: now.toISOString(),
+            createdAt: now.toISOString(),
+            clientContext: randomUUID(),
           },
         };
       }
+
+      // 🔥 Prevent undefined return
+      throw new Error(`Invalid MESSAGE_MODE: ${process.env.MESSAGE_MODE}`);
 
     } catch (error: any) {
       console.error('CHATBOT ERROR:', {

@@ -11,6 +11,7 @@ import {
   CampaignStatus,
 } from "@prisma/client";
 import { renderTemplate } from "utils/handlebar";
+import { SendMessageResponse } from "./campaign-invitation.types";
 
 @Injectable()
 export class CampaignInvitationAutomationService {
@@ -215,7 +216,7 @@ export class CampaignInvitationAutomationService {
     promoterId: bigint;
     message: string;
     invitationId: number;
-  }): Promise<string | undefined> {
+  }): Promise<SendMessageResponse | undefined> {
     const { receiverId, promoterId, message, invitationId } = params;
 
     const token = process.env.TEMP_TOKEN;
@@ -233,8 +234,12 @@ export class CampaignInvitationAutomationService {
           message,
           senderId,
         );
+      console.log(response, "incomng response")
+      console.log('incoming response', response);
 
-      return response.data?.msg?.threadId;
+      // ✅ EXACTLY WHAT YOU ASKED FOR
+      return response;
+
     } catch (error) {
       this.logger.error(
         `Failed to send message for invitation ${invitationId}:`,
@@ -406,22 +411,22 @@ export class CampaignInvitationAutomationService {
       invitationId: invitation.id,
       message,
     });
+    console.log(threadId, "incoming thread id ")
+    // if (threadId) {
+    //   await this.prisma.campaignInvitation.update({
+    //     where: {
+    //       campaignId_talentId: {
+    //         campaignId: campaign.id,
+    //         talentId: talent.id,
+    //       },
+    //     },
+    //     data: {
+    //       thread_id: threadId,
+    //     },
+    //   });
 
-    if (threadId) {
-      await this.prisma.campaignInvitation.update({
-        where: {
-          campaignId_talentId: {
-            campaignId: campaign.id,
-            talentId: talent.id,
-          },
-        },
-        data: {
-          thread_id: threadId,
-        },
-      });
-
-      this.logger.log("thread Id updated in campaign invitation");
-    }
+    //   this.logger.log("thread Id updated in campaign invitation");
+    // }
 
 
 
