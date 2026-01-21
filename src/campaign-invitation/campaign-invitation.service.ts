@@ -626,26 +626,29 @@ export class CampaignInvitationService {
 
   async sendMessage(
     token: string,
-    receiverUsername: string,
+    receiverId: string,  // sender
     message: string,
+    senderId: number
   ) {
     try {
-      console.log(token, "incoming data ")
-      console.log(receiverUsername, "incoming username ")
-      console.log(message, "incoming message ")
-
-      const response = await axios.post(
-        'https://globalentertainmentsolutions.io/chatbot/message-send',
-        { receiverUsername, message },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-auth-token': token,
+      if (process.env.MESSAGE_MODE === 'live') {
+        const response = await axios.post(
+          'https://globalentertainmentsolutions.io/chatbot/message-send',
+          { receiverId, message },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'x-auth-token': token,
+            },
           },
-        },
-      );
-      console.log(response, "incoming respoe")
-      return response.data;
+        );
+        console.log(response, "incoming respoe")
+        return response.data;
+      }
+      if (process.env.MESSAGE_MODE === 'dev') {
+
+      }
+
     } catch (error: any) {
       console.error('CHATBOT ERROR:', {
         status: error?.response?.status,

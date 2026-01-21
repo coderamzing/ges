@@ -103,6 +103,7 @@ export class TalentService {
     batchId: number,
     filters: TalentRecommendationFiltersDto,
   ): Promise<any[]> {
+    console.log(filters, "incoming filter data ")
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
     });
@@ -138,9 +139,8 @@ export class TalentService {
         ? { some: { promoterId } }
         : undefined;
 
-    const hasTrustScoreFilter =
-      (filters.trustScoreMin !== undefined && filters.trustScoreMin > 0) ||
-      filters.trustScoreMax !== undefined;
+    const hasTrustScoreFilter = !!filters.trustScoreRange;
+
 
     const shouldFilterPromoterState =
       filters.openchat !== undefined ||
@@ -167,13 +167,14 @@ export class TalentService {
               ...(filters.dmSent === false ? { lastReply: null } : {}),
               ...(filters.dmSent === true ? { lastReply: { not: null } } : {}),
               AND: [
-                ...(filters.trustScoreMin && filters.trustScoreMin > 0
-                  ? [{ trustScore: { gte: filters.trustScoreMin } }]
+                ...(filters.trustScoreRange?.min !== undefined
+                  ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
                   : []),
-                ...(filters.trustScoreMax
-                  ? [{ trustScore: { lte: filters.trustScoreMax } }]
+                ...(filters.trustScoreRange?.max !== undefined
+                  ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
                   : []),
               ],
+
             },
           },
           ...(blacklistFilter ? { blacklists: blacklistFilter } : {}),
@@ -182,6 +183,54 @@ export class TalentService {
 
     } else if (blacklistFilter) {
       baseWhere.blacklists = blacklistFilter;
+    }
+
+
+    let excludedTalentIds: string[] = [];
+
+    if (batchId === 1) {
+      // Exclude anyone already invited in this campaign
+      const invited = await this.prisma.campaignInvitation.findMany({
+        where: {
+          campaignId,
+        },
+        select: {
+          talentId: true,
+        },
+      });
+
+      excludedTalentIds = invited.map(i => i.talentId);
+    }
+    // const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    // const oneHourAgo = new Date(Date.now() - 2 * 60 * 1000);
+
+
+
+    if (batchId === 2) {
+      // Exclude anyone invited in batch 1
+      const invitedBatchOne = await this.prisma.campaignInvitation.findMany({
+        where: {
+          campaignId,
+          batch: 1,
+          // invitationAt: {
+          //   gt: oneHourAgo, // invited less than 1 hour ago
+          // },
+        },
+        select: {
+          talentId: true,
+        },
+      });
+
+      excludedTalentIds = invitedBatchOne.map(i => i.talentId);
+    }
+
+    if (excludedTalentIds.length > 0) {
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          id: { notIn: excludedTalentIds },
+        },
+      ];
     }
 
     const talentPools = await this.prisma.talentPool.findMany({
@@ -215,6 +264,126 @@ export class TalentService {
       };
     });
   }
+
+
+  // async getRecommendations(
+  //   campaignId: number,
+  //   batchId: number,
+  //   filters: TalentRecommendationFiltersDto,
+  // ): Promise<any[]> {
+
+  //   const campaign = await this.prisma.campaign.findUnique({
+  //     where: { id: campaignId },
+  //   });
+  //   if (!campaign) {
+  //     throw new NotFoundException(`Campaign ${campaignId} not found`);
+  //   }
+
+  //   const event = await this.prisma.events.findUnique({
+  //     where: { id: campaign.eventId },
+  //   });
+  //   if (!event) {
+  //     throw new NotFoundException(`Event ${campaign.eventId} not found`);
+  //   }
+
+  //   const promoterId = event.userId ? BigInt(event.userId) : null;
+  //   if (!promoterId) {
+  //     throw new NotFoundException(`Event has no promoter`);
+  //   }
+
+  //   const limit = filters.limit ?? 100;
+
+  //   const where: any = {
+  //     currentCity: event.city,
+  //   };
+
+  //   if (filters.talentType?.length) {
+  //     where.talentType = {
+  //       in: filters.talentType,
+  //     };
+  //   }
+
+  //   // ---------------- BLACKLIST ----------------
+  //   if (filters.blacklist === true) {
+  //     where.blacklists = { some: { promoterId } };
+  //   } else if (filters.blacklist === false) {
+  //     where.blacklists = { none: { promoterId } };
+  //   }
+
+  //   // ---------------- PROMOTER STATE LOGIC ----------------
+  //   const hasPromoterFilters =
+  //     filters.openchat !== undefined ||
+  //     filters.dmSent !== undefined ||
+  //     filters.trustScoreMin !== undefined ||
+  //     filters.trustScoreMax !== undefined;
+
+  //   if (hasPromoterFilters) {
+  //     const promoterStateFilter: any = {
+  //       promoterId,
+  //       optedOut: false,
+  //     };
+
+  //     // open chat
+  //     if (filters.openchat === true) {
+  //       promoterStateFilter.lastContacted = { not: null };
+  //     } else if (filters.openchat === false) {
+  //       promoterStateFilter.lastContacted = null;
+  //     }
+
+  //     // dm sent
+  //     if (filters.dmSent === true) {
+  //       promoterStateFilter.lastReply = { not: null };
+  //     } else if (filters.dmSent === false) {
+  //       promoterStateFilter.lastReply = null;
+  //     }
+
+  //     // trust score
+  //     const trustScore: any = {};
+  //     if (filters.trustScoreMin !== undefined && filters.trustScoreMin > 0) {
+  //       trustScore.gte = filters.trustScoreMin;
+  //     }
+  //     if (filters.trustScoreMax !== undefined) {
+  //       trustScore.lte = filters.trustScoreMax;
+  //     }
+  //     if (Object.keys(trustScore).length > 0) {
+  //       promoterStateFilter.trustScore = trustScore;
+  //     }
+
+  //     // ❗IMPORTANT: once any filter is active → promoterState MUST exist
+  //     where.promoterStates = {
+  //       some: promoterStateFilter,
+  //     };
+  //   }
+  //   // else → NO promoter filter → promoterState null is allowed
+
+  //   const talentPools = await this.prisma.talentPool.findMany({
+  //     where,
+  //     include: {
+  //       promoterStates: {
+  //         where: { promoterId },
+  //         take: 1,
+  //       },
+  //       blacklists: {
+  //         where: { promoterId },
+  //         take: 1,
+  //       },
+  //     },
+  //     take: limit,
+  //   });
+
+  //   return talentPools.map((talent: any) => {
+  //     const promoterState = talent.promoterStates?.[0] || null;
+  //     const blacklist = talent.blacklists?.[0] || null;
+
+  //     const { promoterStates, blacklists, ...data } = talent;
+
+  //     return {
+  //       ...data,
+  //       promoterState,
+  //       blacklist,
+  //     };
+  //   });
+  // }
 
 
 

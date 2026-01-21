@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsInt, Min, IsBoolean, IsString, IsIn, IsBooleanString, IsArray } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import { BadRequestException } from '@nestjs/common';
 
 // export class TalentRecommendationFiltersDto {
 //   @ApiPropertyOptional({ description: 'Filter by openchat', example: true })
@@ -114,22 +115,52 @@ export class TalentRecommendationFiltersDto {
 
 
   @ApiPropertyOptional({
-    description: 'Minimum trust score',
-    example: 40
+    description: 'Trust score range. Examples: "10-40", "25"',
+    example: '10-40',
+    type: String,
   })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  trustScoreMin?: number;
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
 
-  @ApiPropertyOptional({
-    description: 'Maximum trust score',
-    example: 90
+    const input = String(value).trim();
+
+    // single number → min only
+    if (/^\d+$/.test(input)) {
+      return {
+        min: Number(input),
+        max: undefined,
+      };
+    }
+
+    // range: min-max
+    if (/^\d+\s*-\s*\d+$/.test(input)) {
+      const [minStr, maxStr] = input.split('-').map(v => v.trim());
+
+      const min = Number(minStr);
+      const max = Number(maxStr);
+
+      if (max <= min) {
+        throw new BadRequestException(
+          'trustScoreRange: max value must be greater than min value',
+        );
+      }
+
+      return { min, max };
+    }
+
+    throw new BadRequestException(
+      'trustScoreRange format must be "min-max" or "min"',
+    );
   })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  trustScoreMax?: number;
+  trustScoreRange?: {
+    min: number;
+    max?: number;
+  };
+
+
 
 
   @ApiPropertyOptional({

@@ -69,14 +69,17 @@ export class TempController {
     status: 400,
     description: 'Invalid request body',
   })
+
   async sendMessage(
     @Headers('x-auth-token') token: string,
     @Body() body: { receiverUsername: string; message: string },
+    @GetPromoter() promoter: { id: number; email: string },
   ) {
     return this.campaignInvitationService.sendMessage(
       token,
       body.receiverUsername,
-      body.message
+      body.message,
+      promoter.id,
     );
   }
 }

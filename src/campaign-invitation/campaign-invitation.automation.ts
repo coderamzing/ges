@@ -209,6 +209,46 @@ export class CampaignInvitationAutomationService {
     return randomSpintax.content;
   }
 
+
+  private async sendMessageCommon(params: {
+    receiverId: string;
+    promoterId: bigint;
+    message: string;
+    invitationId: number;
+  }): Promise<string | undefined> {
+    const { receiverId, promoterId, message, invitationId } = params;
+
+    const token = process.env.TEMP_TOKEN;
+    if (!token) {
+      throw new Error("TEMP_TOKEN is missing in environment variables");
+    }
+
+    const senderId = Number(promoterId);
+
+    try {
+      const response =
+        await this.campaignInvitationService.sendMessage(
+          token,
+          receiverId,
+          message,
+          senderId,
+        );
+
+      return response.data?.msg?.threadId;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send message for invitation ${invitationId}:`,
+        error,
+      );
+
+      throw new Error(
+        `Automation stopped: Failed to send message - ${error?.message || error
+        }`,
+      );
+    }
+  }
+
+
   constructor(
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
@@ -356,12 +396,77 @@ export class CampaignInvitationAutomationService {
       eventCity: event.city || "",
       eventDate: event.dt ? event.dt.toLocaleDateString() : "",
     };
-
     // Render the template with variables using handlebar
     // const message = renderTemplate(randomTemplate.content, variables);
     const message = renderTemplate(finalMessageContent, variables);
 
-    // Create the message entry
+
+
+
+    // const token = process.env.TEMP_TOKEN;
+    // if (!token) {
+    //   throw new Error("TEMP_TOKEN is missing in environment variables");
+    // }
+
+    // let receiverID = talent.id
+    // let senderId = Number(invitation.promoterId)
+
+    // try {
+    //   let response = await this.campaignInvitationService.sendMessage(
+    //     token, receiverID, message, senderId
+    //   );
+    //   console.log(response, "incoming data ")
+    //   const threadId = response.data?.msg?.threadId;
+    //   if (threadId) {
+    //     await this.prisma.campaignInvitation.update({
+    //       where: {
+    //         campaignId_talentId: {
+    //           campaignId: campaign.id,
+    //           talentId: talent.id,
+    //         },
+    //       },
+    //       data: {
+    //         thread_id: threadId,
+    //       },
+    //     });
+    //     console.log("thread Id udpate in campaign invitation ")
+    //   }
+    // } catch (error) {
+    //   this.logger.error(
+    //     `Failed to send dev message for invitation ${invitation.id}:`,
+    //     error,
+    //   );
+    //   throw new Error(
+    //     `Automation stopped: Failed to send dev message - ${error?.message || error}`
+    //   );
+    // }
+
+
+    const threadId = await this.sendMessageCommon({
+      receiverId: talent.id,
+      promoterId: invitation.promoterId,
+      invitationId: invitation.id,
+      message,
+    });
+
+    if (threadId) {
+      await this.prisma.campaignInvitation.update({
+        where: {
+          campaignId_talentId: {
+            campaignId: campaign.id,
+            talentId: talent.id,
+          },
+        },
+        data: {
+          thread_id: threadId,
+        },
+      });
+
+      this.logger.log("thread Id updated in campaign invitation");
+    }
+
+
+
     await this.campaignMessagesService.createMessage({
       campaignId: campaign.id,
       promoterId: Number(invitation.promoterId),
@@ -371,6 +476,9 @@ export class CampaignInvitationAutomationService {
       message: message,
       sentAt: new Date(),
     });
+
+
+
 
     // Update the invitation to mark it as sent
     const UpdatedInviteMessage = await this.prisma.campaignInvitation.update({
@@ -386,6 +494,7 @@ export class CampaignInvitationAutomationService {
       promoterId: BigInt(promoterId),
       lastContacted: UpdatedInviteMessage.invitationAt ?? undefined,
     });
+
 
     this.logger.log(
       `Successfully sent initial message for invitation ${invitation.id}`,
@@ -606,6 +715,14 @@ export class CampaignInvitationAutomationService {
     const message = renderTemplate(finalMessageContent, variables);
 
     // Create the message entry
+
+    await this.sendMessageCommon({
+      receiverId: talent.id,
+      promoterId: invitation.promoterId,
+      invitationId: invitation.id,
+      message,
+    });
+
     await this.campaignMessagesService.createMessage({
       campaignId: campaign.id,
       promoterId: Number(invitation.promoterId),
@@ -771,7 +888,15 @@ export class CampaignInvitationAutomationService {
     const message = renderTemplate(finalMessageContent, variables);
     // const message = renderTemplate(randomTemplate.content, variables);
 
+    await this.sendMessageCommon({
+      receiverId: talent.id,
+      promoterId: invitation.promoterId,
+      invitationId: invitation.id,
+      message,
+    });
+
     // Create the message entry
+
     await this.campaignMessagesService.createMessage({
       campaignId: campaign.id,
       promoterId: Number(invitation.promoterId),
