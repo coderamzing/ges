@@ -98,147 +98,94 @@ export class TalentService {
   // }
 
 
-
-
-
-
-
   async getRecommendations(
     campaignId: number,
     batchId: number,
     filters: TalentRecommendationFiltersDto,
   ): Promise<any[]> {
-
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
     });
-    if (!campaign) throw new NotFoundException(`Campaign ${campaignId} not found`);
+    if (!campaign) {
+      throw new NotFoundException(`Campaign ${campaignId} not found`);
+    }
 
     const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
-    if (!event) throw new NotFoundException(`Event ${campaign.eventId} not found`);
+    if (!event) {
+      throw new NotFoundException(`Event ${campaign.eventId} not found`);
+    }
 
     const promoterId = event.userId ? BigInt(event.userId) : null;
-    if (!promoterId) throw new NotFoundException(`Event has no promoter`);
-
+    if (!promoterId) {
+      throw new NotFoundException(`Event has no promoter`);
+    }
     const limit = filters.limit ?? 100;
-
-    const promoterFilters: any[] = [];
-
-
-    if (filters.openchat !== undefined) {
-      promoterFilters.push(
-        filters.openchat
-          ? { lastContacted: { not: null } }
-          : { lastContacted: null }
-      );
-    }
-
-
-    if (filters.dmSent !== undefined) {
-      promoterFilters.push(
-        filters.dmSent
-          ? { lastReply: { not: null } }
-          : { lastReply: null }
-      );
-    }
-
-
-    if ((filters.trustScoreMin ?? 0) > 0 || filters.trustScoreMax !== undefined) {
-      const trustScoreFilter: any = {};
-      if (filters.trustScoreMin !== undefined && filters.trustScoreMin > 0) {
-        trustScoreFilter.gte = filters.trustScoreMin;
-      }
-      if (filters.trustScoreMax !== undefined) {
-        trustScoreFilter.lte = filters.trustScoreMax;
-      }
-      if (Object.keys(trustScoreFilter).length > 0) {
-        promoterFilters.push({ trustScore: trustScoreFilter });
-      }
-    }
-
-
-    const where: any = {
+    const baseWhere: any = {
       currentCity: event.city,
     };
 
     if (filters.talentType?.length) {
-      where.talentType = {
-        in: filters.talentType
+      baseWhere.talentType = {
+        in: filters.talentType,
       };
     }
 
-    if (filters.blacklist === true) {
-      where.blacklists = { some: { promoterId } };
-    } else if (filters.blacklist === false) {
-      where.blacklists = { none: { promoterId } };
-    }
+    const blacklistFilter = filters.blacklist === false
+      ? { none: { promoterId } }
+      : filters.blacklist === true
+        ? { some: { promoterId } }
+        : undefined;
 
-    // if (promoterFilters.length > 0) {
-    //   where.OR = [
+    const hasTrustScoreFilter =
+      (filters.trustScoreMin !== undefined && filters.trustScoreMin > 0) ||
+      filters.trustScoreMax !== undefined;
 
-    //     {
-    //       promoterStates: {
-    //         some: {
-    //           promoterId,
-    //           optedOut: false,
-    //           OR: promoterFilters,
-    //         },
-    //       },
-    //     },
+    const shouldFilterPromoterState =
+      filters.openchat !== undefined ||
+      filters.dmSent !== undefined ||
+      hasTrustScoreFilter;
 
+    if (shouldFilterPromoterState) {
 
-    //     {
-    //       promoterStates: {
-    //         none: { promoterId },
-    //       },
-    //     },
-    //   ];
-    // }
-    // else if (filters.trustScoreMin === 0) {
-    //   where.promoterStates = {
-    //     none: { promoterId },
-    //   };
-    // }
-
-    if (filters.openchat === false) {
-      // FRESH USERS ONLY
-      where.promoterStates = {
-        none: { promoterId },
-      };
-    }
-    else if (promoterFilters.length > 0) {
-      // EXISTING USERS WITH MATCHING STATE
-      where.promoterStates = {
-        some: {
-          promoterId,
-          optedOut: false,
-          AND: promoterFilters,   // <-- IMPORTANT change
+      baseWhere.OR = [
+        {
+          ...baseWhere,
+          promoterStates: { none: { promoterId } },
+          ...(blacklistFilter ? { blacklists: blacklistFilter } : {}),
         },
-      };
+
+        {
+          ...baseWhere,
+          promoterStates: {
+            some: {
+              promoterId,
+              optedOut: false,
+              ...(filters.openchat === false ? { lastContacted: null } : {}),
+              ...(filters.openchat === true ? { lastContacted: { not: null } } : {}),
+              ...(filters.dmSent === false ? { lastReply: null } : {}),
+              ...(filters.dmSent === true ? { lastReply: { not: null } } : {}),
+              AND: [
+                ...(filters.trustScoreMin && filters.trustScoreMin > 0
+                  ? [{ trustScore: { gte: filters.trustScoreMin } }]
+                  : []),
+                ...(filters.trustScoreMax
+                  ? [{ trustScore: { lte: filters.trustScoreMax } }]
+                  : []),
+              ],
+            },
+          },
+          ...(blacklistFilter ? { blacklists: blacklistFilter } : {}),
+        },
+      ];
+
+    } else if (blacklistFilter) {
+      baseWhere.blacklists = blacklistFilter;
     }
-
-    // where.AND = [
-    //   ...(where.AND || []),
-    //   {
-    //     NOT: {
-    //       promoterStates: {
-    //         some: {
-    //           promoterId,
-    //           lastReply: null,
-    //           lastContacted: {
-    //             gte: new Date(Date.now() - 48 * 60 * 60 * 1000),
-    //           },
-    //         },
-    //       },
-    //     },
-    //   },
-    // ];
-
 
     const talentPools = await this.prisma.talentPool.findMany({
-      where,
+      where: baseWhere,
       include: {
         promoterStates: {
           where: { promoterId },
@@ -249,15 +196,16 @@ export class TalentService {
           take: 1,
         },
       },
-      take: limit,
       orderBy: {
-        followers: 'desc'
+        followers: 'desc',
       },
+      take: limit,
     });
 
     return talentPools.map((talent: any) => {
       const promoterState = talent.promoterStates?.[0] || null;
       const blacklist = talent.blacklists?.[0] || null;
+
       const { promoterStates, blacklists, ...data } = talent;
 
       return {
@@ -267,6 +215,124 @@ export class TalentService {
       };
     });
   }
+
+
+
+
+
+  // async getRecommendations(
+  //   campaignId: number,
+  //   batchId: number,
+  //   filters: TalentRecommendationFiltersDto,
+  // ): Promise<any[]> {
+
+  //   const campaign = await this.prisma.campaign.findUnique({
+  //     where: { id: campaignId },
+  //   });
+  //   if (!campaign) throw new NotFoundException(`Campaign ${campaignId} not found`);
+
+  //   const event = await this.prisma.events.findUnique({
+  //     where: { id: campaign.eventId },
+  //   });
+  //   if (!event) throw new NotFoundException(`Event ${campaign.eventId} not found`);
+
+  //   const promoterId = event.userId ? BigInt(event.userId) : null;
+  //   if (!promoterId) throw new NotFoundException(`Event has no promoter`);
+
+  //   const limit = filters.limit ?? 100;
+
+  //   const promoterFilters: any[] = [];
+
+
+  //   if (filters.openchat !== undefined) {
+  //     promoterFilters.push(
+  //       filters.openchat
+  //         ? { lastContacted: { not: null } }
+  //         : { lastContacted: null }
+  //     );
+  //   }
+  //   if (filters.dmSent !== undefined) {
+  //     promoterFilters.push(
+  //       filters.dmSent
+  //         ? { lastReply: { not: null } }
+  //         : { lastReply: null }
+  //     );
+  //   }
+
+  //   if ((filters.trustScoreMin ?? 0) > 0 || filters.trustScoreMax !== undefined) {
+  //     const trustScoreFilter: any = {};
+  //     if (filters.trustScoreMin !== undefined && filters.trustScoreMin > 0) {
+  //       trustScoreFilter.gte = filters.trustScoreMin;
+  //     }
+  //     if (filters.trustScoreMax !== undefined) {
+  //       trustScoreFilter.lte = filters.trustScoreMax;
+  //     }
+  //     if (Object.keys(trustScoreFilter).length > 0) {
+  //       promoterFilters.push({ trustScore: trustScoreFilter });
+  //     }
+  //   }
+
+  //   const where: any = {
+  //     currentCity: event.city,
+  //   };
+
+  //   if (filters.talentType?.length) {
+  //     where.talentType = {
+  //       in: filters.talentType
+  //     };
+  //   }
+
+  //   if (filters.blacklist === true) {
+  //     where.blacklists = { some: { promoterId } };
+  //   } else if (filters.blacklist === false) {
+  //     where.blacklists = { none: { promoterId } };
+  //   }
+
+  //   if (filters.openchat === false) {
+  //     where.promoterStates = {
+  //       none: { promoterId },
+  //     };
+  //   }
+  //   else if (promoterFilters.length > 0) {
+  //     where.promoterStates = {
+  //       some: {
+  //         promoterId,
+  //         optedOut: false,
+  //         AND: promoterFilters,   
+  //       },
+  //     };
+  //   }
+
+  //   const talentPools = await this.prisma.talentPool.findMany({
+  //     where,
+  //     include: {
+  //       promoterStates: {
+  //         where: { promoterId },
+  //         take: 1,
+  //       },
+  //       blacklists: {
+  //         where: { promoterId },
+  //         take: 1,
+  //       },
+  //     },
+  //     take: limit,
+  //     orderBy: {
+  //       followers: 'desc'
+  //     },
+  //   });
+
+  //   return talentPools.map((talent: any) => {
+  //     const promoterState = talent.promoterStates?.[0] || null;
+  //     const blacklist = talent.blacklists?.[0] || null;
+  //     const { promoterStates, blacklists, ...data } = talent;
+
+  //     return {
+  //       ...data,
+  //       promoterState,
+  //       blacklist,
+  //     };
+  //   });
+  // }
 
 
 
