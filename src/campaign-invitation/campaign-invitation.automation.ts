@@ -219,10 +219,7 @@ export class CampaignInvitationAutomationService {
   }): Promise<SendMessageResponse | undefined> {
     const { receiverId, promoterId, message, invitationId } = params;
 
-    const token = process.env.TEMP_TOKEN;
-    if (!token) {
-      throw new Error("TEMP_TOKEN is missing in environment variables");
-    }
+    const token = process.env.TEMP_TOKEN || null;
 
     const senderId = Number(promoterId);
 
@@ -234,8 +231,6 @@ export class CampaignInvitationAutomationService {
           message,
           senderId,
         );
-
-
       return response;
 
     } catch (error) {

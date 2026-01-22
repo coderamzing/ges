@@ -66,34 +66,34 @@
                                     <label class="form-check-label" for="filterDmSent">DM Sent</label>
                                 </div>
                                 <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="filterFirstChoice" name="firstChoice">
-                                    <label class="form-check-label" for="filterFirstChoice">FirstChoice</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="filterBackupGuests" name="backupGuests">
-                                    <label class="form-check-label" for="filterBackupGuests">Backup Guests</label>
-                                </div>
-                                <div class="form-check mb-2">
                                     <input class="form-check-input" type="checkbox" id="filterBlacklist" name="blacklist">
                                     <label class="form-check-label" for="filterBlacklist">Blacklist</label>
                                 </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">Talent Type</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeCivilian" name="talentType" value="civilian">
+                                        <label class="form-check-label" for="filterTalentTypeCivilian">Civilian</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeHybrid" name="talentType" value="hybrid">
+                                        <label class="form-check-label" for="filterTalentTypeHybrid">Hybrid</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeSupermodel" name="talentType" value="supermodel">
+                                        <label class="form-check-label" for="filterTalentTypeSupermodel">Supermodel</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeModel" name="talentType" value="model">
+                                        <label class="form-check-label" for="filterTalentTypeModel">Model</label>
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-md-6">
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="filterLiked" name="liked">
-                                    <label class="form-check-label" for="filterLiked">Liked</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="filterHide" name="hide">
-                                    <label class="form-check-label" for="filterHide">Hide</label>
-                                </div>
                                 <div class="mb-2">
-                                    <label for="filterTalentType" class="form-label small">Talent Type</label>
-                                    <input type="text" class="form-control form-control-sm" id="filterTalentType" name="talentType" placeholder="e.g., civilian">
-                                </div>
-                                <div class="mb-2">
-                                    <label for="filterTrustScore" class="form-label small">Trust Score (minimum)</label>
-                                    <input type="number" class="form-control form-control-sm" id="filterTrustScore" name="trustScore" placeholder="0" min="0">
+                                    <label for="filterTrustScoreRange" class="form-label small">Trust Score Range</label>
+                                    <input type="text" class="form-control form-control-sm" id="filterTrustScoreRange" name="trustScoreRange" placeholder="e.g., 10-40 or 25">
+                                    <small class="form-text text-muted">Enter a single number (e.g., 25) or a range (e.g., 10-40)</small>
                                 </div>
                             </div>
                         </div>
@@ -289,13 +289,23 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             messagesByTalent.forEach(group => {
                 const talent = group.talent || { name: 'Unknown', accountId: 'unknown' };
                 const messages = group.messages || [];
+                const invitation = group.invitation || {};
                 // Get promoterId from first message (all messages should have the same promoterId)
                 const promoterId = messages.length > 0 ? messages[0].promoterId : null;
+
+                const status = invitation.status || 'pending';
 
                 html += `
                     <div class="talent-section">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h4>${escapeHtml(talent.name)} (@${escapeHtml(talent.accountId)})</h4>
+                            <div>
+                                <h4 class="mb-1">${escapeHtml(talent.name)} (@${escapeHtml(talent.accountId)})</h4>
+                                <div class="small">
+                                    <span class="badge bg-${getStatusColor(status)} me-2">${status}</span>
+                                    ${invitation.batch !== undefined ? `<span class="badge bg-light text-dark me-2">Batch ${invitation.batch}</span>` : ''}
+                                    ${invitation.invitationAt ? `<span class="text-muted">Invited: ${formatDate(invitation.invitationAt)}</span>` : ''}
+                                </div>
+                            </div>
                             ${promoterId ? `<a href="talent.html?talentId=${talent.id}&promoterId=${promoterId}" class="btn btn-sm btn-outline-primary">View Score & Logs</a>` : ''}
                         </div>
                         <div class="messages-container mb-3">
@@ -476,8 +486,16 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                 // Build query string from filters
                 const queryParams = new URLSearchParams();
                 Object.keys(filters).forEach(key => {
-                    if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
-                        queryParams.append(key, filters[key]);
+                    const value = filters[key];
+                    if (value !== undefined && value !== null && value !== '') {
+                        // Handle arrays (e.g., talentType)
+                        if (Array.isArray(value)) {
+                            value.forEach(item => {
+                                queryParams.append(key, item);
+                            });
+                        } else {
+                            queryParams.append(key, value);
+                        }
                     }
                 });
                 
@@ -641,7 +659,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             const filters = {};
             
             // Boolean filters (checkboxes)
-            const booleanFilters = ['openchat', 'dmSent', 'firstChoice', 'backupGuests', 'blacklist', 'liked', 'hide'];
+            const booleanFilters = ['openchat', 'dmSent', 'blacklist'];
             booleanFilters.forEach(filter => {
                 const checkbox = $(`#filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
                 if (checkbox.length && checkbox.is(':checked')) {
@@ -649,16 +667,18 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                 }
             });
             
-            // String filter (talentType)
-            const talentType = $('#filterTalentType').val().trim();
-            if (talentType) {
-                filters.talentType = talentType;
+            // Array filter (talentType) - collect all checked values
+            const talentTypes = $('input[name="talentType"]:checked').map(function() {
+                return $(this).val();
+            }).get();
+            if (talentTypes.length > 0) {
+                filters.talentType = talentTypes;
             }
             
-            // Number filter (trustScore)
-            const trustScore = $('#filterTrustScore').val();
-            if (trustScore) {
-                filters.trustScore = parseInt(trustScore);
+            // Trust score range filter
+            const trustScoreRange = $('#filterTrustScoreRange').val().trim();
+            if (trustScoreRange) {
+                filters.trustScoreRange = trustScoreRange;
             }
             
             loadTalentRecommendations(batchId, filters);

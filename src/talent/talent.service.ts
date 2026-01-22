@@ -123,9 +123,15 @@ export class TalentService {
       throw new NotFoundException(`Event has no promoter`);
     }
     const limit = filters.limit ?? 100;
-    const baseWhere: any = {
-      currentCity: event.city,
-    };
+    const baseWhere: any = {};
+    baseWhere.OR = [
+      {
+        currentCity: event.city,
+      },
+      {
+        city: event.city,
+      },
+    ];
 
     if (filters.talentType?.length) {
       baseWhere.talentType = {

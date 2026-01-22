@@ -57,7 +57,7 @@ enum CampaignStatus {
 
 model Campaign {
   id                 Int       @id @default(autoincrement())
-  eventId            Int
+  eventId            BigInt
   name               String
   status             CampaignStatus @default(draft)
   lang               String
@@ -76,6 +76,7 @@ model Campaign {
   spintaxTemplates CampaignSpintaxTemplate[]
   invitations      CampaignInvitation[]
   messages         CampaignMessage[]
+  event Events @relation(fields: [eventId], references: [id])
 }
 
 /**

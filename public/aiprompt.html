@@ -164,7 +164,6 @@
                         <div class="prompt-header">
                             <div>
                                 <span class="prompt-key">${escapeHtml(prompt.key)}</span>
-                                <span class="badge badge-role bg-secondary ms-2">${escapeHtml(prompt.role || 'No role')}</span>
                             </div>
                             <div class="btn-group-custom">
                                 <button class="btn btn-sm btn-primary edit-btn" data-prompt-id="${prompt.id}">
@@ -182,7 +181,7 @@
                         <div class="prompt-field">
                             <label>Role:</label>
                             <div class="field-value">${escapeHtml(prompt.role || 'No role set')}</div>
-                            <input type="text" class="form-control edit-role" value="${escapeHtml(prompt.role || '')}" placeholder="Enter role">
+                            <textarea class="form-control edit-role" rows="6" placeholder="Enter role">${escapeHtml(prompt.role || '')}</textarea>
                         </div>
                         
                         <div class="prompt-field">

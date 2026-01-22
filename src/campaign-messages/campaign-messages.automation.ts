@@ -9,6 +9,7 @@ import {
   Message,
   CampaignStatus,
   CampaignInvitation,
+  AiPrompt,
 } from "@prisma/client";
 import {
   MESSAGE_INTERPRETATION_PROMPT,
@@ -26,7 +27,8 @@ interface MessageInterpretationResponse {
 @Injectable()
 export class CampaignMessagesAutomationService {
   private readonly logger = new Logger(CampaignMessagesAutomationService.name);
-
+  private prompt: any;
+  
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
@@ -40,6 +42,14 @@ export class CampaignMessagesAutomationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async processLastMinuteMessages(): Promise<void> {
     try {
+
+      //here we will get the interpretation prompt and system prompt
+      this.prompt = await this.prisma.aiPrompt.findFirst({
+        where: {
+          key: 'INTERPRETATION',
+        },
+      });
+
       const invitations = await this.prisma.campaignInvitation.findMany({
         where: {
           campaign: {
@@ -105,14 +115,14 @@ export class CampaignMessagesAutomationService {
           },
           where: {
             thread_id: (message as any).thread_id,
-            sender_username: (message as any).sender_username,
+            //also add where message created a> iniation sent At
           } as any,
           orderBy: {
             created_at: "asc",
           },
         });
 
-        const fullMessage = threads.map((msg) => msg.message).join("\n\n");
+        const fullMessage = threads.map((msg) =>  msg.sender_username + ": " + msg.message).join("\n\n");
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {
@@ -180,10 +190,10 @@ export class CampaignMessagesAutomationService {
       const invitationId = invitation.id;
 
       // Prepare the prompt
-      const prompt = renderTemplate(MESSAGE_INTERPRETATION_PROMPT, {
+      const prompt = renderTemplate(this.prompt.defs, {
         messages: fullMessage,
       });
-      const sysPrompt = MESSAGE_INTERPRETATION_SYSTEM_PROMPT;
+      const sysPrompt = this.prompt.role;
 
       // Call OpenAI to interpret
       let interpretation: MessageInterpretationResponse;

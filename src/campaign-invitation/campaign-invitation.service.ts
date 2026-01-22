@@ -627,13 +627,14 @@ export class CampaignInvitationService {
 
 
   async sendMessage(
-    token: string,
+    token: string | null,
     receiverId: string,  // sender
     message: string,
     senderId: number
   ): Promise<SendMessageResponse | undefined> {
     try {
-      if (process.env.MESSAGE_MODE === 'live') {
+      const mode = process.env.MESSAGE_MODE || 'dev';
+      if (mode === 'live') {
         const response = await axios.post(
           'https://globalentertainmentsolutions.io/chatbot/message-send',
           { receiverId, message },
@@ -646,7 +647,8 @@ export class CampaignInvitationService {
         );
         return response.data;
       }
-      if (process.env.MESSAGE_MODE === 'dev') {
+      if (mode === 'dev') {
+
         const threadId = randomUUID();
         const messageId = randomUUID();
         const senderBigInt = BigInt(senderId);
@@ -777,12 +779,6 @@ export class CampaignInvitationService {
       }
       throw new Error(`Invalid MESSAGE_MODE: ${process.env.MESSAGE_MODE}`);
     } catch (error: any) {
-      console.error('CHATBOT ERROR:', {
-        status: error?.response?.status,
-        data: error?.response?.data,
-        headers: error?.response?.headers,
-      });
-
       throw new HttpException(
         error?.response?.data || 'Failed to send message',
         HttpStatus.BAD_GATEWAY,
