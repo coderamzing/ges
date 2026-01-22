@@ -76,7 +76,7 @@ model Campaign {
   spintaxTemplates CampaignSpintaxTemplate[]
   invitations      CampaignInvitation[]
   messages         CampaignMessage[]
-  event Events @relation(fields: [eventId], references: [id])
+  // event Events @relation(fields: [eventId], references: [id])
 }
 
 /**
@@ -198,12 +198,13 @@ model CampaignInvitation {
   followup     Boolean          @default(false)
   thankYouSent Boolean          @default(false)
   hasReplied   Boolean          @default(false)
-  thread_id    String?          @db.VarChar(255)
+  thread_id    String?          @unique @db.VarChar(255)
 
   // Relations
   campaign Campaign @relation(fields: [campaignId], references: [id])
-  messages CampaignMessage[]
+  messages Message[]            @relation("InvitationMessages")
 
+  // messages CampaignMessage[]
   @@unique([campaignId, talentId])
 }
 
@@ -232,7 +233,7 @@ model CampaignMessage {
   isScoreAnalyzed Boolean          @default(false)
 
   // Relations
-  invitation CampaignInvitation @relation(fields: [invitationId], references: [id])
+  // invitation CampaignInvitation @relation(fields: [invitationId], references: [id])
   campaign Campaign @relation(fields: [campaignId], references: [id])
 }
 
@@ -420,6 +421,9 @@ model Message {
   ai_processed_at    DateTime?
   ai_event_status    String?   @db.VarChar(50)
   ai_city_detected   String?   @db.VarChar(100)
+
+  // Relations
+  invitation         CampaignInvitation? @relation("InvitationMessages", fields: [thread_id], references: [thread_id])
 
   @@map("message")
 }

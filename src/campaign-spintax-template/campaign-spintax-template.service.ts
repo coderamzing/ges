@@ -87,7 +87,7 @@ export class CampaignSpintaxTemplateService {
     const templatesWithPreview = await Promise.all(
       templates.map(async (tpl) => {
         const preview = await this.campaignTemplateService.previewTemplate(
-          campaign.eventId,
+          Number(campaign.eventId),
           tpl.content
         );
 

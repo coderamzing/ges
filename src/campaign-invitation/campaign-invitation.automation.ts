@@ -422,15 +422,15 @@ export class CampaignInvitationAutomationService {
 
 
 
-    await this.campaignMessagesService.createMessage({
-      campaignId: campaign.id,
-      promoterId: Number(invitation.promoterId),
-      invitationId: invitation.id,
-      talentId: talent.id,
-      direction: MessageDirection.sent,
-      message: message,
-      sentAt: new Date(),
-    });
+    // await this.campaignMessagesService.createMessage({
+    //   campaignId: campaign.id,
+    //   promoterId: Number(invitation.promoterId),
+    //   invitationId: invitation.id,
+    //   talentId: talent.id,
+    //   direction: MessageDirection.sent,
+    //   message: message,
+    //   sentAt: new Date(),
+    // });
 
 
     const UpdatedInviteMessage = await this.prisma.campaignInvitation.update({
@@ -675,15 +675,15 @@ export class CampaignInvitationAutomationService {
       message,
     });
 
-    await this.campaignMessagesService.createMessage({
-      campaignId: campaign.id,
-      promoterId: Number(invitation.promoterId),
-      invitationId: invitation.id,
-      talentId: talent.id,
-      direction: MessageDirection.sent,
-      message: message,
-      sentAt: new Date(),
-    });
+    // await this.campaignMessagesService.createMessage({
+    //   campaignId: campaign.id,
+    //   promoterId: Number(invitation.promoterId),
+    //   invitationId: invitation.id,
+    //   talentId: talent.id,
+    //   direction: MessageDirection.sent,
+    //   message: message,
+    //   sentAt: new Date(),
+    // });
 
     // Update the invitation to mark followup as sent
     await this.prisma.campaignInvitation.update({
@@ -849,15 +849,15 @@ export class CampaignInvitationAutomationService {
 
     // Create the message entry
 
-    await this.campaignMessagesService.createMessage({
-      campaignId: campaign.id,
-      promoterId: Number(invitation.promoterId),
-      invitationId: invitation.id,
-      talentId: talent.id,
-      direction: MessageDirection.sent,
-      message: message,
-      sentAt: new Date(),
-    });
+    // await this.campaignMessagesService.createMessage({
+    //   campaignId: campaign.id,
+    //   promoterId: Number(invitation.promoterId),
+    //   invitationId: invitation.id,
+    //   talentId: talent.id,
+    //   direction: MessageDirection.sent,
+    //   message: message,
+    //   sentAt: new Date(),
+    // });
 
     // Update the invitation to mark thank you as sent
     await this.prisma.campaignInvitation.update({

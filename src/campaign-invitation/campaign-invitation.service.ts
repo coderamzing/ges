@@ -285,8 +285,8 @@ export class CampaignInvitationService {
     await this.prisma.campaignInvitation.createMany({
       data: newTalentIds.map((talentId) => ({
         campaignId,
-        eventId: campaign.eventId,
-        promoterId: BigInt(promoterId),
+        eventId: Number(campaign.eventId),
+        promoterId: Number(promoterId),
         talentId,
         batch: batchId,
         status: InvitationStatus.pending,

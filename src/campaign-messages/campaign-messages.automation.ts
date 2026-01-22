@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 import { OpenAIService } from "../openai/openai.service";
+import { Prisma } from "@prisma/client";
 import {
   MessageDirection,
   InvitationStatus,
@@ -28,7 +29,7 @@ interface MessageInterpretationResponse {
 export class CampaignMessagesAutomationService {
   private readonly logger = new Logger(CampaignMessagesAutomationService.name);
   private prompt: any;
-  
+
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
@@ -39,46 +40,39 @@ export class CampaignMessagesAutomationService {
    * Groups by campaignId and talentId, and interprets them
    * Runs every minute via cron
    */
+
   @Cron(CronExpression.EVERY_MINUTE)
   async processLastMinuteMessages(): Promise<void> {
     try {
-
       //here we will get the interpretation prompt and system prompt
       this.prompt = await this.prisma.aiPrompt.findFirst({
         where: {
-          key: 'INTERPRETATION',
-        },
-      });
-
-      const invitations = await this.prisma.campaignInvitation.findMany({
-        where: {
-          campaign: {
-            status: {
-              not: CampaignStatus.completed,
-            },
-          },
-          thread_id: {
-            not: null,
-          },
-        },
-        select: {
-          id: true,
-          thread_id: true,
-          talentId: true,
-          campaign: true,
+          key: "INTERPRETATION",
         },
       });
 
       const messages = await this.prisma.message.findMany({
         where: {
           ai_processed: false,
+          thread_id: { not: null },
 
-          OR: invitations
-            .filter((inv) => inv.thread_id)
-            .map((inv) => ({
-              thread_id: inv.thread_id!,
-              sender_username: inv.talentId,
-            })),
+          invitation: {
+            is: {
+              campaign: {
+                status: {
+                  not: CampaignStatus.completed,
+                },
+              },
+            },
+          },
+        },
+
+        include: {
+          invitation: {
+            include: {
+              campaign: true,
+            },
+          },
         },
 
         orderBy: {
@@ -86,48 +80,49 @@ export class CampaignMessagesAutomationService {
         },
       });
 
-      const invitationMap = new Map(
-        invitations.map((inv) => [inv.thread_id!, inv]),
+      const talentReplies = messages.filter(
+        (msg) =>
+          msg.thread_id === msg.invitation?.thread_id &&
+          msg.sender_username === msg.invitation?.talentId,
       );
 
-      const result = messages.map((msg) => {
-        const invitation = invitationMap.get(msg.thread_id!);
 
-        return {
-          ...msg,
-          invitation,
-          campaign: invitation?.campaign,
-        };
-      });
-
-      if (messages.length === 0) {
+      if (talentReplies.length === 0) {
         this.logger.log("No new messages to process");
         return;
       }
 
-      this.logger.log(`Found ${messages.length} messages to process`);
+      this.logger.log(`Found ${talentReplies.length} messages to process`);
 
-      for (const message of messages) {
+      for (const message of talentReplies) {
+        const invitationAt = message.invitation?.invitationAt;
         const threads = await this.prisma.message.findMany({
           select: {
             message: true,
             created_at: true,
+            sender_username: true,
           },
           where: {
             thread_id: (message as any).thread_id,
-            //also add where message created a> iniation sent At
+            sender_username: (message as any).sender_username,
+            ...(invitationAt && {
+              created_at: {
+                gt: invitationAt,
+              },
+            }),
           } as any,
           orderBy: {
             created_at: "asc",
           },
         });
 
-        const fullMessage = threads.map((msg) =>  msg.sender_username + ": " + msg.message).join("\n\n");
+        const fullMessage = threads
+          .map((msg) => msg.sender_username + " : " + msg.message)
+          .join("\n\n");
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {
-            thread_id: message.thread_id!,
-            talentId: message.sender_username!,
+            id: message.invitation?.id
           },
           select: {
             id: true,
@@ -161,7 +156,6 @@ export class CampaignMessagesAutomationService {
       throw error;
     }
   }
-
   /**
    * Process messages for a specific talent in a campaign
    */
@@ -213,9 +207,8 @@ export class CampaignMessagesAutomationService {
         // Use default values if OpenAI fails
         return;
       }
-
       // Update CampaignInvitation status, mark as replied and mark as seen using invitationId
-      await this.prisma.campaignInvitation.update({
+     const update =  await this.prisma.campaignInvitation.update({
         where: {
           id: invitationId,
         },
@@ -225,6 +218,7 @@ export class CampaignMessagesAutomationService {
           isSeen: true,
         },
       });
+
 
       // Get or create TalentPromoterState
       let talentPromoterState =

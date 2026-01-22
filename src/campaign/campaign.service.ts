@@ -227,13 +227,14 @@ export class CampaignService {
     }
 
 
-    await this.prisma.campaignMessage.deleteMany({
-      where: {
-        invitation: {
-          campaignId: id,
-        },
-      },
-    });
+    // await this.prisma.campaignMessage.deleteMany({
+    //   where: {
+    //     invitation: {
+    //       campaignId: id,
+    //     },
+    //   },
+    // });
+    
 
     await this.prisma.campaignInvitation.deleteMany({
       where: { campaignId: id },
