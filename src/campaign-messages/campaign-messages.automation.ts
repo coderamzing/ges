@@ -1,10 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../prisma/prisma.service';
-import { OpenAIService } from '../openai/openai.service';
-import { MessageDirection, InvitationStatus, CampaignMessage, Message } from '@prisma/client';
-import { MESSAGE_INTERPRETATION_PROMPT, MESSAGE_INTERPRETATION_SYSTEM_PROMPT } from './campaign-messages.config';
-import { renderTemplate } from 'utils/handlebar';
+import { Injectable, Logger } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { PrismaService } from "../prisma/prisma.service";
+import { OpenAIService } from "../openai/openai.service";
+import {
+  MessageDirection,
+  InvitationStatus,
+  CampaignMessage,
+  Message,
+  CampaignStatus,
+  CampaignInvitation,
+} from "@prisma/client";
+import {
+  MESSAGE_INTERPRETATION_PROMPT,
+  MESSAGE_INTERPRETATION_SYSTEM_PROMPT,
+} from "./campaign-messages.config";
+import { renderTemplate } from "utils/handlebar";
 
 interface MessageInterpretationResponse {
   status: InvitationStatus;
@@ -20,7 +30,7 @@ export class CampaignMessagesAutomationService {
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
-  ) { }
+  ) {}
 
   /**
    * Process messages that haven't been interpreted yet
@@ -30,51 +40,114 @@ export class CampaignMessagesAutomationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async processLastMinuteMessages(): Promise<void> {
     try {
-      // Find all messages that haven't been interpreted yet
-      const messages = await this.prisma.campaignMessage.findMany({
+      const invitations = await this.prisma.campaignInvitation.findMany({
         where: {
-          isInterpret: false,
-          direction: MessageDirection.received,
+          campaign: {
+            status: {
+              not: CampaignStatus.completed,
+            },
+          },
+          thread_id: {
+            not: null,
+          },
         },
-        orderBy: {
-          receivedAt: 'asc',
-        },
-        include: {
-          invitation: true,
+        select: {
+          id: true,
+          thread_id: true,
+          talentId: true,
           campaign: true,
-        } as any,
+        },
+      });
+
+      const messages = await this.prisma.message.findMany({
+        where: {
+          ai_processed: false,
+
+          OR: invitations
+            .filter((inv) => inv.thread_id)
+            .map((inv) => ({
+              thread_id: inv.thread_id!,
+              sender_username: inv.talentId,
+            })),
+        },
+
+        orderBy: {
+          created_at: "asc",
+        },
+      });
+
+      const invitationMap = new Map(
+        invitations.map((inv) => [inv.thread_id!, inv]),
+      );
+
+      const result = messages.map((msg) => {
+        const invitation = invitationMap.get(msg.thread_id!);
+
+        return {
+          ...msg,
+          invitation,
+          campaign: invitation?.campaign,
+        };
       });
 
       if (messages.length === 0) {
-        this.logger.log('No new messages to process');
+        this.logger.log("No new messages to process");
         return;
       }
 
       this.logger.log(`Found ${messages.length} messages to process`);
 
       for (const message of messages) {
-        const threads = await this.prisma.campaignMessage.findMany({
+        const threads = await this.prisma.message.findMany({
           select: {
             message: true,
-            receivedAt: true,
+            created_at: true,
           },
           where: {
-            invitationId: (message as any).invitationId || (message as any).invitation?.id,
-            direction: MessageDirection.received,
+            thread_id: (message as any).thread_id,
+            sender_username: (message as any).sender_username,
           } as any,
           orderBy: {
-            receivedAt: 'asc',
+            created_at: "asc",
           },
         });
 
-        const fullMessage = threads.map((msg) => msg.message).join('\n\n');
+        const fullMessage = threads.map((msg) => msg.message).join("\n\n");
+
+        const invitation = await this.prisma.campaignInvitation.findFirst({
+          where: {
+            thread_id: message.thread_id!,
+            talentId: message.sender_username!,
+          },
+          select: {
+            id: true,
+            promoterId: true,
+            eventId: true,
+            campaignId: true,
+            talentId: true,
+          },
+        });
+
+        if (!invitation) {
+          continue;
+        }
+
         await this.processTalentMessages(
-          message as unknown as CampaignMessage & { invitation: { id: number; promoterId: bigint; eventId: number; campaignId: number; talentId: string } | null },
-          fullMessage
+          message as unknown as Message,
+          invitation as unknown as CampaignInvitation & {
+            invitation: {
+              id: number;
+              promoterId: bigint;
+              eventId: number;
+              campaignId: number;
+              talentId: string;
+            } | null;
+          },
+          fullMessage,
         );
       }
     } catch (error) {
-      this.logger.error('Error processing last minute messages:', error);
+      this.logger.error("Error processing last minute messages:", error);
       throw error;
     }
   }
@@ -82,22 +155,34 @@ export class CampaignMessagesAutomationService {
   /**
    * Process messages for a specific talent in a campaign
    */
+
   private async processTalentMessages(
-    message: CampaignMessage & { invitation: { id: number; promoterId: bigint; eventId: number; campaignId: number; talentId: string } | null },
-    fullMessage: string
+    message: Message,
+    invitation: CampaignInvitation & {
+      invitation: {
+        id: number;
+        promoterId: bigint;
+        eventId: number;
+        campaignId: number;
+        talentId: string;
+      } | null;
+    },
+    fullMessage: string,
   ): Promise<void> {
     try {
-      // Use the invitation relation from the message
-      const invitation = message.invitation;
+      const invitationData = invitation;
       if (!invitation) {
         this.logger.warn(`No invitation found for message ${message.id}`);
         return;
       }
-      const { promoterId, eventId, campaignId, talentId } = invitation;
+
+      const { promoterId, eventId, campaignId, talentId } = invitationData;
       const invitationId = invitation.id;
 
       // Prepare the prompt
-      const prompt = renderTemplate(MESSAGE_INTERPRETATION_PROMPT, { messages: fullMessage });
+      const prompt = renderTemplate(MESSAGE_INTERPRETATION_PROMPT, {
+        messages: fullMessage,
+      });
       const sysPrompt = MESSAGE_INTERPRETATION_SYSTEM_PROMPT;
 
       // Call OpenAI to interpret
@@ -107,8 +192,8 @@ export class CampaignMessagesAutomationService {
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
-          score_reason: response.score_reason || 'neutral_reply',
-          current_location: response.current_location || 'default',
+          score_reason: response.score_reason || "neutral_reply",
+          current_location: response.current_location || "default",
         };
       } catch (error) {
         this.logger.error(
@@ -132,14 +217,15 @@ export class CampaignMessagesAutomationService {
       });
 
       // Get or create TalentPromoterState
-      let talentPromoterState = await this.prisma.talentPromoterState.findUnique({
-        where: {
-          talentId_promoterId: {
-            talentId,
-            promoterId: BigInt(promoterId),
+      let talentPromoterState =
+        await this.prisma.talentPromoterState.findUnique({
+          where: {
+            talentId_promoterId: {
+              talentId,
+              promoterId: BigInt(promoterId),
+            },
           },
-        },
-      });
+        });
 
       if (!talentPromoterState) {
         talentPromoterState = await this.prisma.talentPromoterState.create({
@@ -153,8 +239,9 @@ export class CampaignMessagesAutomationService {
       }
 
       // Update trust score
-      const newTrustScore = talentPromoterState.trustScore + interpretation.score;
-      const lastReceivedAt = message.receivedAt || new Date();
+      const newTrustScore =
+        talentPromoterState.trustScore + interpretation.score;
+      const lastReceivedAt = message.created_at || new Date();
 
       await this.prisma.talentPromoterState.update({
         where: {
@@ -181,7 +268,10 @@ export class CampaignMessagesAutomationService {
       });
 
       // Update talent's current location if provided and different from default
-      if (interpretation.current_location && interpretation.current_location !== 'default') {
+      if (
+        interpretation.current_location &&
+        interpretation.current_location !== "default"
+      ) {
         await this.prisma.talentPool.update({
           where: { id: talentId },
           data: {
@@ -190,16 +280,16 @@ export class CampaignMessagesAutomationService {
         });
       }
 
-      // Mark messages as interpreted - update all messages for this invitation
-      await this.prisma.campaignMessage.updateMany({
+      await this.prisma.message.updateMany({
         where: {
-          invitationId: invitationId,
-          direction: MessageDirection.received,
-          isInterpret: false,
-        } as any,
+          ai_processed: false,
+          id: {
+            in: [message.id],
+          },
+        },
         data: {
-          isInterpret: true,
-          isScoreAnalyzed: true,
+          ai_processed: true,
+          ai_processed_at: new Date(),
         },
       });
 
@@ -207,10 +297,7 @@ export class CampaignMessagesAutomationService {
         `Processed messages for campaign ${campaignId}, talent ${talentId}. Status: ${interpretation.status}, Score: ${interpretation.score}`,
       );
     } catch (error) {
-      this.logger.error(
-        `Error processing message ${message.id}:`,
-        error,
-      );
+      this.logger.error(`Error processing message ${message.id}:`, error);
       throw error;
     }
   }

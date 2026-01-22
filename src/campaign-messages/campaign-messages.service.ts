@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CampaignMessage, MessageDirection } from '@prisma/client';
+import { CreateMessageDto } from './campaign-messages.dto';
 
 @Injectable()
 export class CampaignMessagesService {
@@ -69,6 +70,30 @@ export class CampaignMessagesService {
       } as any,
     });
   }
+
+  async createMessages(dto: CreateMessageDto) {
+    const now = new Date();
+
+    return this.prisma.message.create({
+      data: {
+        id: dto.id,
+        created_at: now,
+        dt: now,
+        tm: now,
+        message: dto.message,
+        sender: dto.sender,
+        sender_username: dto.sender_username,
+        receiver: dto.receiver,
+        receiver_username: dto.receiver_username,
+        thread_id: dto.thread_id,
+        invite: dto.invite ?? false,
+        tmp: dto.tmp ?? false,
+        pending_reply: dto.pending_reply ?? false,
+        client_context: dto.client_context,
+      },
+    });
+  }
+
 
   /**
    * Update a message

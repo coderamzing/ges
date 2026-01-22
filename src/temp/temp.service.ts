@@ -43,32 +43,84 @@ export class TempService {
     return Object.values(messagesByTalent);
   }
 
+  // async sendTalentMessage(
+  //   campaignId: number,
+  //   talentId: string,
+  //   message: string,
+  //   promoterId: number,
+  // ) {
+  //   const invitation = await this.prisma.campaignInvitation.findFirst({
+  //     where: { campaignId, talentId },
+  //   });
+
+  //   if (!invitation) {
+  //     throw new NotFoundException('Invitation not found');
+  //   }
+
+  //   return this.prisma.campaignMessage.create({
+  //     data: {
+  //       campaignId,
+  //       promoterId: BigInt(promoterId),
+  //       invitationId: invitation.id,
+  //       talentId,
+  //       direction: MessageDirection.received,
+  //       message,
+  //       receivedAt: new Date(),
+  //     },
+  //   });
+  // }
+
   async sendTalentMessage(
-    campaignId: number,
-    talentId: string,
-    message: string,
-    promoterId: number,
-  ) {
-    const invitation = await this.prisma.campaignInvitation.findFirst({
-      where: { campaignId, talentId },
-    });
+  campaignId: number,
+  talentId: string,
+  message: string,
+  promoterId: number,
+) {
+  const invitation = await this.prisma.campaignInvitation.findFirst({
+    where: { campaignId, talentId },
+  });
 
-    if (!invitation) {
-      throw new NotFoundException('Invitation not found');
-    }
+  if (!invitation) {
+    throw new NotFoundException('Invitation not found');
+  }
 
-    return this.prisma.campaignMessage.create({
+
+    if (!invitation.thread_id) {
+    throw new NotFoundException('Thread not associated with invitation');
+  }
+
+  const thread = await this.prisma.thread.findFirst({
+    where: {
+      id:invitation.thread_id
+    },
+  });
+
+
+  if (!thread) {
+    throw new NotFoundException('Message thread not found');
+  }
+  const now = new Date();
+
+  return this.prisma.message.create({
       data: {
-        campaignId,
-        promoterId: BigInt(promoterId),
-        invitationId: invitation.id,
-        talentId,
-        direction: MessageDirection.received,
-        message,
-        receivedAt: new Date(),
+        id: `msg_${crypto.randomUUID()}`,
+        created_at: now,
+        dt: now,
+        tm: now,
+        message: message,
+        sender: null,
+        sender_username: talentId,
+        receiver: BigInt(promoterId),
+        receiver_username: promoterId.toString(),
+        thread_id: thread.id,
+        invite: false,
+        tmp: true,
+        pending_reply: false,
+        // client_context: 'talent_reply',
       },
     });
-  }
+}
+
 
   async getTalentPromoterState(talentId: string, promoterId: number) {
     const state = await this.prisma.talentPromoterState.findUnique({
