@@ -23,6 +23,7 @@ import { QueueModule } from './queue/queue.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { OpenAIModule } from './openai/openai.module';
 import { TempModule } from './temp/temp.module';
+import { AiPromptModule } from './aiprompt/aiprompt.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -52,7 +53,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     TalentBlacklistModule,
     TrustScoreModule,
     TalentScoreModule,
-    TempModule],
+    TempModule,
+    AiPromptModule],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })

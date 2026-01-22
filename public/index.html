@@ -16,7 +16,10 @@
     <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1 class="mb-0">Campaigns</h1>
-            <button id="logoutBtn" class="btn btn-outline-secondary btn-sm" style="display: none;">Logout</button>
+            <div class="d-flex gap-2" style="display: none;" id="headerButtons">
+                <a href="aiprompt.html" class="btn btn-outline-primary btn-sm">AI Prompt</a>
+                <button id="logoutBtn" class="btn btn-outline-secondary btn-sm">Logout</button>
+            </div>
         </div>
 
         <!-- Login Form -->
@@ -97,7 +100,7 @@
                 });
                 $('#loginCard').hide();
                 $('#createForm').show();
-                $('#logoutBtn').show();
+                $('#headerButtons').show();
                 loadCampaigns();
                 loadEvents();
             } catch (error) {
@@ -106,7 +109,7 @@
                 token = null;
                 $('#loginCard').show();
                 $('#createForm').hide();
-                $('#logoutBtn').hide();
+                $('#headerButtons').hide();
             }
         });
 
@@ -125,7 +128,7 @@
                 localStorage.setItem('token', token);
                 $('#loginCard').hide();
                 $('#createForm').show();
-                $('#logoutBtn').show();
+                $('#headerButtons').show();
                 loadCampaigns();
                 loadEvents();
             } catch (error) {
@@ -321,7 +324,7 @@
             $('#loginCard').show();
             $('#createForm').hide();
             $('#campaignsList').empty();
-            $('#logoutBtn').hide();
+            $('#headerButtons').hide();
         });
 
         function escapeHtml(text) {

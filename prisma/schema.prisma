@@ -438,3 +438,18 @@ model Thread {
   @@map("thread")
 }
 
+/**
+ * =========================
+ * AI PROMPTS
+ * =========================
+ */
+model AiPrompt {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  defs      String
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("aiprompt")
+}
