@@ -634,9 +634,10 @@ export class CampaignInvitationService {
   ): Promise<SendMessageResponse | undefined> {
     try {
       const mode = process.env.MESSAGE_MODE || 'dev';
+      const url = process.env.CHATBOT_URL || '';
       if (mode === 'live') {
         const response = await axios.post(
-          'https://globalentertainmentsolutions.io/chatbot/message-send',
+          url,
           { receiverId, message },
           {
             headers: {
@@ -681,32 +682,6 @@ export class CampaignInvitationService {
         }
 
         const talentPk = talent.pk ?? BigInt(talent.id);
-
-        // const thread = await this.prisma.thread.upsert({
-        //   where: {
-        //     user_id_pk2: {
-        //       user_id: senderId,
-        //       pk2: talentPk,
-        //     },
-
-        //   },
-        //   update: {
-        //     // created_at: now,
-        //   },
-        //   create: {
-        //     id: threadId,
-        //     created_at: new Date(),
-        //     pk1: talent.fromTrackerPk,
-        //     pk2: talentPk,
-        //     username1: talent.fromTracker,
-        //     username2: String(talent.id),
-        //     name2: talent.name ?? null,
-        //     picture2: talent.profilePicture ?? talent.mainPicture ?? null,
-        //     user_id: senderId,
-        //   },
-        // });
-
-
         const thread = await this.prisma.$transaction(async (tx) => {
           const existing = await tx.thread.findFirst({
             where: {
@@ -753,7 +728,7 @@ export class CampaignInvitationService {
             thread_id: thread.id,
             invite: true,
             pending_reply: false,
-            ai_processed: false,
+            ai_processed: true,
             tmp: true,
             client_context: randomUUID(),
             user_id: senderId,

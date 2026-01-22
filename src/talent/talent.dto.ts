@@ -96,16 +96,11 @@ export class TalentRecommendationFiltersDto {
   @IsOptional()
   @Transform(({ value }) => {
     if (!value) return undefined;
-
-    // If Swagger sends a single string → wrap it in array
     if (typeof value === 'string') {
-      // also handle comma-separated case just in case
       return value.includes(',')
         ? value.split(',').map(v => v.trim())
         : [value];
     }
-
-    // If it's already an array → keep it
     return value;
   })
   @IsArray()
@@ -160,7 +155,14 @@ export class TalentRecommendationFiltersDto {
     max?: number;
   };
 
-
+  @ApiPropertyOptional({
+    description: 'Show only talents recommended by AI',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  recommendation?: boolean;
 
 
   @ApiPropertyOptional({

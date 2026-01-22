@@ -38,10 +38,10 @@ export class AuthService {
 
   async getCurrentUser(req): Promise<MeResponseDto> {
     const promoter = req.promoter;
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    // have to refresh token .
-    // if (!promoter || !token) {
-    //   throw new UnauthorizedException('User not found');
+    // const accessToken =
+    //   req.headers.authorization?.replace('Bearer ', '') ?? '';
+    // if (!accessToken) {
+    //   throw new UnauthorizedException('No  token provided');
     // }
     const user = await this.prisma.user.findUnique({
       where: {
@@ -69,11 +69,30 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
+    const payload = { sub: user.id.toString(), email: user.username };
+    const refreshToken = this.jwtService.sign(
+      {
+        payload,
+        type: 'refresh',
+      },
+      {
+        secret: process.env.JWT_SECRET,
+        expiresIn: '7d',
+      },
+    );
     return {
-      token,
+      token: refreshToken,
       user,
     };
   }
+
+
+
+
+
+
+
+
 
 }
 
