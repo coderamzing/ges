@@ -13,3 +13,20 @@ export class LoginResponseDto {
   access_token: string;
 }
 
+
+export class MeResponseDto {
+  token: string;
+  user: {
+    id: bigint;
+    email: string | null;
+    name?: string | null;
+    username?: string | null;
+    role?: string | null;
+    city?: string | null;
+    status?: string | null;
+    userType?: string | null;
+    paid?: boolean | null;
+    approved?: boolean | null;
+    pictureUrl?: string | null;
+  };
+}

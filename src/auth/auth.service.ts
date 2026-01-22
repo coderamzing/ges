@@ -1,14 +1,14 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { LoginDto, LoginResponseDto } from './auth.dto';
+import { LoginDto, LoginResponseDto, MeResponseDto } from './auth.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   async login(loginDto: LoginDto): Promise<LoginResponseDto> {
     const { email } = loginDto;
@@ -17,7 +17,7 @@ export class AuthService {
     // Using type assertion because PrismaService extends PrismaClient
     // and TypeScript may not immediately recognize new models
     const user = await (this.prisma as any).user.findFirst({
-      where: { username : email },
+      where: { username: email },
     });
 
     if (!user) {
@@ -35,5 +35,45 @@ export class AuthService {
       access_token,
     };
   }
+
+  async getCurrentUser(req): Promise<MeResponseDto> {
+    const promoter = req.promoter;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    // have to refresh token .
+    // if (!promoter || !token) {
+    //   throw new UnauthorizedException('User not found');
+    // }
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: BigInt(promoter.id),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        username: true,
+        role: true,
+        city: true,
+        status: true,
+        userType: true,
+        paid: true,
+        approved: true,
+        pictureUrl: true,
+        createdAt: true,
+        updatedAt: true,
+        blockedUntil: true,
+        proxy: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return {
+      token,
+      user,
+    };
+  }
+
 }
 

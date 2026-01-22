@@ -234,10 +234,8 @@ export class CampaignInvitationAutomationService {
           message,
           senderId,
         );
-      console.log(response, "incomng response")
-      console.log('incoming response', response);
 
-      // ✅ EXACTLY WHAT YOU ASKED FOR
+
       return response;
 
     } catch (error) {
@@ -405,28 +403,27 @@ export class CampaignInvitationAutomationService {
     // const message = renderTemplate(randomTemplate.content, variables);
     const message = renderTemplate(finalMessageContent, variables);
 
-    const threadId = await this.sendMessageCommon({
+    const response = await this.sendMessageCommon({
       receiverId: talent.id,
       promoterId: invitation.promoterId,
       invitationId: invitation.id,
       message,
     });
-    console.log(threadId, "incoming thread id ")
-    // if (threadId) {
-    //   await this.prisma.campaignInvitation.update({
-    //     where: {
-    //       campaignId_talentId: {
-    //         campaignId: campaign.id,
-    //         talentId: talent.id,
-    //       },
-    //     },
-    //     data: {
-    //       thread_id: threadId,
-    //     },
-    //   });
+    if (response) {
+      await this.prisma.campaignInvitation.update({
+        where: {
+          campaignId_talentId: {
+            campaignId: campaign.id,
+            talentId: talent.id,
+          },
+        },
+        data: {
+          thread_id: response.msg.threadId,
+        },
+      });
 
-    //   this.logger.log("thread Id updated in campaign invitation");
-    // }
+      this.logger.log("thread Id updated in campaign invitation");
+    }
 
 
 
@@ -441,9 +438,6 @@ export class CampaignInvitationAutomationService {
     });
 
 
-
-
-    // Update the invitation to mark it as sent
     const UpdatedInviteMessage = await this.prisma.campaignInvitation.update({
       where: { id: invitation.id },
       data: {

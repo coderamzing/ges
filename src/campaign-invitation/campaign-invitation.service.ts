@@ -650,59 +650,111 @@ export class CampaignInvitationService {
         const threadId = randomUUID();
         const messageId = randomUUID();
         const senderBigInt = BigInt(senderId);
-        console.log(senderBigInt, "sendt id ")
-        const receiverBigInt = receiverId;
-        console.log(receiverBigInt, "incmign id ")
+
+        const promoter = await this.prisma.user.findUnique({
+          where: {
+            id: BigInt(senderId),
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            username: true,
+            role: true,
+            city: true,
+            status: true,
+          },
+        });
+        if (!promoter) {
+          throw new Error(`Promote with ${senderId} not found`);
+        }
+
         const now = new Date();
         const talent = await this.prisma.talentPool.findUnique({
           where: { id: receiverId },
         });
-        console.log(talent, "taletnt details ")
+
         if (!talent) {
           throw new Error(`Talent ${receiverId} not found`);
         }
 
         const talentPk = talent.pk ?? BigInt(talent.id);
-        console.log(talentPk, "talent pk ")
-        const thread = await this.prisma.thread.upsert({
-          where: {
-            user_id_pk2: {
-              user_id: senderId,
+
+        // const thread = await this.prisma.thread.upsert({
+        //   where: {
+        //     user_id_pk2: {
+        //       user_id: senderId,
+        //       pk2: talentPk,
+        //     },
+
+        //   },
+        //   update: {
+        //     // created_at: now,
+        //   },
+        //   create: {
+        //     id: threadId,
+        //     created_at: new Date(),
+        //     pk1: talent.fromTrackerPk,
+        //     pk2: talentPk,
+        //     username1: talent.fromTracker,
+        //     username2: String(talent.id),
+        //     name2: talent.name ?? null,
+        //     picture2: talent.profilePicture ?? talent.mainPicture ?? null,
+        //     user_id: senderId,
+        //   },
+        // });
+
+
+        const thread = await this.prisma.$transaction(async (tx) => {
+          const existing = await tx.thread.findFirst({
+            where: {
+              user_id: senderBigInt,
               pk2: talentPk,
             },
+          });
 
-          },
-          update: {
-            // created_at: now,
-          },
-          create: {
-            id: threadId,
-            created_at: new Date(),
-            pk1: talent.fromTrackerPk,
-            pk2: talentPk,
-            username1: talent.fromTracker,
-            username2: String(talent.id),
-            name2: talent.name ?? null,
-            picture2: talent.profilePicture ?? talent.mainPicture ?? null,
-            user_id: senderId,
-          },
+          if (existing) {
+            return tx.thread.update({
+              where: { id: existing.id },
+              data: {
+                created_at: now,
+              },
+            });
+          }
+
+          return tx.thread.create({
+            data: {
+              id: threadId,
+              created_at: now,
+              pk1: talent.fromTrackerPk,
+              pk2: talentPk,
+              user_id: senderBigInt,
+              username1: talent.fromTracker,
+              username2: String(talent.id),
+              name2: talent.name ?? null,
+              picture2: talent.profilePicture ?? talent.mainPicture ?? null,
+            },
+          });
         });
 
-        console.log(thread, "incoming thread")
         await this.prisma.message.create({
           data: {
             id: messageId,
             created_at: now,
+            dt: now,
             tm: now,
             message,
             sender: senderBigInt,
-            sender_username: receiverId,
-            receiver: Number(receiverBigInt),
+            sender_username: promoter?.username,
+            receiver: Number(talentPk),
             receiver_username: talent.id,
             thread_id: thread.id,
             invite: true,
             pending_reply: false,
+            ai_processed: false,
             tmp: true,
+            client_context: randomUUID(),
+            user_id: senderId,
           },
         });
 
@@ -711,7 +763,7 @@ export class CampaignInvitationService {
           msg: {
             id: messageId,
             userId: senderId,
-            senderUsername: 'promoter', // replace with real promoter username
+            senderUsername: 'promoter',
             receiverUsername: talent.id ?? receiverId,
             receiver: Number(talentPk),
             threadId: thread.id,
@@ -723,10 +775,7 @@ export class CampaignInvitationService {
           },
         };
       }
-
-      // 🔥 Prevent undefined return
       throw new Error(`Invalid MESSAGE_MODE: ${process.env.MESSAGE_MODE}`);
-
     } catch (error: any) {
       console.error('CHATBOT ERROR:', {
         status: error?.response?.status,
