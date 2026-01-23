@@ -69,6 +69,10 @@
                                     <input class="form-check-input" type="checkbox" id="filterBlacklist" name="blacklist">
                                     <label class="form-check-label" for="filterBlacklist">Blacklist</label>
                                 </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="filterRecommendation" name="recommendation" checked>
+                                    <label class="form-check-label" for="filterRecommendation">Recommended by AI</label>
+                                </div>
                                 <div class="mb-2">
                                     <label class="form-label small">Talent Type</label>
                                     <div class="form-check">
@@ -818,7 +822,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                 const filters = {};
                 
                 // Collect filter values
-                const booleanFilters = ['openchat', 'dmSent', 'blacklist'];
+                const booleanFilters = ['openchat', 'dmSent', 'blacklist', 'recommendation'];
                 booleanFilters.forEach(filter => {
                     const checkbox = $(`#filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
                     if (checkbox.length && checkbox.is(':checked')) {
@@ -933,7 +937,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             const filters = {};
             
             // Boolean filters (checkboxes)
-            const booleanFilters = ['openchat', 'dmSent', 'blacklist'];
+            const booleanFilters = ['openchat', 'dmSent', 'blacklist', 'recommendation'];
             booleanFilters.forEach(filter => {
                 const checkbox = $(`#filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
                 if (checkbox.length && checkbox.is(':checked')) {
