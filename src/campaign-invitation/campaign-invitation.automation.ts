@@ -505,12 +505,21 @@ export class CampaignInvitationAutomationService {
       // - followupSent is false
       // - invitationAt is not null (initial message has been sent)
       // - invitationAt is at least 5 minutes ago
-      const invitationsNeedingFollowup =
+
+        const invitationsNeedingFollowup =
         await this.prisma.campaignInvitation.findMany({
           where: {
             AND: [
               { followup: true }, // no need
               { followupSent: false },
+              { status: {
+                notIn: [
+                  InvitationStatus.attended,
+                  InvitationStatus.confirmed,
+                  InvitationStatus.declined,
+                  InvitationStatus.optout
+                ]
+              } },
               { invitationAt: { not: null, lte: fiveMinutesAgo } },
               {
                 campaign: {

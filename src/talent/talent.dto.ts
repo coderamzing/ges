@@ -67,6 +67,18 @@ import { BadRequestException } from '@nestjs/common';
 
 
 export class TalentRecommendationFiltersDto {
+  @ApiPropertyOptional({
+    description: 'Search talents by name, username, or city',
+    example: 'john',
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value
+  )
+  query?: string;
+
+
   @ApiPropertyOptional({ description: 'Show only talents who have replied before', example: true })
   @IsOptional()
   @IsBoolean()

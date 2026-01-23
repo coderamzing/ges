@@ -120,6 +120,36 @@ export class TalentService {
       ];
     }
 
+    if (filters.query && filters.query.trim().length > 0) {
+    const q = filters.query.trim();
+
+    baseWhere.AND = [
+      ...(baseWhere.AND || []),
+      {
+        OR: [
+          {
+            id: {
+              contains: q,
+              mode: 'insensitive',
+            },
+          },
+          {
+            name: {
+              contains: q,
+              mode: 'insensitive',
+            },
+          },
+          {
+            city: {
+              contains: q,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      },
+    ];
+  }
+
     if (filters.recommendation === true) {
       baseWhere.OR = [
         { currentCity: event.city },
