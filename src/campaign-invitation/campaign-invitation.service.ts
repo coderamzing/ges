@@ -708,14 +708,15 @@ export class CampaignInvitationService {
           throw new Error(`Talent ${receiverId} not found`);
         }
 
-        const talentPk = talent.pk ?? BigInt(talent.id);
+        const talentPk = talent.pk;
         console.log("outside thread existing------ talentPk",talentPk)
         const thread = await this.prisma.$transaction(async (tx) => {
           console.log("inside thread existing------")
           const existing = await tx.thread.findFirst({
             where: {
               user_id: senderBigInt,
-              pk2: talentPk,
+              // pk2: talentPk,
+              username2: String(talent.id)
             },
           });
           console.log("existing",existing)
