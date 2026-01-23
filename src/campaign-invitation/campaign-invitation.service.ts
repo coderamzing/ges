@@ -650,6 +650,10 @@ export class CampaignInvitationService {
     try {
       const mode = process.env.MESSAGE_MODE || 'dev';
       const url = process.env.CHATBOT_URL || '';
+
+        console.log("mode",mode)
+        console.log("url",url)
+
       if (mode === 'live') {
         const response = await axios.post(
           url,
@@ -669,6 +673,10 @@ export class CampaignInvitationService {
         const messageId = randomUUID();
         const senderBigInt = BigInt(senderId);
 
+        console.log("senderBigInt",senderBigInt)
+
+
+
         const promoter = await this.prisma.user.findUnique({
           where: {
             id: BigInt(senderId),
@@ -683,6 +691,8 @@ export class CampaignInvitationService {
             status: true,
           },
         });
+
+        console.log("promoter",promoter)
         if (!promoter) {
           throw new Error(`Promote with ${senderId} not found`);
         }
@@ -691,6 +701,8 @@ export class CampaignInvitationService {
         const talent = await this.prisma.talentPool.findUnique({
           where: { id: receiverId },
         });
+        console.log("talent",talent)
+
 
         if (!talent) {
           throw new Error(`Talent ${receiverId} not found`);
@@ -704,6 +716,7 @@ export class CampaignInvitationService {
               pk2: talentPk,
             },
           });
+          console.log("existing",existing)
 
           if (existing) {
             return tx.thread.update({
@@ -728,6 +741,9 @@ export class CampaignInvitationService {
             },
           });
         });
+
+          console.log("thread",thread)
+
 
         await this.prisma.message.create({
           data: {

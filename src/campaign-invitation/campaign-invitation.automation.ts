@@ -223,6 +223,9 @@ export class CampaignInvitationAutomationService {
 
     const senderId = Number(promoterId);
 
+    console.log("token in sendMessageCommon",token)
+    console.log("senderId in sendMessageCommon",senderId)
+
     try {
       const response =
         await this.campaignInvitationService.sendMessage(
@@ -404,7 +407,10 @@ export class CampaignInvitationAutomationService {
       invitationId: invitation.id,
       message,
     });
+    console.log("response",response)
     if (response) {
+    console.log("inside the response loop")
+
       await this.prisma.campaignInvitation.update({
         where: {
           campaignId_talentId: {
