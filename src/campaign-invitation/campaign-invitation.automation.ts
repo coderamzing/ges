@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 import { CampaignMessagesService } from "../campaign-messages/campaign-messages.service";
@@ -218,13 +218,8 @@ export class CampaignInvitationAutomationService {
     invitationId: number;
   }): Promise<SendMessageResponse | undefined> {
     const { receiverId, promoterId, message, invitationId } = params;
-
     const token = process.env.TEMP_TOKEN || null;
-
     const senderId = Number(promoterId);
-
-    console.log("token in sendMessageCommon",token)
-    console.log("senderId in sendMessageCommon",senderId)
 
     try {
       const response =
@@ -249,6 +244,41 @@ export class CampaignInvitationAutomationService {
     }
   }
 
+
+  private async checkAndUpdateCampaignEnd(
+    campaignId: number,
+    batchId: number,
+  ) {
+    // Count current batch invitations
+    const currentBatchCount = await this.prisma.campaignInvitation.count({
+      where: {
+        campaignId,
+        batch: batchId,
+        status: {
+          not: 'pending',
+        },
+      },
+    });
+    // If batch 2 reaches 100 invitations, update campaign end_at
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: { end_at: true },
+    });
+    if (!campaign) throw new NotFoundException(`Campaign ${campaignId} not found`);
+
+    // If batch 2 reaches 100 invitations AND end_at is null, update it
+    if (currentBatchCount === 99 && batchId === 2 && campaign.end_at === null) {
+      await this.prisma.campaign.update({
+        where: { id: campaignId },
+        data: { end_at: new Date() },
+      });
+      console.log(`Campaign ${campaignId} end_at updated at ${new Date()}`);
+    } else {
+      console.log(
+        `Campaign ${campaignId} batch ${batchId} has ${currentBatchCount} invitations, end_at: ${campaign.end_at}`
+      );
+    }
+  }
 
   constructor(
     private prisma: PrismaService,
@@ -407,11 +437,9 @@ export class CampaignInvitationAutomationService {
       invitationId: invitation.id,
       message,
     });
-    console.log("response",response)
     if (response) {
-    console.log("inside the response loop")
 
-      await this.prisma.campaignInvitation.update({
+      let update = await this.prisma.campaignInvitation.update({
         where: {
           campaignId_talentId: {
             campaignId: campaign.id,
@@ -423,6 +451,8 @@ export class CampaignInvitationAutomationService {
         },
       });
 
+      this.logger.log("checking for Update Campaign Status END TIME");
+      await this.checkAndUpdateCampaignEnd(update.campaignId, update.batch);
       this.logger.log("thread Id updated in campaign invitation");
     }
 
@@ -437,7 +467,6 @@ export class CampaignInvitationAutomationService {
     //   message: message,
     //   sentAt: new Date(),
     // });
-
 
     const UpdatedInviteMessage = await this.prisma.campaignInvitation.update({
       where: { id: invitation.id },

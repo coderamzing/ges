@@ -48,7 +48,50 @@ export class TalentService {
     //   ],
     // };
 
+    const hiddenTalents48h = await this.prisma.$queryRaw<
+      { talentId: string }[]
+    >`
+  SELECT DISTINCT "talentId"
+  FROM "CampaignInvitation"
+  WHERE "promoterId" = ${promoterId}
+    AND "status" = 'sent'
+    AND "invitationAt" IS NOT NULL
+    AND "invitationAt" + INTERVAL '48 hours' > NOW()
+`;
+
+    const hidden48 = hiddenTalents48h.map(t => t.talentId);
+
+    const acceptedInvitations = await this.prisma.$queryRaw<
+      { talentId: string }[]
+    >`
+  SELECT DISTINCT ci."talentId"
+  FROM "CampaignInvitation" ci
+  JOIN "events" e
+    ON e.id = ci."eventId"::bigint
+  WHERE ci.status IN ('confirmed', 'attended')
+    AND e.dt IS NOT NULL
+    AND DATE(e.dt) = DATE(${event.dt})
+`;
+
+    const acceptedTalentIds = acceptedInvitations.map(i => i.talentId);
+
     const baseWhere: any = {}
+    if (hidden48.length) {
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        { id: { notIn: hidden48 } },
+      ];
+    }
+
+    if (acceptedTalentIds.length) {
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          id: { notIn: acceptedTalentIds },
+        },
+      ];
+    }
+
     if (filters.recommendation === true) {
       baseWhere.OR = [
         { currentCity: event.city },
