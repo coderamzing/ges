@@ -66,8 +66,14 @@ export class TalentService {
         : filters.blacklist === true
           ? { some: { promoterId } }
           : undefined;
-
-    const hasTrustScoreFilter = !!filters.trustScoreRange;
+    // const hasTrustScoreFilter = !!filters.trustScoreRange;
+    const hasTrustScoreFilter =
+      filters.trustScoreRange !== undefined &&
+      (
+        (filters.trustScoreRange.min !== undefined &&
+          filters.trustScoreRange.min > 0) ||
+        filters.trustScoreRange.max !== undefined
+      );
     const hasOpenChatFilter = filters.openchat === true;
     const hasDmSentFilter = filters.dmSent === true;
 
