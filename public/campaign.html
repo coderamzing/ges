@@ -154,9 +154,13 @@
         const API_BASE = '/api';
         const token = localStorage.getItem('token');
         const urlParams = new URLSearchParams(window.location.search);
-        const campaignId = urlParams.get('id');
+        const campaignId = parseInt(urlParams.get('id'), 10);
 
         if (!token) {
+            window.location.href = 'index.html';
+        }
+
+        if (!campaignId || isNaN(campaignId)) {
             window.location.href = 'index.html';
         }
 
@@ -176,6 +180,33 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 }).catch(() => []);
 
+                // Check blacklist status for each talent
+                const blacklistChecks = await Promise.all(
+                    messagesByTalent.map(async (group) => {
+                        try {
+                            const blacklistEntry = await $.ajax({
+                                url: `${API_BASE}/talent-blacklist/check/${group.talent.id}`,
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            return {
+                                talentId: group.talent.id,
+                                isBlacklisted: blacklistEntry !== null
+                            };
+                        } catch (error) {
+                            return {
+                                talentId: group.talent.id,
+                                isBlacklisted: false
+                            };
+                        }
+                    })
+                );
+
+                // Add blacklist status to each group
+                const blacklistMap = new Map(blacklistChecks.map(b => [b.talentId, b.isBlacklisted]));
+                messagesByTalent.forEach(group => {
+                    group.isBlacklisted = blacklistMap.get(group.talent.id) || false;
+                });
+
                 displayMessages(messagesByTalent);
 
                 // Load invitations
@@ -192,6 +223,34 @@
                     url: `${API_BASE}/campaign-invitations/campaign/${campaignId}`,
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                
+                // Check blacklist status for each talent
+                const blacklistChecks = await Promise.all(
+                    invitations.map(async (inv) => {
+                        try {
+                            const blacklistEntry = await $.ajax({
+                                url: `${API_BASE}/talent-blacklist/check/${inv.talentId}`,
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            return {
+                                talentId: inv.talentId,
+                                isBlacklisted: blacklistEntry !== null
+                            };
+                        } catch (error) {
+                            return {
+                                talentId: inv.talentId,
+                                isBlacklisted: false
+                            };
+                        }
+                    })
+                );
+
+                // Add blacklist status to each invitation
+                const blacklistMap = new Map(blacklistChecks.map(b => [b.talentId, b.isBlacklisted]));
+                invitations.forEach(inv => {
+                    inv.isBlacklisted = blacklistMap.get(inv.talentId) || false;
+                });
+                
                 displayInvitations(invitations);
             } catch (error) {
                 $('#invitationsList').html(`<div class="alert alert-danger">Error loading invitations: ${error.responseJSON?.message || error.statusText}</div>`);
@@ -228,9 +287,11 @@
                 html += `<td>${inv.followupSent ? '✓' : '✗'}</td>`;
                 html += `<td>${inv.thankYouSent ? '✓' : '✗'}</td>`;
                 html += `<td>${inv.isSeen ? '✓' : '✗'}</td>`;
+                const isBlacklisted = inv.isBlacklisted || false;
                 html += `<td>
                     <a href="talent.html?talentId=${inv.talentId}&promoterId=${inv.promoterId}" class="btn btn-sm btn-outline-info me-1">View</a>
                     <button class="btn btn-sm btn-primary edit-invitation-btn" data-invitation-id="${inv.id}">Edit</button>
+                    ${!isBlacklisted ? `<button class="btn btn-sm btn-outline-danger toggle-blacklist-invitation-btn me-1" data-talent-id="${inv.talentId}" data-is-blacklisted="false">Mark Blacklist</button>` : ''}
                 </td>`;
                 html += '</tr>';
             });
@@ -244,6 +305,40 @@
                 const invitation = invitations.find(inv => inv.id === invitationId);
                 if (invitation) {
                     editInvitation(invitation);
+                }
+            });
+
+            // Handle mark blacklist button in invitations list
+            $('.toggle-blacklist-invitation-btn').on('click', async function() {
+                const button = $(this);
+                const talentId = button.data('talent-id');
+                button.prop('disabled', true);
+                
+                try {
+                    // Add to blacklist
+                    const reason = prompt('Enter reason for blacklisting:');
+                    if (reason === null) {
+                        button.prop('disabled', false);
+                        return;
+                    }
+                    await $.ajax({
+                        url: `${API_BASE}/talent-blacklist`,
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        data: JSON.stringify({
+                            talentId: talentId,
+                            reason: reason || 'No reason provided'
+                        })
+                    });
+                    alert('Talent added to blacklist!');
+                    loadInvitations();
+                } catch (error) {
+                    alert('Error updating blacklist: ' + (error.responseJSON?.message || error.statusText));
+                } finally {
+                    button.prop('disabled', false);
                 }
             });
         }
@@ -295,8 +390,11 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
 
                 const status = invitation.status || 'pending';
 
+                const invitationId = invitation.id;
+                const isBlacklisted = group.isBlacklisted || false;
+                
                 html += `
-                    <div class="talent-section">
+                    <div class="talent-section" data-talent-id="${talent.id}" data-invitation-id="${invitationId}" data-promoter-id="${promoterId}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div>
                                 <h4 class="mb-1">${escapeHtml(talent.name)} (@${escapeHtml(talent.accountId)})</h4>
@@ -306,7 +404,9 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                                     ${invitation.invitationAt ? `<span class="text-muted">Invited: ${formatDate(invitation.invitationAt)}</span>` : ''}
                                 </div>
                             </div>
-                            ${promoterId ? `<a href="talent.html?talentId=${talent.id}&promoterId=${promoterId}" class="btn btn-sm btn-outline-primary">View Score & Logs</a>` : ''}
+                            <div class="d-flex gap-2">
+                                ${promoterId ? `<a href="talent.html?talentId=${talent.id}&promoterId=${promoterId}" class="btn btn-sm btn-outline-primary">View Score & Logs</a>` : ''}
+                            </div>
                         </div>
                         <div class="messages-container mb-3">
                             ${messages.map(msg => `
@@ -318,6 +418,13 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                                     <small class="badge bg-${msg.direction === 'sent' ? 'primary' : 'success'}">${msg.direction}</small>
                                 </div>
                             `).join('')}
+                        </div>
+                        <div class="d-flex gap-2 mb-2">
+                            ${invitationId ? `
+                                <button class="btn btn-sm btn-outline-info send-followup-btn" data-invitation-id="${invitationId}">Send Followup</button>
+                                <button class="btn btn-sm btn-outline-success mark-attend-btn" data-invitation-id="${invitationId}">Mark Attend</button>
+                                ${!isBlacklisted ? `<button class="btn btn-sm btn-outline-danger toggle-blacklist-btn" data-talent-id="${talent.id}" data-is-blacklisted="false">Mark Blacklist</button>` : ''}
+                            ` : ''}
                         </div>
                         <form class="reply-form" data-talent-id="${talent.id}">
                             <div class="mb-2">
@@ -357,6 +464,96 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                     alert('Error sending message: ' + (error.responseJSON?.message || error.statusText));
                 } finally {
                     button.prop('disabled', false).text('Send Reply');
+                }
+            });
+
+            // Handle send followup button
+            $('.send-followup-btn').on('click', async function() {
+                const button = $(this);
+                const invitationId = parseInt(button.data('invitation-id'), 10);
+                const currentCampaignId = parseInt(campaignId, 10);
+                button.prop('disabled', true).text('Sending...');
+                try {
+                    await $.ajax({
+                        url: `${API_BASE}/campaign-invitations/mark-for-followup`,
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        data: JSON.stringify({
+                            campaignId: currentCampaignId,
+                            invitationIds: [invitationId]
+                        })
+                    });
+                    alert('Followup marked successfully!');
+                    loadCampaign();
+                } catch (error) {
+                    alert('Error marking followup: ' + (error.responseJSON?.message || error.statusText));
+                } finally {
+                    button.prop('disabled', false).text('Send Followup');
+                }
+            });
+
+            // Handle mark attend button
+            $('.mark-attend-btn').on('click', async function() {
+                const button = $(this);
+                const invitationId = parseInt(button.data('invitation-id'), 10);
+                const currentCampaignId = parseInt(campaignId, 10);
+                button.prop('disabled', true).text('Marking...');
+                try {
+                    await $.ajax({
+                        url: `${API_BASE}/campaign-invitations/mark-attended`,
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        data: JSON.stringify({
+                            campaignId: currentCampaignId,
+                            invitationIds: [invitationId]
+                        })
+                    });
+                    alert('Marked as attended successfully!');
+                    loadCampaign();
+                } catch (error) {
+                    alert('Error marking as attended: ' + (error.responseJSON?.message || error.statusText));
+                } finally {
+                    button.prop('disabled', false).text('Mark Attend');
+                }
+            });
+
+            // Handle mark blacklist button
+            $('.toggle-blacklist-btn').on('click', async function() {
+                const button = $(this);
+                const talentId = button.data('talent-id');
+                button.prop('disabled', true);
+                
+                try {
+                    // Add to blacklist
+                    const reason = prompt('Enter reason for blacklisting:');
+                    if (reason === null) {
+                        button.prop('disabled', false);
+                        return;
+                    }
+                    await $.ajax({
+                        url: `${API_BASE}/talent-blacklist`,
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        data: JSON.stringify({
+                            talentId: talentId,
+                            reason: reason || 'No reason provided'
+                        })
+                    });
+                    alert('Talent added to blacklist!');
+                    loadCampaign();
+                } catch (error) {
+                    alert('Error updating blacklist: ' + (error.responseJSON?.message || error.statusText));
+                } finally {
+                    button.prop('disabled', false);
                 }
             });
         }
@@ -525,25 +722,30 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             let html = '';
             recommendations.forEach(talent => {
                 const promoterState = talent.promoterState || {};
-                const statusBadge = talent.isBlacklisted 
+                const isBlacklisted = talent.blacklist !== null && talent.blacklist !== undefined;
+                const statusBadge = isBlacklisted 
                     ? '<span class="badge bg-danger">Blacklisted</span>'
                     : promoterState.liked 
                         ? '<span class="badge bg-success">Liked</span>'
                         : promoterState.hide
                             ? '<span class="badge bg-warning">Hidden</span>'
                             : '<span class="badge bg-secondary">Available</span>';
-
                 html += `
-                    <div class="form-check recommendation-talent-item" data-talent-id="${talent.id}">
-                        <input class="form-check-input recommendation-talent-checkbox" type="checkbox" value="${talent.id}" id="recommend-talent-${talent.id}">
-                        <label class="form-check-label" for="recommend-talent-${talent.id}">
-                            <strong>${escapeHtml(talent.name || 'Unknown')}</strong> 
-                            <span class="text-muted">@${escapeHtml(talent.accountId || 'unknown')}</span>
-                            ${talent.city ? `<small class="text-muted"> - ${escapeHtml(talent.city)}</small>` : ''}
-                            ${talent.followers ? `<small class="text-muted"> - ${talent.followers.toLocaleString()} followers</small>` : ''}
-                            ${talent.trustScore !== undefined ? `<small class="text-muted"> - Trust: ${talent.trustScore}</small>` : ''}
-                            <span class="ms-2">${statusBadge}</span>
-                        </label>
+                    <div class="form-check recommendation-talent-item d-flex align-items-center justify-content-between" data-talent-id="${talent.id}">
+                        <div class="d-flex align-items-center flex-grow-1">
+                            <input class="form-check-input recommendation-talent-checkbox" type="checkbox" value="${talent.id}" id="recommend-talent-${talent.id}">
+                            <label class="form-check-label ms-2" for="recommend-talent-${talent.id}">
+                                <strong>${escapeHtml(talent.name || 'Unknown')}</strong> 
+                                <span class="text-muted">@${escapeHtml(talent.accountId || 'unknown')}</span>
+                                ${talent.city ? `<small class="text-muted"> - ${escapeHtml(talent.city)}</small>` : ''}
+                                ${talent.followers ? `<small class="text-muted"> - ${talent.followers.toLocaleString()} followers</small>` : ''}
+                                ${talent.trustScore !== undefined ? `<small class="text-muted"> - Trust: ${talent.trustScore}</small>` : ''}
+                                <span class="ms-2">${statusBadge}</span>
+                            </label>
+                        </div>
+                        <button class="btn btn-sm ${isBlacklisted ? 'btn-warning' : 'btn-outline-danger'} toggle-blacklist-recommendation-btn ms-2" data-talent-id="${talent.id}" data-is-blacklisted="${isBlacklisted}">
+                            ${isBlacklisted ? 'Remove Blacklist' : 'Mark Blacklist'}
+                        </button>
                     </div>
                 `;
             });
@@ -570,6 +772,78 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
         // Recommendation checkbox change
         $(document).on('change', '.recommendation-talent-checkbox', function() {
             updateRecommendationsSelectedCount();
+        });
+
+        // Handle toggle blacklist button in recommendations
+        $(document).on('click', '.toggle-blacklist-recommendation-btn', async function() {
+            const button = $(this);
+            const talentId = button.data('talent-id');
+            const isBlacklisted = button.data('is-blacklisted');
+            button.prop('disabled', true);
+            
+            try {
+                if (isBlacklisted) {
+                    // Remove from blacklist
+                    await $.ajax({
+                        url: `${API_BASE}/talent-blacklist/talent/${talentId}`,
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    alert('Talent removed from blacklist!');
+                } else {
+                    // Add to blacklist
+                    const reason = prompt('Enter reason for blacklisting:');
+                    if (reason === null) {
+                        button.prop('disabled', false);
+                        return;
+                    }
+                    await $.ajax({
+                        url: `${API_BASE}/talent-blacklist`,
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        data: JSON.stringify({
+                            talentId: talentId,
+                            reason: reason || 'No reason provided'
+                        })
+                    });
+                    alert('Talent added to blacklist!');
+                }
+                // Reload recommendations to reflect the change
+                const batchId = parseInt($('input[name="recommendBatchId"]:checked').val());
+                const filters = {};
+                
+                // Collect filter values
+                const booleanFilters = ['openchat', 'dmSent', 'blacklist'];
+                booleanFilters.forEach(filter => {
+                    const checkbox = $(`#filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
+                    if (checkbox.length && checkbox.is(':checked')) {
+                        filters[filter] = true;
+                    }
+                });
+                
+                const talentTypes = $('input[name="talentType"]:checked').map(function() {
+                    return $(this).val();
+                }).get();
+                if (talentTypes.length > 0) {
+                    filters.talentType = talentTypes;
+                }
+                
+                const trustScoreRange = $('#filterTrustScoreRange').val().trim();
+                if (trustScoreRange) {
+                    filters.trustScoreRange = trustScoreRange;
+                }
+                
+                loadTalentRecommendations(batchId, filters);
+            } catch (error) {
+                alert('Error updating blacklist: ' + (error.responseJSON?.message || error.statusText));
+            } finally {
+                button.prop('disabled', false);
+            }
         });
 
         // Select all / deselect all recommendations

@@ -66,6 +66,16 @@
                                 <option value="paused">Paused</option>
                             </select>
                         </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Send Thank You Message At</label>
+                            <input type="datetime-local" class="form-control" id="postEventTriggerAt">
+                            <small class="form-text text-muted">Date and time to send thank you messages (optional)</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Followup Delay (hours)</label>
+                            <input type="number" class="form-control" id="followupDelay" min="1" value="12">
+                            <small class="form-text text-muted">Delay in hours before sending followup messages (default: 12)</small>
+                        </div>
                     </div>
                     <!-- Talents selection temporarily removed -->
                     <button type="submit" class="btn btn-primary">Create Campaign</button>
@@ -75,6 +85,19 @@
 
         <!-- Campaigns List -->
         <div id="campaignsList"></div>
+
+        <!-- Blacklist Section -->
+        <div class="card mb-4" id="blacklistSection" style="display: none;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">Blacklisted Talents</h5>
+                    <button class="btn btn-sm btn-outline-secondary" id="refreshBlacklistBtn">Refresh</button>
+                </div>
+                <div id="blacklistList">
+                    <div class="text-center text-muted">Loading blacklist...</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -101,8 +124,10 @@
                 $('#loginCard').hide();
                 $('#createForm').show();
                 $('#headerButtons').show();
+                $('#blacklistSection').show();
                 loadCampaigns();
                 loadEvents();
+                loadBlacklist();
             } catch (error) {
                 console.error('Stored token invalid, showing login again:', error);
                 localStorage.removeItem('token');
@@ -129,8 +154,10 @@
                 $('#loginCard').hide();
                 $('#createForm').show();
                 $('#headerButtons').show();
+                $('#blacklistSection').show();
                 loadCampaigns();
                 loadEvents();
+                loadBlacklist();
             } catch (error) {
                 alert('Login failed: ' + (error.responseJSON?.message || error.statusText));
             }
@@ -237,15 +264,39 @@
                     statsHtml = '<div class="mt-2"><small class="text-muted">Stats loading...</small></div>';
                 }
                 
+                const statusColors = {
+                    'active': 'success',
+                    'paused': 'warning',
+                    'draft': 'secondary',
+                    'completed': 'info',
+                    'stopped': 'danger'
+                };
+                const currentStatusColor = statusColors[campaign.status] || 'secondary';
+                
                 html += `
                     <div class="list-group-item campaign-item">
                         <div class="campaign-item-header">
                             <div onclick="window.location.href='campaign.html?id=${campaign.id}'" style="flex: 1; cursor: pointer;">
                                 <h5>${escapeHtml(campaign.name)}</h5>
-                                <small class="text-muted">Status: ${campaign.status} | Lang: ${campaign.lang}</small>
+                                <small class="text-muted">
+                                    Status: <span class="badge bg-${currentStatusColor}">${campaign.status}</span> | Lang: ${campaign.lang}
+                                </small>
                                 ${statsHtml}
                             </div>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 align-items-start">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusDropdown${campaign.id}" data-bs-toggle="dropdown" aria-expanded="false" onclick="event.stopPropagation();">
+                                        Change Status
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="statusDropdown${campaign.id}">
+                                        <li><a class="dropdown-item ${campaign.status === 'active' ? 'active' : ''}" href="#" data-campaign-id="${campaign.id}" data-status="active" onclick="event.stopPropagation(); changeCampaignStatus(${campaign.id}, 'active'); return false;">Active</a></li>
+                                        <li><a class="dropdown-item ${campaign.status === 'paused' ? 'active' : ''}" href="#" data-campaign-id="${campaign.id}" data-status="paused" onclick="event.stopPropagation(); changeCampaignStatus(${campaign.id}, 'paused'); return false;">Paused</a></li>
+                                        <li><a class="dropdown-item ${campaign.status === 'draft' ? 'active' : ''}" href="#" data-campaign-id="${campaign.id}" data-status="draft" onclick="event.stopPropagation(); changeCampaignStatus(${campaign.id}, 'draft'); return false;">Draft</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item ${campaign.status === 'completed' ? 'active' : ''}" href="#" data-campaign-id="${campaign.id}" data-status="completed" onclick="event.stopPropagation(); changeCampaignStatus(${campaign.id}, 'completed'); return false;">Completed</a></li>
+                                        <li><a class="dropdown-item ${campaign.status === 'stopped' ? 'active' : ''}" href="#" data-campaign-id="${campaign.id}" data-status="stopped" onclick="event.stopPropagation(); changeCampaignStatus(${campaign.id}, 'stopped'); return false;">Stopped</a></li>
+                                    </ul>
+                                </div>
                                 <button class="btn btn-info btn-sm view-templates-btn" data-campaign-id="${campaign.id}" onclick="event.stopPropagation(); window.location.href='template.html?campaignId=${campaign.id}'">
                                     View Templates
                                 </button>
@@ -267,6 +318,25 @@
                 const campaignName = $(this).data('campaign-name');
                 deleteCampaign(campaignId, campaignName);
             });
+        }
+
+        // Change campaign status
+        async function changeCampaignStatus(campaignId, newStatus) {
+            try {
+                await $.ajax({
+                    url: `${API_BASE}/campaigns/${campaignId}/status`,
+                    method: 'PATCH',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify({ status: newStatus })
+                });
+                // Reload campaigns to show updated status
+                loadCampaigns();
+            } catch (error) {
+                alert('Error changing campaign status: ' + (error.responseJSON?.message || error.statusText));
+            }
         }
 
         // Delete Campaign
@@ -299,7 +369,7 @@
             };
             try {
                 // Create campaign
-                await $.ajax({
+                const campaign = await $.ajax({
                     url: `${API_BASE}/campaigns`,
                     method: 'POST',
                     headers: { 
@@ -308,6 +378,48 @@
                     },
                     data: JSON.stringify(data)
                 });
+
+                // Update postEventTriggerAt if provided
+                const postEventTriggerAt = $('#postEventTriggerAt').val();
+                if (postEventTriggerAt) {
+                    try {
+                        // Convert local datetime to ISO string
+                        const dateTime = new Date(postEventTriggerAt);
+                        await $.ajax({
+                            url: `${API_BASE}/campaigns/${campaign.id}/post-event-time`,
+                            method: 'PATCH',
+                            headers: { 
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            data: JSON.stringify({
+                                postEventTriggerAt: dateTime.toISOString()
+                            })
+                        });
+                    } catch (error) {
+                        console.error('Error updating post event time:', error);
+                    }
+                }
+
+                // Update followup_delay if provided
+                const followupDelay = $('#followupDelay').val();
+                if (followupDelay) {
+                    try {
+                        await $.ajax({
+                            url: `${API_BASE}/campaigns/${campaign.id}/followup-delay`,
+                            method: 'PATCH',
+                            headers: { 
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            data: JSON.stringify({
+                                followup_delay: parseInt(followupDelay)
+                            })
+                        });
+                    } catch (error) {
+                        console.error('Error updating followup delay:', error);
+                    }
+                }
 
                 //alert('Campaign created!');
                 $('#campaignForm')[0].reset();
@@ -324,8 +436,89 @@
             $('#loginCard').show();
             $('#createForm').hide();
             $('#campaignsList').empty();
+            $('#blacklistSection').hide();
             $('#headerButtons').hide();
         });
+
+        // Load blacklist
+        async function loadBlacklist() {
+            try {
+                $('#blacklistList').html('<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Loading blacklist...</div>');
+                
+                const blacklist = await $.ajax({
+                    url: `${API_BASE}/talent-blacklist`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                displayBlacklist(blacklist);
+            } catch (error) {
+                $('#blacklistList').html(`<div class="alert alert-danger">Error loading blacklist: ${error.responseJSON?.message || error.statusText}</div>`);
+            }
+        }
+
+        // Display blacklist
+        function displayBlacklist(blacklist) {
+            if (blacklist.length === 0) {
+                $('#blacklistList').html('<div class="alert alert-info">No blacklisted talents found</div>');
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-sm table-striped">';
+            html += '<thead><tr>';
+            html += '<th>Talent ID</th><th>Reason</th><th>Blacklisted At</th><th>Actions</th>';
+            html += '</tr></thead><tbody>';
+
+            blacklist.forEach(entry => {
+                html += `<tr data-blacklist-id="${entry.id}">`;
+                html += `<td><strong>${escapeHtml(entry.talentId)}</strong></td>`;
+                html += `<td>${escapeHtml(entry.reason)}</td>`;
+                html += `<td>${formatDate(entry.createdAt)}</td>`;
+                html += `<td>
+                    <button class="btn btn-sm btn-danger remove-blacklist-btn" data-blacklist-id="${entry.id}" data-talent-id="${entry.talentId}">Remove</button>
+                </td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            $('#blacklistList').html(html);
+
+            // Attach remove handlers
+            $('.remove-blacklist-btn').on('click', function() {
+                const button = $(this);
+                const blacklistId = button.data('blacklist-id');
+                const talentId = button.data('talent-id');
+                removeFromBlacklist(blacklistId, talentId);
+            });
+        }
+
+        // Remove from blacklist
+        async function removeFromBlacklist(blacklistId, talentId) {
+            if (!confirm(`Are you sure you want to remove ${talentId} from the blacklist?`)) {
+                return;
+            }
+
+            try {
+                await $.ajax({
+                    url: `${API_BASE}/talent-blacklist/${blacklistId}`,
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                alert('Talent removed from blacklist!');
+                loadBlacklist();
+            } catch (error) {
+                alert('Error removing from blacklist: ' + (error.responseJSON?.message || error.statusText));
+            }
+        }
+
+        // Refresh blacklist button
+        $('#refreshBlacklistBtn').on('click', function() {
+            loadBlacklist();
+        });
+
+        function formatDate(date) {
+            if (!date) return '';
+            return new Date(date).toLocaleString();
+        }
 
         function escapeHtml(text) {
             if (!text) return '';

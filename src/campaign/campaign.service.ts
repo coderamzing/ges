@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCampaignDto, UpdateCampaignAutoLangModeDto, UpdateCampaignDto, UpdateCampaignPostEventTimeDto, UpdateCampaignStatusDto } from './campaign.dto';
+import { CreateCampaignDto, UpdateCampaignAutoLangModeDto, UpdateCampaignDto, UpdateCampaignPostEventTimeDto, UpdateCampaignStatusDto, UpdateCampaignFollowupDelayDto } from './campaign.dto';
 import { Campaign, CampaignStatus, Prisma, TemplateType } from '@prisma/client';
 import { DEFAULT_TEMPLATES } from '../campaign-template/campaign-template.config';
 import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from '../campaign-template/campaign-template.service';
@@ -327,6 +327,35 @@ export class CampaignService {
       await updateTemplates(dto.thankyou_mode, TemplateType.postevent);
 
       return updatedCampaign;
+    });
+  }
+  async updateFollowupDelay(
+    campaignId: number,
+    dto: UpdateCampaignFollowupDelayDto,
+    promoterId: number,
+  ): Promise<Campaign> {
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!campaign) {
+      throw new NotFoundException('Campaign not found');
+    }
+
+    // Verify ownership
+    const event = await this.prisma.events.findUnique({
+      where: { id: campaign.eventId },
+    });
+
+    if (!event || event.userId !== BigInt(promoterId)) {
+      throw new NotFoundException('Campaign does not belong to this promoter');
+    }
+
+    return this.prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        followup_delay: dto.followup_delay,
+      },
     });
   }
 
