@@ -80,11 +80,15 @@ export class CampaignMessagesAutomationService {
         },
       });
 
-      const talentReplies = messages.filter(
-        (msg) =>
-          msg.thread_id === msg.invitation?.thread_id &&
-          msg.sender_username === msg.invitation?.talentId,
-      );
+      const talentReplies = messages.filter((msg) => {
+        if (!msg.invitation?.invitationAt || !msg.created_at) return false;
+
+        return (
+          msg.thread_id === msg.invitation.thread_id &&
+          msg.sender_username === msg.invitation.talentId &&
+          msg.created_at > msg.invitation.invitationAt
+        );
+      });
 
 
       if (talentReplies.length === 0) {

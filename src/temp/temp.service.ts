@@ -216,7 +216,7 @@ export class TempService {
 
   return this.prisma.message.create({
       data: {
-        id: `msg_${crypto.randomUUID()}`,
+        id: `${crypto.randomUUID()}`,
         created_at: now,
         dt: now,
         tm: now,
@@ -226,10 +226,10 @@ export class TempService {
         receiver: BigInt(promoter.id),
         receiver_username: promoter.username,
         thread_id: thread.id,
+        user_id: BigInt(promoter.id),
         invite: false,
         tmp: true,
         pending_reply: false,
-        // client_context: 'talent_reply',
       },
     });
 }
