@@ -709,7 +709,9 @@ export class CampaignInvitationService {
         }
 
         const talentPk = talent.pk ?? BigInt(talent.id);
+        console.log("outside thread existing------ talentPk",talentPk)
         const thread = await this.prisma.$transaction(async (tx) => {
+          console.log("inside thread existing------")
           const existing = await tx.thread.findFirst({
             where: {
               user_id: senderBigInt,
