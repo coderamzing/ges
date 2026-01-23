@@ -40,9 +40,6 @@ export class AuthService {
     const promoter = req.promoter;
     // const accessToken =
     //   req.headers.authorization?.replace('Bearer ', '') ?? '';
-    // if (!accessToken) {
-    //   throw new UnauthorizedException('No  token provided');
-    // }
     const user = await this.prisma.user.findUnique({
       where: {
         id: BigInt(promoter.id),
@@ -65,7 +62,6 @@ export class AuthService {
         proxy: true,
       },
     });
-
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
@@ -81,7 +77,7 @@ export class AuthService {
       },
     );
     return {
-      token: refreshToken,
+      access_token: refreshToken,
       user,
     };
   }

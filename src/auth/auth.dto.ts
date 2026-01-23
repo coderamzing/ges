@@ -15,7 +15,7 @@ export class LoginResponseDto {
 
 
 export class MeResponseDto {
-  token: string;
+  access_token: string;
   user: {
     id: bigint;
     email: string | null;

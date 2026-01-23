@@ -172,12 +172,21 @@ export class CampaignService {
           `You must send at least 10 invitations in batch 1 before activating the campaign. Currently sent: ${invitationCount}`
         );
       }
+      if (!campaign.start_at) {
+        return this.prisma.campaign.update({
+          where: { id },
+          data: {
+            status: 'active',
+            start_at: new Date(),
+          },
+        });
+      }
     }
 
     return this.prisma.campaign.update({
       where: { id },
       data: {
-        status: updateCampaignStatusDto.status,
+        status: updateCampaignStatusDto.status
       },
     });
   }
@@ -234,7 +243,7 @@ export class CampaignService {
     //     },
     //   },
     // });
-    
+
 
     await this.prisma.campaignInvitation.deleteMany({
       where: { campaignId: id },

@@ -273,7 +273,22 @@ export class CampaignInvitationService {
       },
     });
 
-    // Enforce 100 invitation limit per batch + campaign
+    if (currentBatchCount === 100 && batchId === 2) {
+      await this.prisma.campaign.update({
+        where: {
+          id: campaignId,
+          end_at: null,
+        },
+        data: {
+          end_at: new Date(),
+        },
+      });
+    }
+    if (currentBatchCount == 100) {
+      throw new BadRequestException(
+        ` NO slot(s) remaining for Batch ${batchId} for this campaign already has ${currentBatchCount} invitations.`,
+      );
+    }
     if (currentBatchCount + newTalentIds.length > 100) {
       const remainingSlots = 100 - currentBatchCount;
       throw new BadRequestException(
