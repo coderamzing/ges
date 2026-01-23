@@ -48,30 +48,58 @@ export class TalentService {
     //   ],
     // };
 
-    const hiddenTalents48h = await this.prisma.$queryRaw<
-      { talentId: string }[]
-    >`
-  SELECT DISTINCT "talentId"
-  FROM "CampaignInvitation"
-  WHERE "promoterId" = ${promoterId}
-    AND "status" = 'sent'
-    AND "invitationAt" IS NOT NULL
-    AND "invitationAt" + INTERVAL '48 hours' > NOW()
-`;
 
+    const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
+
+    const hiddenTalents48h = await this.prisma.campaignInvitation.findMany({
+      where: {
+        promoterId: promoterId,
+        status: 'sent',
+        invitationAt: {
+          not: null,
+          gte: cutoffDate,
+        },
+      },
+      select: {
+        talentId: true,
+      },
+      distinct: ['talentId'],
+    });
     const hidden48 = hiddenTalents48h.map(t => t.talentId);
 
-    const acceptedInvitations = await this.prisma.$queryRaw<
-      { talentId: string }[]
-    >`
-  SELECT DISTINCT ci."talentId"
-  FROM "CampaignInvitation" ci
-  JOIN "events" e
-    ON e.id = ci."eventId"::bigint
-  WHERE ci.status IN ('confirmed', 'attended')
-    AND e.dt IS NOT NULL
-    AND DATE(e.dt) = DATE(${event.dt})
-`;
+
+
+
+    if (!event.dt) throw new NotFoundException(`Event ${campaign.eventId} not found`);
+    const startOfDay = new Date(event.dt);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(event.dt);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const eventIds = await this.prisma.events.findMany({
+      where: {
+        dt: {
+          not: null,
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      select: { id: true },
+    });
+
+    const acceptedInvitations = await this.prisma.campaignInvitation.findMany({
+      where: {
+        status: 'confirmed',
+        eventId: {
+          in: eventIds.map(e => Number(e.id)),
+        },
+      },
+      select: {
+        talentId: true,
+      },
+      distinct: ['talentId'],
+    });
 
     const acceptedTalentIds = acceptedInvitations.map(i => i.talentId);
 
