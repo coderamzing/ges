@@ -23,6 +23,9 @@ interface MessageInterpretationResponse {
   score: number;
   score_reason: string;
   current_location: string;
+  futureCity: string,
+  futureCityStartAt: string,
+  futureCityEndAt:string
 }
 
 @Injectable()
@@ -90,7 +93,6 @@ export class CampaignMessagesAutomationService {
         );
       });
 
-
       if (talentReplies.length === 0) {
         this.logger.log("No new messages to process");
         return;
@@ -121,12 +123,15 @@ export class CampaignMessagesAutomationService {
         });
 
         const fullMessage = threads
-          .map((msg) => msg.sender_username + " : " + msg.message)
+          .map(
+            (msg) => msg.sender_username + " : " + msg.created_at + msg.message,
+          )
           .join("\n\n");
+          // add here also talent current city
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {
-            id: message.invitation?.id
+            id: message.invitation?.id,
           },
           select: {
             id: true,
@@ -197,11 +202,15 @@ export class CampaignMessagesAutomationService {
       let interpretation: MessageInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
+
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
           score_reason: response.score_reason || "neutral_reply",
           current_location: response.current_location || "default",
+          futureCity: response.futureCity,
+          futureCityStartAt: response.futureCityStartAt,
+          futureCityEndAt:response.futureCityEndAt
         };
       } catch (error) {
         this.logger.error(
@@ -212,7 +221,7 @@ export class CampaignMessagesAutomationService {
         return;
       }
       // Update CampaignInvitation status, mark as replied and mark as seen using invitationId
-     const update =  await this.prisma.campaignInvitation.update({
+      const update = await this.prisma.campaignInvitation.update({
         where: {
           id: invitationId,
         },
@@ -222,7 +231,6 @@ export class CampaignMessagesAutomationService {
           isSeen: true,
         },
       });
-
 
       // Get or create TalentPromoterState
       let talentPromoterState =
@@ -244,6 +252,22 @@ export class CampaignMessagesAutomationService {
             lastReply: new Date(),
           },
         });
+      }
+
+
+
+      if (interpretation.futureCity) {
+        let updateFutureCity = await this.prisma.talentPool.update({
+          where: {
+            id: talentId,
+          },
+          data: {
+            futureCity: interpretation.futureCity,
+            futureCityStartAt: interpretation.futureCityStartAt,
+            futureCityEndAt: interpretation.futureCityEndAt,
+          },
+        });
+
       }
 
       // Update trust score
