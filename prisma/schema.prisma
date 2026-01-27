@@ -338,6 +338,10 @@ model TalentPool {
   lastCityUpdateDate    DateTime? @map("last_city_update_date")
   cityHome              String?   @map("city_home")
   cityHomeUpdated       DateTime? @map("city_home_updated")
+  futureCity            String?   @map("future_city")
+  futureCityStartAt     DateTime? @map("future_city_start_at")
+  futureCityEndAt       DateTime? @map("future_city_end_at")
+  currentCityEndAt      DateTime? @map("current_city_end_at")
 
   // Relations
   promoterStates TalentPromoterState[]
