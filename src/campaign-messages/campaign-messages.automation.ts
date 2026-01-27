@@ -132,7 +132,7 @@ export class CampaignMessagesAutomationService {
 
         const fullMessage = threads
           .map(
-            (msg) => msg.sender_username + " : " + msg.created_at + msg.message + talent?.city,
+            (msg) => msg.sender_username + " : " + msg.created_at + msg.message + talent?.currentCity,
           )
           .join("\n\n");
         // add here also talent current city

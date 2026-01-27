@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { TalentPool, TalentPromoterState } from '@prisma/client';
-import { TalentRecommendationFiltersDto } from './talent.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { TalentPool, TalentPromoterState } from "@prisma/client";
+import { TalentRecommendationFiltersDto } from "./talent.dto";
 
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -18,23 +18,23 @@ export class TalentService {
     return talent;
   }
 
-
-
   async getRecommendations(
     campaignId: number,
     batchId: number,
     filters: TalentRecommendationFiltersDto,
   ): Promise<any[]> {
-
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
     });
-    if (!campaign) throw new NotFoundException(`Campaign ${campaignId} not found`);
+    if (!campaign)
+      throw new NotFoundException(`Campaign ${campaignId} not found`);
 
     const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
-    if (!event) throw new NotFoundException(`Event ${campaign.eventId} not found`);
+
+    if (!event)
+      throw new NotFoundException(`Event ${campaign.eventId} not found`);
 
     const promoterId = event.userId ? BigInt(event.userId) : null;
     if (!promoterId) throw new NotFoundException(`Event has no promoter`);
@@ -48,13 +48,12 @@ export class TalentService {
     //   ],
     // };
 
-
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
 
     const hiddenTalents48h = await this.prisma.campaignInvitation.findMany({
       where: {
         promoterId: promoterId,
-        status: 'sent',
+        status: "sent",
         invitationAt: {
           not: null,
           gte: cutoffDate,
@@ -63,14 +62,12 @@ export class TalentService {
       select: {
         talentId: true,
       },
-      distinct: ['talentId'],
+      distinct: ["talentId"],
     });
-    const hidden48 = hiddenTalents48h.map(t => t.talentId);
+    const hidden48 = hiddenTalents48h.map((t) => t.talentId);
 
-
-
-
-    if (!event.dt) throw new NotFoundException(`Event ${campaign.eventId} not found`);
+    if (!event.dt)
+      throw new NotFoundException(`Event ${campaign.eventId} not found`);
     const startOfDay = new Date(event.dt);
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -90,25 +87,22 @@ export class TalentService {
 
     const acceptedInvitations = await this.prisma.campaignInvitation.findMany({
       where: {
-        status: 'confirmed',
+        status: "confirmed",
         eventId: {
-          in: eventIds.map(e => Number(e.id)),
+          in: eventIds.map((e) => Number(e.id)),
         },
       },
       select: {
         talentId: true,
       },
-      distinct: ['talentId'],
+      distinct: ["talentId"],
     });
 
-    const acceptedTalentIds = acceptedInvitations.map(i => i.talentId);
+    const acceptedTalentIds = acceptedInvitations.map((i) => i.talentId);
 
-    const baseWhere: any = {}
+    const baseWhere: any = {};
     if (hidden48.length) {
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        { id: { notIn: hidden48 } },
-      ];
+      baseWhere.AND = [...(baseWhere.AND || []), { id: { notIn: hidden48 } }];
     }
 
     if (acceptedTalentIds.length) {
@@ -121,37 +115,61 @@ export class TalentService {
     }
 
     if (filters.query && filters.query.trim().length > 0) {
-    const q = filters.query.trim();
+      const q = filters.query.trim();
 
-    baseWhere.AND = [
-      ...(baseWhere.AND || []),
-      {
-        OR: [
-          {
-            id: {
-              contains: q,
-              mode: 'insensitive',
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          OR: [
+            {
+              id: {
+                contains: q,
+                mode: "insensitive",
+              },
             },
-          },
-          {
-            name: {
-              contains: q,
-              mode: 'insensitive',
+            {
+              name: {
+                contains: q,
+                mode: "insensitive",
+              },
             },
-          },
-          {
-            city: {
-              contains: q,
-              mode: 'insensitive',
+            {
+              city: {
+                contains: q,
+                mode: "insensitive",
+              },
             },
-          },
-        ],
-      },
-    ];
-  }
+          ],
+        },
+      ];
+    }
 
     if (filters.recommendation === true) {
       baseWhere.OR = [
+        {
+          AND: [
+            { futureCity: event.city },
+            {
+              OR: [
+                {
+                  AND: [{ futureCityStartAt: null }, { futureCityEndAt: null }],
+                },
+                {
+                  AND: [
+                    { futureCityStartAt: { lte: event.dt } },
+                    {
+                      OR: [
+                        { futureCityEndAt: { gte: event.dt } },
+                        { futureCityEndAt: null },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+
         { currentCity: event.city },
         { city: event.city },
       ];
@@ -170,11 +188,9 @@ export class TalentService {
     // const hasTrustScoreFilter = !!filters.trustScoreRange;
     const hasTrustScoreFilter =
       filters.trustScoreRange !== undefined &&
-      (
-        (filters.trustScoreRange.min !== undefined &&
-          filters.trustScoreRange.min > 0) ||
-        filters.trustScoreRange.max !== undefined
-      );
+      ((filters.trustScoreRange.min !== undefined &&
+        filters.trustScoreRange.min > 0) ||
+        filters.trustScoreRange.max !== undefined);
     const hasOpenChatFilter = filters.openchat === true;
     const hasDmSentFilter = filters.dmSent === true;
 
@@ -190,25 +206,21 @@ export class TalentService {
               promoterId,
               optedOut: false,
 
-              ...(hasOpenChatFilter
-                ? { lastContacted: { not: null } }
-                : {}),
+              ...(hasOpenChatFilter ? { lastContacted: { not: null } } : {}),
 
-              ...(hasDmSentFilter
-                ? { lastReply: { not: null } }
-                : {}),
+              ...(hasDmSentFilter ? { lastReply: { not: null } } : {}),
 
               ...(hasTrustScoreFilter
                 ? {
-                  AND: [
-                    ...(filters.trustScoreRange?.min !== undefined
-                      ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
-                      : []),
-                    ...(filters.trustScoreRange?.max !== undefined
-                      ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
-                      : []),
-                  ],
-                }
+                    AND: [
+                      ...(filters.trustScoreRange?.min !== undefined
+                        ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
+                        : []),
+                      ...(filters.trustScoreRange?.max !== undefined
+                        ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
+                        : []),
+                    ],
+                  }
                 : {}),
             },
           },
@@ -228,7 +240,7 @@ export class TalentService {
         where: { campaignId },
         select: { talentId: true },
       });
-      excludedTalentIds = invited.map(i => i.talentId);
+      excludedTalentIds = invited.map((i) => i.talentId);
     }
 
     if (batchId === 2) {
@@ -236,7 +248,7 @@ export class TalentService {
         where: { campaignId, batch: 1 },
         select: { talentId: true },
       });
-      excludedTalentIds = invitedBatchOne.map(i => i.talentId);
+      excludedTalentIds = invitedBatchOne.map((i) => i.talentId);
     }
 
     if (excludedTalentIds.length) {
@@ -258,37 +270,15 @@ export class TalentService {
           take: 1,
         },
       },
-      orderBy: { followers: 'desc' },
+      orderBy: { followers: "desc" },
       take: limit,
     });
 
-    return talentPools.map(talent => {
+    return talentPools.map((talent) => {
       const promoterState = talent.promoterStates?.[0] ?? null;
       const blacklist = talent.blacklists?.[0] ?? null;
       const { promoterStates, blacklists, ...data } = talent;
       return { ...data, promoterState, blacklist };
     });
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
-
