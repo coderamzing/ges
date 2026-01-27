@@ -22,7 +22,7 @@ interface MessageInterpretationResponse {
   status: InvitationStatus;
   score: number;
   score_reason: string;
-  current_location: string;
+  currentCity: string;
   futureCity: string,
   futureCityStartAt: string,
   futureCityEndAt: string
@@ -130,11 +130,21 @@ export class CampaignMessagesAutomationService {
           }
         })
 
-        const fullMessage = threads
-          .map(
-            (msg) => msg.sender_username + " : " + msg.created_at + msg.message + talent?.currentCity,
-          )
-          .join("\n\n");
+        const fullMessage =
+          `Current City: ${talent?.currentCity || "Unknown"}\n\n` +
+          `Talent Name : ${talent?.id || "Unknown"}\n\n` +
+          threads
+            .map(
+              (msg) => `${msg.sender_username} : ${msg.created_at} ${msg.message}`
+            )
+            .join("\n\n");
+
+
+        // const fullMessage = threads
+        //   .map(
+        //     (msg) => msg.sender_username + " : " + msg.created_at + msg.message + talent?.currentCity,
+        //   )
+        //   .join("\n\n");
         // add here also talent current city
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
@@ -210,12 +220,11 @@ export class CampaignMessagesAutomationService {
       let interpretation: MessageInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
-        console.log(response, "incoming respose from ai ")
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
           score_reason: response.score_reason || "neutral_reply",
-          current_location: response.current_location || "default",
+          currentCity: response.currentCity || "default",
           futureCity: response.futureCity,
           futureCityStartAt: response.futureCityStartAt,
           futureCityEndAt: response.futureCityEndAt
@@ -275,7 +284,7 @@ export class CampaignMessagesAutomationService {
         return d;
       }
 
-      if (interpretation.futureCity) {
+      if (interpretation.futureCity && interpretation.futureCity !== "default") {
         const startUTC = toUTC(interpretation.futureCityStartAt, false);
         const endUTC = toUTC(interpretation.futureCityEndAt, true);
 
@@ -290,20 +299,6 @@ export class CampaignMessagesAutomationService {
       }
 
 
-
-      // if (interpretation.futureCity) {
-      //   let updateFutureCity = await this.prisma.talentPool.update({
-      //     where: {
-      //       id: talentId,
-      //     },
-      //     data: {
-      //       futureCity: interpretation.futureCity,
-      //       futureCityStartAt: interpretation.futureCityStartAt,
-      //       futureCityEndAt: interpretation.futureCityEndAt,
-      //     },
-      //   });
-
-      // }
 
       // Update trust score
       const newTrustScore =
@@ -336,13 +331,13 @@ export class CampaignMessagesAutomationService {
 
       // Update talent's current location if provided and different from default
       if (
-        interpretation.current_location &&
-        interpretation.current_location !== "default"
+        interpretation.currentCity &&
+        interpretation.currentCity !== "default"
       ) {
         await this.prisma.talentPool.update({
           where: { id: talentId },
           data: {
-            currentCity: interpretation.current_location,
+            currentCity: interpretation.currentCity,
           },
         });
       }
