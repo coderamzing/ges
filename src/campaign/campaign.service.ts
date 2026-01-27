@@ -15,6 +15,18 @@ export class CampaignService {
   ) { }
 
   async create(createCampaignDto: CreateCampaignDto, promoterId: number): Promise<Campaign> {
+
+
+    const existingCampaign = await this.prisma.campaign.findFirst({
+      where: { eventId: createCampaignDto.eventId },
+    });
+
+    if (existingCampaign) {
+      throw new BadRequestException(
+        `Campaign already exists for this event `,
+      );
+    }
+
     // Verify that the event exists and belongs to the promoter
     const event = await this.prisma.events.findUnique({
       where: { id: createCampaignDto.eventId },
@@ -27,15 +39,15 @@ export class CampaignService {
     if (event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Event with ID ${createCampaignDto.eventId} does not belong to this promoter`);
     }
-
+    const name = createCampaignDto.name?.trim() ? createCampaignDto.name.trim() : event.name ?? 'Untitled Campaign';
     // Create the campaign and default templates in a single transaction
     const campaign = await this.prisma.$transaction(async (tx) => {
       // Create the campaign with defaults
       const createdCampaign = await tx.campaign.create({
         data: {
           eventId: createCampaignDto.eventId,
-          name: createCampaignDto.name ?? event.name ?? 'Untitled Campaign',
-          status: createCampaignDto.status ?? CampaignStatus.draft,
+          name: name,
+          status: createCampaignDto.status ?? CampaignStatus.active,
           lang: createCampaignDto.lang ?? 'en',
         },
       });
