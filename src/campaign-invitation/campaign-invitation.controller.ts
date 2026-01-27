@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOkResponse, ApiNotFoundResponse, ApiHeader, ApiBody } from '@nestjs/swagger';
 import { CampaignInvitationService } from './campaign-invitation.service';
-import { DeleteInvitationResponseDto, GetInvitationsQueryDto, MarkInvitationsAsAttendedDto, MarkInvitationsForFollowupDto, UpdateInvitationStatusDto } from './campaign-invitation.dto';
+import { DeleteInvitationResponseDto, GetCampaignInvitationsQueryDto, GetInvitationsQueryDto, MarkInvitationsAsAttendedDto, MarkInvitationsForFollowupDto, UpdateInvitationStatusDto } from './campaign-invitation.dto';
 import { CampaignInvitation, TalentPool, TalentPromoterState } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 import { TalentService } from '../talent/talent.service';
@@ -46,7 +46,7 @@ export class CampaignInvitationController {
   })
   async getInvitationsByCampaign(
     @Param('campaignId', ParseIntPipe) campaignId: number,
-    @Query() query: GetInvitationsQueryDto,
+    @Query() query: GetCampaignInvitationsQueryDto,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<CampaignInvitation[]> {
     return this.campaignInvitationService.getInvitationsByCampaign(

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CampaignInvitation, InvitationStatus, TemplateType } from '@prisma/client';
-import { GetInvitationsQueryDto } from './campaign-invitation.dto';
+import { GetCampaignInvitationsQueryDto, GetInvitationsQueryDto } from './campaign-invitation.dto';
 import { AddTalentsToCampaignDto } from '../campaign/campaign.dto';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
@@ -65,41 +65,45 @@ export class CampaignInvitationService {
     }
   }
 
-
-
-  async getInvitationsByCampaign(
+    async getInvitationsByCampaign(
     campaignId: number,
     promoterId: number,
-    filters?: GetInvitationsQueryDto,
-  ): Promise<CampaignInvitation[]> {
-    // Ensure campaign belongs to promoter
+    filters?: GetCampaignInvitationsQueryDto,
+    ): Promise<CampaignInvitation[]> {
     await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
 
-    // Build where clause with filters
     const where: any = {
       campaignId,
     };
 
-    // Apply status filter if provided
-    if (filters?.status !== undefined) {
-      where.status = filters.status;
+    if (filters?.status?.length) {
+      where.status = { in: filters.status };
     }
 
-    // Apply hasReplied filter if provided
+    if (filters?.isSeen !== undefined) {
+      where.isSeen = filters.isSeen;
+    }
+
+    if (filters?.followupSent !== undefined) {
+      where.followupSent = filters.followupSent;
+    }
+
+    if (filters?.thankYouSent !== undefined) {
+      where.thankYouSent = filters.thankYouSent;
+    }
+
     if (filters?.hasReplied !== undefined) {
       where.hasReplied = filters.hasReplied;
     }
 
-    const orderBy = {
-      invitationAt: filters?.order ?? 'desc',
-    };
-
     return this.prisma.campaignInvitation.findMany({
       where,
-      orderBy
-      // orderBy: { id: 'asc' },
+      orderBy: {
+        invitationAt: filters?.order ?? 'desc',
+      },
     });
   }
+
 
 
   async getInvitationsByCampaignAndBatch(
@@ -132,7 +136,6 @@ export class CampaignInvitationService {
     const invitations = await this.prisma.campaignInvitation.findMany({
       where,
       orderBy
-      // orderBy: { id: "asc" },
     });
 
     // Fetch related talent data in parallel
