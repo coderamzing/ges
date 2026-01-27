@@ -25,7 +25,7 @@ interface MessageInterpretationResponse {
   current_location: string;
   futureCity: string,
   futureCityStartAt: string,
-  futureCityEndAt:string
+  futureCityEndAt: string
 }
 
 @Injectable()
@@ -36,7 +36,7 @@ export class CampaignMessagesAutomationService {
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
-  ) {}
+  ) { }
 
   /**
    * Process messages that haven't been interpreted yet
@@ -107,9 +107,11 @@ export class CampaignMessagesAutomationService {
             message: true,
             created_at: true,
             sender_username: true,
+
           },
           where: {
             thread_id: (message as any).thread_id,
+            ai_processed: false,
             sender_username: (message as any).sender_username,
             ...(invitationAt && {
               created_at: {
@@ -122,12 +124,18 @@ export class CampaignMessagesAutomationService {
           },
         });
 
+        const talent = await this.prisma.talentPool.findUnique({
+          where: {
+            id: message.invitation?.talentId
+          }
+        })
+
         const fullMessage = threads
           .map(
-            (msg) => msg.sender_username + " : " + msg.created_at + msg.message,
+            (msg) => msg.sender_username + " : " + msg.created_at + msg.message + talent?.city,
           )
           .join("\n\n");
-          // add here also talent current city
+        // add here also talent current city
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {
@@ -202,7 +210,7 @@ export class CampaignMessagesAutomationService {
       let interpretation: MessageInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
-
+        console.log(response, "incoming respose from ai ")
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
@@ -210,7 +218,7 @@ export class CampaignMessagesAutomationService {
           current_location: response.current_location || "default",
           futureCity: response.futureCity,
           futureCityStartAt: response.futureCityStartAt,
-          futureCityEndAt:response.futureCityEndAt
+          futureCityEndAt: response.futureCityEndAt
         };
       } catch (error) {
         this.logger.error(
@@ -254,21 +262,48 @@ export class CampaignMessagesAutomationService {
         });
       }
 
+      function toUTC(date?: string | Date | null, isEnd = false): Date | null {
+        if (!date) return null;
 
+        const d = new Date(date);
+        if (isEnd) {
+          d.setUTCHours(23, 59, 59, 0);
+        } else {
+          d.setUTCHours(0, 0, 0, 0);
+        }
+
+        return d;
+      }
 
       if (interpretation.futureCity) {
-        let updateFutureCity = await this.prisma.talentPool.update({
-          where: {
-            id: talentId,
-          },
+        const startUTC = toUTC(interpretation.futureCityStartAt, false);
+        const endUTC = toUTC(interpretation.futureCityEndAt, true);
+
+        await this.prisma.talentPool.update({
+          where: { id: talentId },
           data: {
             futureCity: interpretation.futureCity,
-            futureCityStartAt: interpretation.futureCityStartAt,
-            futureCityEndAt: interpretation.futureCityEndAt,
+            futureCityStartAt: startUTC,
+            futureCityEndAt: endUTC,
           },
         });
-
       }
+
+
+
+      // if (interpretation.futureCity) {
+      //   let updateFutureCity = await this.prisma.talentPool.update({
+      //     where: {
+      //       id: talentId,
+      //     },
+      //     data: {
+      //       futureCity: interpretation.futureCity,
+      //       futureCityStartAt: interpretation.futureCityStartAt,
+      //       futureCityEndAt: interpretation.futureCityEndAt,
+      //     },
+      //   });
+
+      // }
 
       // Update trust score
       const newTrustScore =
