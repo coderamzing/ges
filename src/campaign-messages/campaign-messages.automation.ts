@@ -17,6 +17,7 @@ import {
   MESSAGE_INTERPRETATION_SYSTEM_PROMPT,
 } from "./campaign-messages.config";
 import { renderTemplate } from "utils/handlebar";
+import { TalentBlacklistService } from "src/talend-blacklist/talent-blacklist.service";
 
 interface MessageInterpretationResponse {
   status: InvitationStatus;
@@ -25,7 +26,11 @@ interface MessageInterpretationResponse {
   currentCity: string;
   futureCity: string,
   futureCityStartAt: string,
-  futureCityEndAt: string
+  futureCityEndAt: string,
+  currentCityEndAt: string,
+  cityHome: string,
+  blacklist: string,
+  reason: string
 }
 
 @Injectable()
@@ -36,6 +41,7 @@ export class CampaignMessagesAutomationService {
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
+    private readonly talentBlacklistService: TalentBlacklistService
   ) { }
 
   /**
@@ -220,6 +226,7 @@ export class CampaignMessagesAutomationService {
       let interpretation: MessageInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
+        console.log(response, "incoming response from ai")
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
@@ -227,7 +234,12 @@ export class CampaignMessagesAutomationService {
           currentCity: response.currentCity || "default",
           futureCity: response.futureCity,
           futureCityStartAt: response.futureCityStartAt,
-          futureCityEndAt: response.futureCityEndAt
+          futureCityEndAt: response.futureCityEndAt,
+          currentCityEndAt: response.currentCityEndAt,
+          cityHome: response.cityHome,
+          blacklist: response.blacklist,
+          reason: response.reason
+
         };
       } catch (error) {
         this.logger.error(
@@ -300,6 +312,7 @@ export class CampaignMessagesAutomationService {
 
 
 
+
       // Update trust score
       const newTrustScore =
         talentPromoterState.trustScore + interpretation.score;
@@ -334,12 +347,36 @@ export class CampaignMessagesAutomationService {
         interpretation.currentCity &&
         interpretation.currentCity !== "default"
       ) {
+
         await this.prisma.talentPool.update({
           where: { id: talentId },
           data: {
             currentCity: interpretation.currentCity,
+            currentCityEndAt:
+              interpretation.currentCityEndAt &&
+                interpretation.currentCityEndAt.trim() !== ""
+                ? new Date(interpretation.currentCityEndAt)
+                : null,
+
           },
         });
+      }
+
+      if (
+        interpretation.cityHome &&
+        interpretation.cityHome !== "default"
+      ) {
+        await this.prisma.talentPool.update({
+          where: { id: talentId },
+          data: {
+            cityHome: interpretation.cityHome,
+            cityHomeUpdated: new Date()
+          },
+        });
+      }
+      if (interpretation.blacklist) {
+        let createTalentBlacklistDto = { talentId: talentId, reason: interpretation.reason }
+        await this.talentBlacklistService.create(createTalentBlacklistDto, Number(promoterId))
       }
 
       await this.prisma.message.updateMany({

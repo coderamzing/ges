@@ -3,6 +3,7 @@ import { CampaignMessagesAutomationService } from './campaign-messages.automatio
 import { CampaignMessagesService } from './campaign-messages.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OpenAIModule } from '../openai/openai.module';
+import { TalentBlacklistService } from 'src/talend-blacklist/talent-blacklist.service';
 
 @Module({
   imports: [
@@ -12,7 +13,8 @@ import { OpenAIModule } from '../openai/openai.module';
     CampaignMessagesAutomationService,
     CampaignMessagesService,
     PrismaService,
+    TalentBlacklistService
   ],
   exports: [CampaignMessagesService],
 })
-export class CampaignMessagesModule {}
+export class CampaignMessagesModule { }
