@@ -16,6 +16,7 @@
     <div class="container mt-5">
         <a href="index.html" class="btn btn-secondary mb-3">← Back to Campaigns</a>
         <h1 id="campaignName">Campaign</h1>
+        <p id="eventDetails" class="text-muted"></p>
 
         <!-- Campaign Stats -->
         <div class="card mb-4">
@@ -99,6 +100,10 @@
                                     <input type="text" class="form-control form-control-sm" id="filterTrustScoreRange" name="trustScoreRange" placeholder="e.g., 10-40 or 25">
                                     <small class="form-text text-muted">Enter a single number (e.g., 25) or a range (e.g., 10-40)</small>
                                 </div>
+                                <div class="mb-2">
+                                    <label for="filterQuery" class="form-label small">Query</label>
+                                    <input type="text" class="form-control form-control-sm" id="filterQuery" name="query" placeholder="Name, @id or city">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -177,6 +182,35 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 $('#campaignName').text(campaign.name);
+
+                // Load event details for this campaign
+                if (campaign.eventId) {
+                    try {
+                        const event = await $.ajax({
+                            url: `${API_BASE}/events/${campaign.eventId}`,
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+
+                        const parts = [];
+                        if (event.name) parts.push(escapeHtml(event.name));
+                        if (event.city) parts.push(escapeHtml(event.city));
+                        if (event.eventType || event.mainEventType) {
+                            parts.push(escapeHtml(event.eventType || event.mainEventType));
+                        }
+                        if (event.dt) {
+                            parts.push(`Date: ${formatDate(event.dt)}`);
+                        }
+                        if (parts.length) {
+                            $('#eventDetails').text(parts.join(' • '));
+                        } else {
+                            $('#eventDetails').text('');
+                        }
+                    } catch (e) {
+                        $('#eventDetails').text('');
+                    }
+                } else {
+                    $('#eventDetails').text('');
+                }
 
                 // Get messages
                 const messagesByTalent = await $.ajax({
@@ -397,6 +431,24 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                 const invitationId = invitation.id;
                 const isBlacklisted = group.isBlacklisted || false;
                 
+                const cityParts = [];
+                if (talent.cityHome) {
+                    cityParts.push(`Home: ${escapeHtml(talent.cityHome)}`);
+                }
+                if (talent.currentCity) {
+                    const until = talent.currentCityEndAt ? ` (until ${formatDate(talent.currentCityEndAt)})` : '';
+                    cityParts.push(`Current: ${escapeHtml(talent.currentCity)}${until}`);
+                }
+                if (talent.futureCity) {
+                    let range = '';
+                    const start = talent.futureCityStartAt ? formatDate(talent.futureCityStartAt) : '';
+                    const end = talent.futureCityEndAt ? formatDate(talent.futureCityEndAt) : '';
+                    if (start || end) {
+                        range = ` (${start || '?'} - ${end || '?'})`;
+                    }
+                    cityParts.push(`Future: ${escapeHtml(talent.futureCity)}${range}`);
+                }
+
                 html += `
                     <div class="talent-section" data-talent-id="${talent.id}" data-invitation-id="${invitationId}" data-promoter-id="${promoterId}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -407,6 +459,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                                     ${invitation.batch !== undefined ? `<span class="badge bg-light text-dark me-2">Batch ${invitation.batch}</span>` : ''}
                                     ${invitation.invitationAt ? `<span class="text-muted">Invited: ${formatDate(invitation.invitationAt)}</span>` : ''}
                                 </div>
+                                ${cityParts.length ? `<div class="small text-muted mt-1">${cityParts.join(' • ')}</div>` : ''}
                             </div>
                             <div class="d-flex gap-2">
                                 ${promoterId ? `<a href="talent.html?talentId=${talent.id}&promoterId=${promoterId}" class="btn btn-sm btn-outline-primary">View Score & Logs</a>` : ''}
@@ -841,6 +894,11 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                 if (trustScoreRange) {
                     filters.trustScoreRange = trustScoreRange;
                 }
+
+                const query = $('#filterQuery').val().trim();
+                if (query) {
+                    filters.query = query;
+                }
                 
                 loadTalentRecommendations(batchId, filters);
             } catch (error) {
@@ -957,6 +1015,12 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             const trustScoreRange = $('#filterTrustScoreRange').val().trim();
             if (trustScoreRange) {
                 filters.trustScoreRange = trustScoreRange;
+            }
+
+            // Query filter
+            const query = $('#filterQuery').val().trim();
+            if (query) {
+                filters.query = query;
             }
             
             loadTalentRecommendations(batchId, filters);

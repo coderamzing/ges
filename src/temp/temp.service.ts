@@ -77,6 +77,12 @@ export class TempService {
         id: true,
         name: true,
         profilePicture: true,
+        cityHome: true,
+        currentCity: true,
+        currentCityEndAt: true,
+        futureCity: true,
+        futureCityStartAt: true,
+        futureCityEndAt: true,
       },
     });
 
@@ -96,7 +102,7 @@ export class TempService {
         ? messagesByThread.get(invitation.thread_id) || []
         : [];
 
-      const mappedMessages = threadMessages.map((m) => {
+      let mappedMessages = threadMessages.map((m) => {
         const isFromPromoter =
           m.sender !== null &&
           m.sender !== undefined &&
@@ -120,8 +126,11 @@ export class TempService {
           message: m.message ?? '',
           sentAt: isFromPromoter ? timestamp : null,
           receivedAt: !isFromPromoter ? timestamp : null,
+          createdAt: m.created_at,
         };
       });
+
+      mappedMessages = mappedMessages.filter((m) => m.createdAt && invitation.invitationAt && m.createdAt > invitation.invitationAt);
 
       result.push({
         talent: {
