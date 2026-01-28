@@ -127,6 +127,7 @@ export class TempService {
           sentAt: isFromPromoter ? timestamp : null,
           receivedAt: !isFromPromoter ? timestamp : null,
           createdAt: m.created_at,
+
         };
       });
 
