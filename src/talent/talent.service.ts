@@ -41,13 +41,6 @@ export class TalentService {
 
     const limit = filters.limit ?? 100;
 
-    // const baseWhere: any = {
-    //   OR: [
-    //     { currentCity: event.city },
-    //     { city: event.city },
-    //   ],
-    // };
-
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
 
     const hiddenTalents48h = await this.prisma.campaignInvitation.findMany({
@@ -144,6 +137,8 @@ export class TalentService {
       ];
     }
 
+    const orderBy: any[] = [];
+
     if (filters.recommendation === true) {
       const city = event.city?.trim();
 
@@ -190,6 +185,20 @@ export class TalentService {
           },
         },
       ];
+      orderBy.push(
+        {
+          futureCity: {
+            sort: "asc",
+            nulls: "last",
+          },
+        },
+        {
+          futureCityStartAt: {
+            sort: "asc",
+            nulls: "last",
+          },
+        },
+      );
     }
 
     if (filters.talentType?.length) {
@@ -280,6 +289,7 @@ export class TalentService {
       include: {
         promoterStates: {
           where: { promoterId },
+          orderBy: { trustScore: "desc" },
           take: 1,
         },
         blacklists: {
@@ -287,32 +297,10 @@ export class TalentService {
           take: 1,
         },
       },
+      orderBy,
       take: limit,
     });
 
-    let sortedTalents = talentPools;
-
-    if (filters.recommendation === true) {
-      sortedTalents = talentPools.sort((a, b) => {
-        const aState = a.promoterStates?.[0] ?? null;
-        const bState = b.promoterStates?.[0] ?? null;
-
-        if (aState && !bState) return -1;
-        if (!aState && bState) return 1;
-
-        if (aState && bState) {
-          return (bState.trustScore ?? 0) - (aState.trustScore ?? 0);
-        }
-
-        return Number(b.followers ?? 0) - Number(a.followers ?? 0);
-      });
-    }
-
-    return sortedTalents.map((talent) => {
-      const promoterState = talent.promoterStates?.[0] ?? null;
-      const blacklist = talent.blacklists?.[0] ?? null;
-      const { promoterStates, blacklists, ...data } = talent;
-      return { ...data, promoterState, blacklist };
-    });
+    return talentPools;
   }
 }
