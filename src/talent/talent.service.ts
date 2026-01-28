@@ -145,10 +145,17 @@ export class TalentService {
     }
 
     if (filters.recommendation === true) {
+      const city = event.city?.trim();
+
       baseWhere.OR = [
         {
           AND: [
-            { futureCity: event.city },
+            {
+              futureCity: {
+                equals: city,
+                mode: "insensitive",
+              },
+            },
             {
               OR: [
                 {
@@ -169,9 +176,19 @@ export class TalentService {
             },
           ],
         },
+        {
+          currentCity: {
+            equals: city,
+            mode: "insensitive",
+          },
+        },
 
-        { currentCity: event.city },
-        { city: event.city },
+        {
+          city: {
+            equals: city,
+            mode: "insensitive",
+          },
+        },
       ];
     }
 
@@ -270,11 +287,28 @@ export class TalentService {
           take: 1,
         },
       },
-      orderBy: { followers: "desc" },
       take: limit,
     });
 
-    return talentPools.map((talent) => {
+    let sortedTalents = talentPools;
+
+    if (filters.recommendation === true) {
+      sortedTalents = talentPools.sort((a, b) => {
+        const aState = a.promoterStates?.[0] ?? null;
+        const bState = b.promoterStates?.[0] ?? null;
+
+        if (aState && !bState) return -1;
+        if (!aState && bState) return 1;
+
+        if (aState && bState) {
+          return (bState.trustScore ?? 0) - (aState.trustScore ?? 0);
+        }
+
+        return Number(b.followers ?? 0) - Number(a.followers ?? 0);
+      });
+    }
+
+    return sortedTalents.map((talent) => {
       const promoterState = talent.promoterStates?.[0] ?? null;
       const blacklist = talent.blacklists?.[0] ?? null;
       const { promoterStates, blacklists, ...data } = talent;

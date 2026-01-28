@@ -272,11 +272,10 @@ export class CampaignInvitationAutomationService {
         where: { id: campaignId },
         data: { end_at: new Date() },
       });
-      console.log(`Campaign ${campaignId} end_at updated at ${new Date()}`);
+      this.logger.log(`Campaign ${campaignId} end_at updated at ${new Date()}`);
     } else {
-      console.log(
-        `Campaign ${campaignId} batch ${batchId} has ${currentBatchCount} invitations, end_at: ${campaign.end_at}`
-      );
+      this.logger.log(`Campaign ${campaignId} batch ${batchId} has ${currentBatchCount} invitations, end_at: ${campaign.end_at}`);
+
     }
   }
 
