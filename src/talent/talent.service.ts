@@ -315,26 +315,57 @@ export class TalentService {
         }
       },
     });
+    ///////////////////////////////
+    function chunkArray<T>(arr: T[], size: number): T[][] {
+      const chunks: T[][] = [];
+      for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
+      }
+      return chunks;
+    }
 
-    //  Get the talentIds that passed filters
     const talentIds = talentPools.map(tp => tp.id);
 
-    //  Fetch promoterStates only for these filtered talents
-    const trustScores = await this.prisma.talentPromoterState.findMany({
-      where: {
-        promoterId,
-        talentId: { in: talentIds }, // ONLY filtered talents
-      },
-      select: { talentId: true, trustScore: true },
-      orderBy: {
-        trustScore: 'desc', // sort descending by trustScore
-      },
-    });
+    const chunkSize = 8000; // safe size (Postgres limit ~32767)
+    const idChunks = chunkArray(talentIds, chunkSize);
+
+    let trustScores: { talentId: string; trustScore: number }[] = [];
+
+    for (const ids of idChunks) {
+      const chunkScores = await this.prisma.talentPromoterState.findMany({
+        where: {
+          promoterId,
+          talentId: { in: ids },
+        },
+        select: { talentId: true, trustScore: true },
+      });
+
+      trustScores.push(...chunkScores);
+    }
+    //////////////////
+    // //  Get the talentIds that passed filters
+    // const talentIds = talentPools.map(tp => tp.id);
+
+    // //  Fetch promoterStates only for these filtered talents
+    // const trustScores = await this.prisma.talentPromoterState.findMany({
+    //   where: {
+    //     promoterId,
+    //     talentId: { in: talentIds }, // ONLY filtered talents
+    //   },
+    //   select: { talentId: true, trustScore: true },
+    //   orderBy: {
+    //     trustScore: 'desc', // sort descending by trustScore
+    //   },
+    // });
+
+    const trustScoreMap = new Map(
+      trustScores.map(t => [t.talentId, t.trustScore])
+    );
 
     const rankedTalents = talentPools
       .map(tp => ({
         ...tp,
-        trustScore: trustScores.find(t => t.talentId === tp.id)?.trustScore ?? 0,
+        trustScore: trustScoreMap.get(tp.id) ?? 0,
       }))
       .sort((a, b) => b.trustScore - a.trustScore)
       .slice(0, limit);
