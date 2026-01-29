@@ -258,7 +258,7 @@ export class CampaignInvitationController {
       campaignId,
       batchId,
       filters,
-      promoter.id,
+      // promoter.id,
     );
   }
 
