@@ -64,7 +64,6 @@ export class CampaignSpintaxTemplateService {
       where: { id: campaignId },
     });
 
-    console.log(campaign, "incoming campaign");
 
     if (!campaign) {
       throw new NotFoundException(`Campaign ${campaignId} not found`);
