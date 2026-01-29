@@ -305,45 +305,55 @@ export class TalentService {
       ];
     }
 
-    const talentPools = await this.prisma.talentPool.findMany({
-      where: baseWhere,
-      include: {
-        blacklists: { where: { promoterId }, take: 1 },
-        promoterStates: {
-          where: { promoterId },
-          take: 1
-        }
-      },
-    });
-    ///////////////////////////////
-    function chunkArray<T>(arr: T[], size: number): T[][] {
-      const chunks: T[][] = [];
-      for (let i = 0; i < arr.length; i += size) {
-        chunks.push(arr.slice(i, i + size));
-      }
-      return chunks;
-    }
+    const limitPerChunk = 5000; // safe chunk size
+    let offset = 0;
+    let allTalents: any[] = [];
 
-    const talentIds = talentPools.map(tp => tp.id);
-
-    const chunkSize = 8000; // safe size (Postgres limit ~32767)
-    const idChunks = chunkArray(talentIds, chunkSize);
-
-    let trustScores: { talentId: string; trustScore: number }[] = [];
-
-    for (const ids of idChunks) {
-      const chunkScores = await this.prisma.talentPromoterState.findMany({
-        where: {
-          promoterId,
-          talentId: { in: ids },
+    while (true) {
+      const chunk = await this.prisma.talentPool.findMany({
+        skip: offset,
+        take: limitPerChunk,
+        where: baseWhere,
+        include: {
+          blacklists: { where: { promoterId }, take: 1 },
+          promoterStates: {
+            where: { promoterId },
+            take: 1,
+            select: { trustScore: true },
+          },
         },
-        select: { talentId: true, trustScore: true },
       });
 
-      trustScores.push(...chunkScores);
+      if (chunk.length === 0) break;
+
+      allTalents.push(...chunk);
+      offset += limitPerChunk;
     }
-    //////////////////
-    // //  Get the talentIds that passed filters
+
+    // Map trustScore = 0 if missing and sort
+    const rankedTalents = allTalents
+      .map(tp => ({
+        ...tp,
+        trustScore: tp.promoterStates[0]?.trustScore ?? 0,
+      }))
+      .sort((a, b) => b.trustScore - a.trustScore)
+      .slice(0, limit);
+
+    return rankedTalents;
+
+
+    // const talentPools = await this.prisma.talentPool.findMany({
+    //   where: baseWhere,
+    //   include: {
+    //     blacklists: { where: { promoterId }, take: 1 },
+    //     promoterStates: {
+    //       where: { promoterId },
+    //       take: 1
+    //     }
+    //   },
+    // });
+
+
     // const talentIds = talentPools.map(tp => tp.id);
 
     // //  Fetch promoterStates only for these filtered talents
@@ -358,19 +368,19 @@ export class TalentService {
     //   },
     // });
 
-    const trustScoreMap = new Map(
-      trustScores.map(t => [t.talentId, t.trustScore])
-    );
+    // const rankedTalents = talentPools
+    //   .map(tp => ({
+    //     ...tp,
+    //     trustScore: trustScores.find(t => t.talentId === tp.id)?.trustScore ?? 0,
+    //   }))
+    //   .sort((a, b) => b.trustScore - a.trustScore)
+    //   .slice(0, limit);
 
-    const rankedTalents = talentPools
-      .map(tp => ({
-        ...tp,
-        trustScore: trustScoreMap.get(tp.id) ?? 0,
-      }))
-      .sort((a, b) => b.trustScore - a.trustScore)
-      .slice(0, limit);
-
-    return rankedTalents;
+    // return rankedTalents;
 
   }
+
+
+
+
 }
