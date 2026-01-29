@@ -914,7 +914,7 @@ export class CampaignInvitationAutomationService {
       talentId: talent.id,
       promoterId: BigInt(invitation.promoterId),
       trustScoreIncrement: 10,
-      eventId: invitation.eventId,
+      eventId: Number(invitation.eventId),
       scoreReason: "attended",
     });
 

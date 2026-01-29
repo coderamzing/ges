@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { TalentPool, TalentPromoterState } from "@prisma/client";
+import { TalentPool } from "@prisma/client";
 import { TalentRecommendationFiltersDto } from "./talent.dto";
+import { InvitationStatus } from "@prisma/client";
 
 @Injectable()
 export class TalentService {
@@ -22,137 +23,148 @@ export class TalentService {
     campaignId: number,
     batchId: number,
     filters: TalentRecommendationFiltersDto,
-  ): Promise<any[]> {
+    promoterId: number,
+  ): Promise<(TalentPool & { promoterState?: any | null })[]> {
+    const promoterIdBigInt = BigInt(promoterId);
+
+    const {
+      query,
+      openchat,
+      dmSent,
+      blacklist,
+      talentType,
+      trustScoreRange,
+      recommendation,
+      limit = 100,
+    } = filters || {};
+
+    let rejectTalentIds: string[] = [];
+
+    // Ensure campaign exists (and load event for recommendation logic)
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
     });
-    if (!campaign)
-      throw new NotFoundException(`Campaign ${campaignId} not found`);
+
+    if (!campaign) {
+      throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
+    }
 
     const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
-
-    if (!event)
-      throw new NotFoundException(`Event ${campaign.eventId} not found`);
-
-    const promoterId = event.userId ? BigInt(event.userId) : null;
-    if (!promoterId) throw new NotFoundException(`Event has no promoter`);
-
-
-    // 48 hours rule
-    const limit = filters.limit ?? 100;
-    const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
-
-    const hiddenTalents48h = await this.prisma.campaignInvitation.findMany({
-      where: {
-        promoterId: promoterId,
-        status: "sent",
-        invitationAt: {
-          not: null,
-          gte: cutoffDate,
-        },
-      },
-      select: {
-        talentId: true,
-      },
-      distinct: ["talentId"],
-    });
-    const hidden48 = hiddenTalents48h.map((t) => t.talentId);
-
-    if (!event.dt)
-      throw new NotFoundException(`Event ${campaign.eventId} not found`);
-
-
-    const startOfDay = new Date(event.dt);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(event.dt);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    // fetch same days events 
-    const eventIds = await this.prisma.events.findMany({
-      where: {
-        dt: {
-          not: null,
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-      select: { id: true },
-    });
-
-    // fetch talent those accept invitation for other event on same date . 
-    const acceptedInvitations = await this.prisma.campaignInvitation.findMany({
-      where: {
-        status: "confirmed",
-        eventId: {
-          in: eventIds.map((e) => Number(e.id)),
-        },
-      },
-      select: {
-        talentId: true,
-      },
-      distinct: ["talentId"],
-    });
-
-    const acceptedTalentIds = acceptedInvitations.map((i) => i.talentId);
-
-    // filter  condtions 
-    const baseWhere: any = {};
-
-    //exclude 48 hours talents 
-    if (hidden48.length) {
-      baseWhere.AND = [...(baseWhere.AND || []), { id: { notIn: hidden48 } }];
+    if (!event) {
+      throw new NotFoundException(
+        `Event with ID ${campaign.eventId} not found`,
+      );
     }
 
-    // exclude those accept the invitation of other event on same date
-    if (acceptedTalentIds.length) {
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        {
-          id: { notIn: acceptedTalentIds },
-        },
-      ];
-    }
-
-
-    // search with query 
-    if (filters.query && filters.query.trim().length > 0) {
-      const q = filters.query.trim();
-
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        {
+    // Exclude talents that have an invitation in this campaign in the last 48h
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const recentUnrepliedInvitations =
+      await this.prisma.campaignInvitation.findMany({
+        where: {
           OR: [
+            { campaignId },
             {
-              id: {
-                contains: q,
-                mode: "insensitive",
-              },
-            },
-            {
-              name: {
-                contains: q,
-                mode: "insensitive",
-              },
-            },
-            {
-              city: {
-                contains: q,
-                mode: "insensitive",
+              invitationAt: {
+                gt: fortyEightHoursAgo,
               },
             },
           ],
         },
+        select: { talentId: true },
+      });
+    const invitedTalentIds = recentUnrepliedInvitations.map((i) => i.talentId);
+    rejectTalentIds.push(...invitedTalentIds);
+
+
+    //ignore talent which are already accepted inviation on same dat with another promoter
+    const alreadyAcceptedInviteOnSameDay = await this.prisma.campaignInvitation.findMany({
+      where: {
+        status: {
+          equals: InvitationStatus.confirmed,
+        },
+        event: {
+          dt: event.dt,
+        },
+      },
+      select: {
+        talentId: true,
+      },
+    });
+    rejectTalentIds.push(...alreadyAcceptedInviteOnSameDay.map((i) => i.talentId));
+
+    const baseWhere: any = {};
+    const promoterStateConditions: any = {
+      promoterId: promoterIdBigInt,
+    };
+
+    // If openchat is true, only include talents that have been contacted before
+    if (openchat === true) {
+      promoterStateConditions.lastContacted = { not: null };
+    } else if (openchat === false) {
+      promoterStateConditions.lastContacted = null;
+    }
+
+    // If dmSent is true, only include talents that have replied before
+    if (dmSent === true) {
+      promoterStateConditions.lastReply = { not: null };
+    } else if (dmSent === false) {
+      promoterStateConditions.lastReply = null;
+    }
+
+    // If blacklist is true, only include talents that are not blacklisted
+    if (blacklist === true) {
+      baseWhere.blacklists = {
+        some: { promoterId: promoterIdBigInt },
+      };
+    } else if (blacklist === false) {
+      baseWhere.blacklists = {
+        none: { promoterId: promoterIdBigInt },
+      };
+    }
+
+
+    // Talent type filter
+    if (talentType && Array.isArray(talentType) && talentType.length > 0) {
+      baseWhere.talentType = { in: talentType };
+    }
+
+    //TRUSTSCORE
+    if (trustScoreRange?.min !== undefined) {
+      promoterStateConditions.trustScore = {
+        gte: trustScoreRange.min,
+        ...(trustScoreRange.max !== undefined
+          ? { lte: trustScoreRange.max }
+          : {}),
+      };
+    }
+
+    // Text search on username (id), name, and city_home
+    if (query && query.trim().length > 0) {
+      const q = query.trim();
+      baseWhere.AND = [
+        { OR: [
+          { id: { contains: q, mode: "insensitive" } },
+          { name: { contains: q, mode: "insensitive" } },
+          { cityHome: { contains: q, mode: "insensitive" } },
+        ]}
       ];
     }
 
-    // search with recommendation
-    const orderBy: any[] = [];
+    //append promoterStateConditions to baseWhere if it has more than 1 key
+    if (Object.keys(promoterStateConditions).length > 1) {
+      baseWhere.promoterStates = {
+        some: promoterStateConditions,
+      };
+    }
 
-    if (filters.recommendation === true) {
+    //recommendation
+    if(recommendation === true) {
       const city = event.city?.trim();
+      baseWhere.blacklists = {
+        none: { promoterId: promoterIdBigInt },
+      };
       baseWhere.OR = [
         {
           AND: [
@@ -208,130 +220,48 @@ export class TalentService {
           ],
         },
       ];
-      orderBy.push(
-        {
-          futureCity: {
-            sort: "asc",
-            nulls: "last",
-          },
-        },
-        {
-          futureCityStartAt: {
-            sort: "asc",
-            nulls: "last",
-          },
-        },
-      );
     }
 
 
-
-    // search with talent type
-    if (filters.talentType?.length) {
-      baseWhere.talentType = { in: filters.talentType };
+    if (rejectTalentIds.length > 0) {
+      baseWhere.id = { notIn: rejectTalentIds };
     }
 
-    // search with blacklist
-    const blacklistFilter =
-      filters.blacklist === false
-        ? { none: { promoterId } }
-        : filters.blacklist === true
-          ? { some: { promoterId } }
-          : undefined;
+    //orderBY
+    const orderBy: any[] = [
+      // { futureCityEndAt: "desc" },
+      // { currentCityEndAt: "desc" },
+      //{ trustScore: "asc" }
+    ];
+
+    // console.log(openchat, dmSent, blacklist);
+    // console.log(JSON.stringify(baseWhere, null, 2));
 
 
-    const hasTrustScoreFilter =
-      filters.trustScoreRange !== undefined &&
-      ((filters.trustScoreRange.min !== undefined &&
-        filters.trustScoreRange.min > 0) ||
-        filters.trustScoreRange.max !== undefined);
-    const hasOpenChatFilter = filters.openchat === true;
-    const hasDmSentFilter = filters.dmSent === true;
-
-    const shouldFilterPromoterState =
-      hasOpenChatFilter || hasDmSentFilter || hasTrustScoreFilter;
-
-
-    // open chat , dms , trust score with filter 
-    if (shouldFilterPromoterState) {
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        {
-          promoterStates: {
-            some: {
-              promoterId,
-              optedOut: false,
-
-              ...(hasOpenChatFilter ? { lastContacted: { not: null } } : {}),
-
-              ...(hasDmSentFilter ? { lastReply: { not: null } } : {}),
-
-              ...(hasTrustScoreFilter
-                ? {
-                  AND: [
-                    ...(filters.trustScoreRange?.min !== undefined
-                      ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
-                      : []),
-                    ...(filters.trustScoreRange?.max !== undefined
-                      ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
-                      : []),
-                  ],
-                }
-                : {}),
-            },
-          },
-        },
-      ];
-    }
-
-    if (blacklistFilter) {
-      baseWhere.blacklists = blacklistFilter;
-    }
-
-    // -------- Exclusions by batch --------
-    let excludedTalentIds: string[] = [];
-
-    if (batchId === 1) {
-      const invited = await this.prisma.campaignInvitation.findMany({
-        where: { campaignId },
-        select: { talentId: true },
-      });
-      excludedTalentIds = invited.map((i) => i.talentId);
-    }
-
-    if (batchId === 2) {
-      const invitedBatchOne = await this.prisma.campaignInvitation.findMany({
-        where: { campaignId, batch: 1 },
-        select: { talentId: true },
-      });
-      excludedTalentIds = invitedBatchOne.map((i) => i.talentId);
-    }
-
-    if (excludedTalentIds.length) {
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        { id: { notIn: excludedTalentIds } },
-      ];
-    }
-
-
-    // final filter query from db 
     const talentPools = await this.prisma.talentPool.findMany({
       where: baseWhere,
       include: {
         promoterStates: {
-          where: { promoterId },
-          orderBy: { trustScore: "desc" },
+          where: { promoterId: promoterIdBigInt },
+          orderBy: { trustScore: 'desc' },
           take: 1,
         },
         blacklists: {
-          where: { promoterId },
-          take: 1,
+          where: { promoterId: promoterIdBigInt },
         },
       },
-      orderBy,
+      orderBy: [
+        { futureCityStartAt: 'asc' },
+        { currentCityEndAt: 'asc' },
+        {
+          promoterStates: {
+            _count: 'asc'
+          }
+        },
+      ],
       take: limit,
     });
+
     return talentPools;
   }
 }

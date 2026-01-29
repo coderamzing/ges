@@ -187,7 +187,7 @@ enum InvitationStatus {
 model CampaignInvitation {
   id           Int              @id @default(autoincrement())
   campaignId   Int
-  eventId      Int
+  eventId      BigInt
   promoterId   BigInt
   talentId     String
   batch        Int // 1 | 2 | followup
@@ -203,6 +203,7 @@ model CampaignInvitation {
   // Relations
   campaign Campaign @relation(fields: [campaignId], references: [id])
   messages Message[]            @relation("InvitationMessages")
+  event Events @relation(fields: [eventId], references: [id])
 
   // messages CampaignMessage[]
   @@unique([campaignId, talentId])
@@ -325,7 +326,6 @@ model TalentPool {
   img                   Boolean?  @map("img")
   subscriberId          String?   @map("subscriber_id")
   fallback              Boolean?  @map("fallback")
-  trustScore            Int?      @default(0) @map("trust_score")
   optedOut              Boolean?  @default(false) @map("opted_out")
   optedOutAt            DateTime? @map("opted_out_at")
   currentCity           String?   @map("current_city")
@@ -398,6 +398,8 @@ model Events {
   dinnerDescription     String?   @map("dinner_description")
   preDrinkDescription   String?   @map("pre_drink_description")
   monthlyRecurrenceDate Int?      @map("monthly_recurrence_date")
+
+  invitations      CampaignInvitation[]
 
   @@map("events")
 }

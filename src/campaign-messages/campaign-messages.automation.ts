@@ -336,7 +336,7 @@ export class CampaignMessagesAutomationService {
         data: {
           talentId,
           promoterId: BigInt(promoterId),
-          eventId,
+          eventId: Number(eventId),
           change: interpretation.score,
           reason: interpretation.score_reason,
         },

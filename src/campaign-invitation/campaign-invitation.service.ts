@@ -151,7 +151,6 @@ export class CampaignInvitationService {
             country: true,
             location: true,
             instagramLink: true,
-            trustScore: true,
           },
         });
 

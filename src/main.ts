@@ -18,7 +18,8 @@ async function bootstrap() {
   app.enableCors();
 
   // Serve static files from public directory
-  app.useStaticAssets(join(process.cwd(), '../public'));
+  //app.useStaticAssets(join(process.cwd(), '../public'));
+  app.useStaticAssets(join(process.cwd(), 'public'));
 
   app.setGlobalPrefix('api');
 

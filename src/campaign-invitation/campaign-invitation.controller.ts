@@ -252,8 +252,14 @@ export class CampaignInvitationController {
     @Param('campaignId', ParseIntPipe) campaignId: number,
     @Param('batchId', ParseIntPipe) batchId: number,
     @Query() filters: TalentRecommendationFiltersDto,
+    @GetPromoter() promoter: { id: number; email: string },
   ): Promise<(TalentPool & { promoterState?: TalentPromoterState | null })[]> {
-    return this.talentService.getRecommendations(campaignId, batchId, filters);
+    return this.talentService.getRecommendations(
+      campaignId,
+      batchId,
+      filters,
+      promoter.id,
+    );
   }
 
   @Get('campaign/:campaignId/batch/:batchId/can-start')
