@@ -5,7 +5,7 @@ import { TalentRecommendationFiltersDto } from "./talent.dto";
 
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -39,8 +39,9 @@ export class TalentService {
     const promoterId = event.userId ? BigInt(event.userId) : null;
     if (!promoterId) throw new NotFoundException(`Event has no promoter`);
 
-    const limit = filters.limit ?? 100;
 
+    // 48 hours rule
+    const limit = filters.limit ?? 100;
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
 
     const hiddenTalents48h = await this.prisma.campaignInvitation.findMany({
@@ -61,12 +62,15 @@ export class TalentService {
 
     if (!event.dt)
       throw new NotFoundException(`Event ${campaign.eventId} not found`);
+
+
     const startOfDay = new Date(event.dt);
     startOfDay.setHours(0, 0, 0, 0);
 
     const endOfDay = new Date(event.dt);
     endOfDay.setHours(23, 59, 59, 999);
 
+    // fetch same days events 
     const eventIds = await this.prisma.events.findMany({
       where: {
         dt: {
@@ -78,6 +82,7 @@ export class TalentService {
       select: { id: true },
     });
 
+    // fetch talent those accept invitation for other event on same date . 
     const acceptedInvitations = await this.prisma.campaignInvitation.findMany({
       where: {
         status: "confirmed",
@@ -93,11 +98,15 @@ export class TalentService {
 
     const acceptedTalentIds = acceptedInvitations.map((i) => i.talentId);
 
+    // filter  condtions 
     const baseWhere: any = {};
+
+    //exclude 48 hours talents 
     if (hidden48.length) {
       baseWhere.AND = [...(baseWhere.AND || []), { id: { notIn: hidden48 } }];
     }
 
+    // exclude those accept the invitation of other event on same date
     if (acceptedTalentIds.length) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
@@ -107,6 +116,8 @@ export class TalentService {
       ];
     }
 
+
+    // search with query 
     if (filters.query && filters.query.trim().length > 0) {
       const q = filters.query.trim();
 
@@ -137,14 +148,15 @@ export class TalentService {
       ];
     }
 
+    // search with recommendation
     const orderBy: any[] = [];
 
     if (filters.recommendation === true) {
       const city = event.city?.trim();
-
       baseWhere.OR = [
         {
           AND: [
+            { futureCity: { not: null } },
             {
               futureCity: {
                 equals: city,
@@ -171,18 +183,29 @@ export class TalentService {
             },
           ],
         },
+        //  Only use currentCity if futureCity is null
         {
-          currentCity: {
-            equals: city,
-            mode: "insensitive",
-          },
+          AND: [
+            { futureCity: null },
+            {
+              currentCity: {
+                equals: city,
+                mode: "insensitive",
+              },
+            },
+          ],
         },
-
+        //  Only use city if futureCity is null
         {
-          city: {
-            equals: city,
-            mode: "insensitive",
-          },
+          AND: [
+            { futureCity: null },
+            {
+              city: {
+                equals: city,
+                mode: "insensitive",
+              },
+            },
+          ],
         },
       ];
       orderBy.push(
@@ -201,17 +224,22 @@ export class TalentService {
       );
     }
 
+
+
+    // search with talent type
     if (filters.talentType?.length) {
       baseWhere.talentType = { in: filters.talentType };
     }
 
+    // search with blacklist
     const blacklistFilter =
       filters.blacklist === false
         ? { none: { promoterId } }
         : filters.blacklist === true
           ? { some: { promoterId } }
           : undefined;
-    // const hasTrustScoreFilter = !!filters.trustScoreRange;
+
+
     const hasTrustScoreFilter =
       filters.trustScoreRange !== undefined &&
       ((filters.trustScoreRange.min !== undefined &&
@@ -223,6 +251,8 @@ export class TalentService {
     const shouldFilterPromoterState =
       hasOpenChatFilter || hasDmSentFilter || hasTrustScoreFilter;
 
+
+    // open chat , dms , trust score with filter 
     if (shouldFilterPromoterState) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
@@ -238,15 +268,15 @@ export class TalentService {
 
               ...(hasTrustScoreFilter
                 ? {
-                    AND: [
-                      ...(filters.trustScoreRange?.min !== undefined
-                        ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
-                        : []),
-                      ...(filters.trustScoreRange?.max !== undefined
-                        ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
-                        : []),
-                    ],
-                  }
+                  AND: [
+                    ...(filters.trustScoreRange?.min !== undefined
+                      ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
+                      : []),
+                    ...(filters.trustScoreRange?.max !== undefined
+                      ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
+                      : []),
+                  ],
+                }
                 : {}),
             },
           },
@@ -284,6 +314,8 @@ export class TalentService {
       ];
     }
 
+
+    // final filter query from db 
     const talentPools = await this.prisma.talentPool.findMany({
       where: baseWhere,
       include: {
@@ -300,7 +332,6 @@ export class TalentService {
       orderBy,
       take: limit,
     });
-
     return talentPools;
   }
 }
