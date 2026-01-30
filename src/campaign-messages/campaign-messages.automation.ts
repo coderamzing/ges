@@ -24,13 +24,13 @@ interface MessageInterpretationResponse {
   score: number;
   score_reason: string;
   currentCity: string;
-  futureCity: string,
-  futureCityStartAt: string,
-  futureCityEndAt: string,
-  currentCityEndAt: string,
-  cityHome: string,
-  blacklist: string,
-  reason: string
+  futureCity: string;
+  futureCityStartAt: string;
+  futureCityEndAt: string;
+  currentCityEndAt: string;
+  cityHome: string;
+  blacklist: string;
+  reason: string;
 }
 
 @Injectable()
@@ -41,8 +41,8 @@ export class CampaignMessagesAutomationService {
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
-    private readonly talentBlacklistService: TalentBlacklistService
-  ) { }
+    private readonly talentBlacklistService: TalentBlacklistService,
+  ) {}
 
   /**
    * Process messages that haven't been interpreted yet
@@ -113,11 +113,10 @@ export class CampaignMessagesAutomationService {
             message: true,
             created_at: true,
             sender_username: true,
-
           },
           where: {
             thread_id: (message as any).thread_id,
-            ai_processed: false,
+            // ai_processed: false,
             sender_username: (message as any).sender_username,
             ...(invitationAt && {
               created_at: {
@@ -129,21 +128,25 @@ export class CampaignMessagesAutomationService {
             created_at: "asc",
           },
         });
+        console.log("threads",threads)
 
         const talent = await this.prisma.talentPool.findUnique({
           where: {
-            id: message.invitation?.talentId
-          }
-        })
+            id: message.invitation?.talentId,
+          },
+        });
 
         const fullMessage =
           `Current City: ${talent?.currentCity || "Unknown"}\n\n` +
           `Talent Name : ${talent?.id || "Unknown"}\n\n` +
           threads
             .map(
-              (msg) => `${msg.sender_username} : ${msg.created_at} ${msg.message}`
+              (msg) =>
+                `${msg.sender_username} : ${msg.created_at} ${msg.message}`,
             )
             .join("\n\n");
+
+        console.log("fullMessage",fullMessage)
 
 
         // const fullMessage = threads
@@ -226,7 +229,7 @@ export class CampaignMessagesAutomationService {
       let interpretation: MessageInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
-        console.log(response, "incoming response from ai")
+        console.log(response, "incoming response from ai");
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
@@ -238,8 +241,7 @@ export class CampaignMessagesAutomationService {
           currentCityEndAt: response.currentCityEndAt,
           cityHome: response.cityHome,
           blacklist: response.blacklist,
-          reason: response.reason
-
+          reason: response.reason,
         };
       } catch (error) {
         this.logger.error(
@@ -296,7 +298,10 @@ export class CampaignMessagesAutomationService {
         return d;
       }
 
-      if (interpretation.futureCity && interpretation.futureCity !== "default") {
+      if (
+        interpretation.futureCity &&
+        interpretation.futureCity !== "default"
+      ) {
         const startUTC = toUTC(interpretation.futureCityStartAt, false);
         const endUTC = toUTC(interpretation.futureCityEndAt, true);
 
@@ -310,13 +315,47 @@ export class CampaignMessagesAutomationService {
         });
       }
 
-
-
-
-      // Update trust score
-      const newTrustScore =
-        talentPromoterState.trustScore + interpretation.score;
       const lastReceivedAt = message.created_at || new Date();
+    
+      const existing = await this.prisma.trustScoreLog.findFirst({
+        where: {
+          talentId,
+          promoterId: BigInt(promoterId),
+          eventId: Number(eventId),
+        },
+      });
+
+      if (existing) {
+        await this.prisma.trustScoreLog.update({
+          where: { id: existing.id },
+          data: {
+            change: interpretation.score,
+            reason: interpretation.score_reason,
+          },
+        });
+      } else {
+        const trustScore = await this.prisma.trustScoreLog.create({
+          data: {
+            talentId,
+            promoterId: BigInt(promoterId),
+            eventId: Number(eventId),
+            change: interpretation.score,
+            reason: interpretation.score_reason,
+          },
+        });
+      }
+
+      const trustScoreAgg = await this.prisma.trustScoreLog.aggregate({
+        where: {
+          talentId,
+          promoterId: BigInt(promoterId),
+        },
+        _sum: {
+          change: true,
+        },
+      });
+
+      const newTrustScore = trustScoreAgg._sum?.change ?? 0;
 
       await this.prisma.talentPromoterState.update({
         where: {
@@ -331,52 +370,54 @@ export class CampaignMessagesAutomationService {
         },
       });
 
-      // Create TrustScoreLog entry
-      await this.prisma.trustScoreLog.create({
-        data: {
-          talentId,
-          promoterId: BigInt(promoterId),
-          eventId: Number(eventId),
-          change: interpretation.score,
-          reason: interpretation.score_reason,
-        },
-      });
-
       // Update talent's current location if provided and different from default
       if (
         interpretation.currentCity &&
         interpretation.currentCity !== "default"
       ) {
-
         await this.prisma.talentPool.update({
           where: { id: talentId },
           data: {
             currentCity: interpretation.currentCity,
             currentCityEndAt:
               interpretation.currentCityEndAt &&
-                interpretation.currentCityEndAt.trim() !== ""
+              interpretation.currentCityEndAt.trim() !== ""
                 ? new Date(interpretation.currentCityEndAt)
                 : null,
-
           },
         });
       }
 
-      if (
-        interpretation.cityHome &&
-        interpretation.cityHome !== "default"
-      ) {
+      if (interpretation.cityHome && interpretation.cityHome !== "default") {
         await this.prisma.talentPool.update({
           where: { id: talentId },
           data: {
             cityHome: interpretation.cityHome,
-            cityHomeUpdated: new Date()
+            cityHomeUpdated: new Date(),
           },
         });
       }
+
       if (interpretation.blacklist) {
-        let createTalentBlacklistDto = { talentId: talentId, reason: interpretation.reason }
-        await this.talentBlacklistService.create(createTalentBlacklistDto, Number(promoterId))
+        let createTalentBlacklistDto = {
+          talentId: talentId,
+          reason: interpretation.reason,
+        };
+        const existingBlacklist = await this.prisma.talentBlacklist.findUnique({
+          where: {
+            talentId_promoterId: {
+              talentId: talentId,
+              promoterId: BigInt(promoterId),
+            },
+          },
+        });
+        if (!existingBlacklist) {
+          console.log("hiiit in create balcklist");
+          await this.talentBlacklistService.create(
+            createTalentBlacklistDto,
+            Number(promoterId),
+          );
+        }
       }
 
       await this.prisma.message.updateMany({
