@@ -29,6 +29,7 @@ export class TempService {
         thankYouSent: true,
         hasReplied: true,
         thread_id: true,
+        createdAt:true,
       },
     });
 
@@ -131,7 +132,7 @@ export class TempService {
         };
       });
 
-      mappedMessages = mappedMessages.filter((m) => m.createdAt && invitation.invitationAt && m.createdAt > invitation.invitationAt);
+      mappedMessages = mappedMessages.filter((m) => m.createdAt && invitation.createdAt && m.createdAt > invitation.createdAt);
 
       result.push({
         talent: {
@@ -149,6 +150,7 @@ export class TempService {
           thankYouSent: invitation.thankYouSent,
           hasReplied: invitation.hasReplied,
           threadId: invitation.thread_id,
+          createdAt: invitation.createdAt,
         },
         messages: mappedMessages,
       });

@@ -126,7 +126,7 @@ model CampaignSpintaxTemplate {
 
   // Relations
   template CampaignTemplate @relation(fields: [CampaignTemplateId], references: [id])
-  campaign Campaign @relation(fields: [campaignId], references: [id])
+  campaign Campaign @relation(fields: [campaignId], references: [id])       
 }
 
 /**
@@ -199,6 +199,7 @@ model CampaignInvitation {
   thankYouSent Boolean          @default(false)
   hasReplied   Boolean          @default(false)
   thread_id    String?          @unique @db.VarChar(255)
+  createdAt    DateTime         @default(now())
 
   // Relations
   campaign Campaign @relation(fields: [campaignId], references: [id])

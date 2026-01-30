@@ -95,7 +95,7 @@ export class CampaignMessagesAutomationService {
         return (
           msg.thread_id === msg.invitation.thread_id &&
           msg.sender_username === msg.invitation.talentId &&
-          msg.created_at > msg.invitation.invitationAt
+          msg.created_at > msg.invitation.createdAt
         );
       });
 
@@ -107,7 +107,7 @@ export class CampaignMessagesAutomationService {
       this.logger.log(`Found ${talentReplies.length} messages to process`);
 
       for (const message of talentReplies) {
-        const invitationAt = message.invitation?.invitationAt;
+        const invitationAt = message.invitation?.createdAt;
         const threads = await this.prisma.message.findMany({
           select: {
             message: true,
