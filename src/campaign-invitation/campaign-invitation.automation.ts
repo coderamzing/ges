@@ -33,26 +33,40 @@ export class CampaignInvitationAutomationService {
     delayMinutes?: number[],
   ): Promise<boolean> {
     // Get the last sent message for this promoter
-    const lastMessage = await this.prisma.campaignMessage.findFirst({
+    // const lastMessage = await this.prisma.campaignMessage.findFirst({
+    //   where: {
+    //     promoterId: promoterId,
+    //     direction: MessageDirection.sent,
+    //     sentAt: { not: null },
+    //   },
+    //   orderBy: {
+    //     sentAt: "desc",
+    //   },
+    //   select: {
+    //     sentAt: true,
+    //   },
+    // });
+
+    const lastMessage = await this.prisma.message.findFirst({
       where: {
-        promoterId: promoterId,
-        direction: MessageDirection.sent,
-        sentAt: { not: null },
+        sender: promoterId,
+        invite: true, // optional but recommended
+        ai_processed: true, // optional safety filter
       },
       orderBy: {
-        sentAt: "desc",
+        created_at: "desc",
       },
       select: {
-        sentAt: true,
+        created_at: true,
       },
     });
 
-    if (!lastMessage || !lastMessage.sentAt) {
+    if (!lastMessage || !lastMessage.created_at) {
       return true; // No previous message, can send
     }
 
     const now = Date.now();
-    const lastSent = lastMessage.sentAt.getTime();
+    const lastSent = lastMessage.created_at.getTime();
     let minutes: number;
 
     if (delayMinutes && delayMinutes.length === 2) {
@@ -210,7 +224,6 @@ export class CampaignInvitationAutomationService {
     return randomSpintax.content;
   }
 
-
   private async sendMessageCommon(params: {
     receiverId: string;
     promoterId: bigint;
@@ -222,15 +235,13 @@ export class CampaignInvitationAutomationService {
     const senderId = Number(promoterId);
 
     try {
-      const response =
-        await this.campaignInvitationService.sendMessage(
-          token,
-          receiverId,
-          message,
-          senderId,
-        );
+      const response = await this.campaignInvitationService.sendMessage(
+        token,
+        receiverId,
+        message,
+        senderId,
+      );
       return response;
-
     } catch (error) {
       this.logger.error(
         `Failed to send message for invitation ${invitationId}:`,
@@ -238,44 +249,44 @@ export class CampaignInvitationAutomationService {
       );
 
       throw new Error(
-        `Automation stopped: Failed to send message - ${error?.message || error
+        `Automation stopped: Failed to send message - ${
+          error?.message || error
         }`,
       );
     }
   }
 
-
-  private async checkAndUpdateCampaignEnd(
-    campaignId: number,
-    batchId: number,
-  ) {
+  private async checkAndUpdateCampaignEnd(campaignId: number, batchId: number) {
     // Count current batch invitations
     const currentBatchCount = await this.prisma.campaignInvitation.count({
       where: {
         campaignId,
         batch: batchId,
         status: {
-          not: 'pending',
+          not: "pending",
         },
       },
     });
+
     // If batch 2 reaches 100 invitations, update campaign end_at
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
       select: { end_at: true },
     });
-    if (!campaign) throw new NotFoundException(`Campaign ${campaignId} not found`);
+    if (!campaign)
+      throw new NotFoundException(`Campaign ${campaignId} not found`);
 
     // If batch 2 reaches 100 invitations AND end_at is null, update it
     if (currentBatchCount === 99 && batchId === 2 && campaign.end_at === null) {
       await this.prisma.campaign.update({
         where: { id: campaignId },
-        data: { end_at: new Date() },
+        data: { end_at: new Date(), status: CampaignStatus.completed },
       });
       this.logger.log(`Campaign ${campaignId} end_at updated at ${new Date()}`);
     } else {
-      this.logger.log(`Campaign ${campaignId} batch ${batchId} has ${currentBatchCount} invitations, end_at: ${campaign.end_at}`);
-
+      this.logger.log(
+        `Campaign ${campaignId} batch ${batchId} has ${currentBatchCount} invitations, end_at: ${campaign.end_at}`,
+      );
     }
   }
 
@@ -283,7 +294,7 @@ export class CampaignInvitationAutomationService {
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
     private campaignInvitationService: CampaignInvitationService,
-  ) { }
+  ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
   async sendInitialMessages() {
@@ -437,7 +448,6 @@ export class CampaignInvitationAutomationService {
       message,
     });
     if (response) {
-
       let update = await this.prisma.campaignInvitation.update({
         where: {
           campaignId_talentId: {
@@ -454,8 +464,6 @@ export class CampaignInvitationAutomationService {
       await this.checkAndUpdateCampaignEnd(update.campaignId, update.batch);
       this.logger.log("thread Id updated in campaign invitation");
     }
-
-
 
     // await this.campaignMessagesService.createMessage({
     //   campaignId: campaign.id,
@@ -481,7 +489,6 @@ export class CampaignInvitationAutomationService {
       lastContacted: UpdatedInviteMessage.invitationAt ?? undefined,
     });
 
-
     this.logger.log(
       `Successfully sent initial message for invitation ${invitation.id}`,
     );
@@ -505,24 +512,31 @@ export class CampaignInvitationAutomationService {
       // - invitationAt is not null (initial message has been sent)
       // - invitationAt is at least 5 minutes ago
 
-        const invitationsNeedingFollowup =
+      const invitationsNeedingFollowup =
         await this.prisma.campaignInvitation.findMany({
           where: {
             AND: [
               { followup: true }, // no need
               { followupSent: false },
-              { status: {
-                notIn: [
-                  InvitationStatus.attended,
-                  InvitationStatus.confirmed,
-                  InvitationStatus.declined,
-                  InvitationStatus.optout
-                ]
-              } },
+              {
+                status: {
+                  notIn: [
+                    InvitationStatus.attended,
+                    InvitationStatus.confirmed,
+                    InvitationStatus.declined,
+                    InvitationStatus.optout,
+                  ],
+                },
+              },
               { invitationAt: { not: null, lte: fiveMinutesAgo } },
               {
                 campaign: {
-                  status: CampaignStatus.active, // follow up > 0
+                  status: {
+                    in: [
+                      CampaignStatus.active, // follow up > 0
+                      CampaignStatus.completed,
+                    ],
+                  },
                 },
               },
             ],
@@ -531,7 +545,7 @@ export class CampaignInvitationAutomationService {
             campaign: true,
           },
           orderBy: { id: "asc" },
-          take: 1,
+          take: 10,
         });
 
       if (!invitationsNeedingFollowup.length) {
@@ -543,12 +557,12 @@ export class CampaignInvitationAutomationService {
       const promoterId = invitation.promoterId;
       const delayMinutes = [5, 20];
       // Check if enough time has passed since last send for this promoter
-      // if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
-      //   this.logger.debug(
-      //     `Skipping followup for promoter ${promoterId}, waiting for random gap`,
-      //   );
-      //   return;
-      // }
+      if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
+        this.logger.debug(
+          `Skipping followup for promoter ${promoterId}, waiting for random gap`,
+        );
+        return;
+      }
 
       try {
         await this.sendFollowupMessage(invitation);
@@ -571,7 +585,7 @@ export class CampaignInvitationAutomationService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async sendFollowupMessagesWithDelay() {
-    this.logger.log("Process sending followup messages");
+    this.logger.log("Process sending followup messages with autoDelay");
 
     try {
       // Fetch invitations that are eligible for followup
@@ -601,10 +615,13 @@ export class CampaignInvitationAutomationService {
         // Calculate dynamic followup time based on campaign.followup_delay
         const followupTime = new Date(
           invitation.invitationAt!.getTime() +
-          invitation.campaign.followup_delay * 60 * 1000,
+            invitation.campaign.followup_delay * 60 * 60 * 1000,
         );
         if (new Date() < followupTime) {
           // Not yet time to send followup
+          this.logger.debug(
+            `Breaking loop: followup time not reached for invitation ${invitation.id},`,
+          );
           continue;
         }
         const delayMinutes = [5, 20];
@@ -612,7 +629,7 @@ export class CampaignInvitationAutomationService {
         // Check promoter-specific rate limiting
         if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
           this.logger.debug(
-            `Skipping followup for promoter ${promoterId}, waiting for random gap in delay`,
+            `Skipping followup for promoter ${promoterId}, waiting for random gap in delay for this invitation ${invitation.id}`,
           );
           continue;
         }
@@ -771,7 +788,9 @@ export class CampaignInvitationAutomationService {
               // { thankyou: true},
               {
                 campaign: {
-                  // status: CampaignStatus.completed,
+                  status: {
+                    in: [CampaignStatus.active, CampaignStatus.completed],
+                  },
                   postEventTriggerAt: {
                     not: null,
                     lte: now, // less than or equal to now (has passed)

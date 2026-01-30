@@ -1,15 +1,29 @@
-import { Injectable, NotFoundException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CampaignInvitation, InvitationStatus, TemplateType } from '@prisma/client';
-import { GetCampaignInvitationsQueryDto, GetInvitationsQueryDto } from './campaign-invitation.dto';
-import { AddTalentsToCampaignDto } from '../campaign/campaign.dto';
-import axios from 'axios';
-import { randomUUID } from 'crypto';
-import { SendMessageResponse } from './campaign-invitation.types';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import {
+  CampaignInvitation,
+  CampaignStatus,
+  InvitationStatus,
+  TemplateType,
+} from "@prisma/client";
+import {
+  GetCampaignInvitationsQueryDto,
+  GetInvitationsQueryDto,
+} from "./campaign-invitation.dto";
+import { AddTalentsToCampaignDto } from "../campaign/campaign.dto";
+import axios from "axios";
+import { randomUUID } from "crypto";
+import { SendMessageResponse } from "./campaign-invitation.types";
 
 @Injectable()
 export class CampaignInvitationService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -38,11 +52,12 @@ export class CampaignInvitationService {
     return { campaign, event };
   }
 
-
-
-  private async ensureActiveTemplatesForAllTypes(campaignId: number, requiredType: TemplateType,) {
+  private async ensureActiveTemplatesForAllTypes(
+    campaignId: number,
+    requiredType: TemplateType,
+  ) {
     const activeTemplates = await this.prisma.campaignTemplate.groupBy({
-      by: ['type'],
+      by: ["type"],
       where: {
         campaignId,
         isActive: true,
@@ -54,22 +69,22 @@ export class CampaignInvitationService {
 
     const requiredTypes = Object.values(TemplateType);
 
-    const missingTypes = requiredTypes.filter(type =>
-      !activeTemplates.some(t => t.type === type)
+    const missingTypes = requiredTypes.filter(
+      (type) => !activeTemplates.some((t) => t.type === type),
     );
 
     if (missingTypes.length > 0) {
       throw new BadRequestException(
-        `You must activate at least one ${requiredType} template language before performing this action`
+        `You must activate at least one ${requiredType} template language before performing this action`,
       );
     }
   }
 
-    async getInvitationsByCampaign(
+  async getInvitationsByCampaign(
     campaignId: number,
     promoterId: number,
     filters?: GetCampaignInvitationsQueryDto,
-    ): Promise<CampaignInvitation[]> {
+  ): Promise<CampaignInvitation[]> {
     await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
 
     const where: any = {
@@ -99,12 +114,10 @@ export class CampaignInvitationService {
     return this.prisma.campaignInvitation.findMany({
       where,
       orderBy: {
-        invitationAt: filters?.order ?? 'desc',
+        invitationAt: filters?.order ?? "desc",
       },
     });
   }
-
-
 
   async getInvitationsByCampaignAndBatch(
     campaignId: number,
@@ -124,18 +137,21 @@ export class CampaignInvitationService {
         where.status = { in: filters.status };
       }
       if (filters.isSeen !== undefined) where.isSeen = filters.isSeen;
-      if (filters.followupSent !== undefined) where.followupSent = filters.followupSent;
-      if (filters.thankYouSent !== undefined) where.thankYouSent = filters.thankYouSent;
-      if (filters.hasReplied !== undefined) where.hasReplied = filters.hasReplied;
+      if (filters.followupSent !== undefined)
+        where.followupSent = filters.followupSent;
+      if (filters.thankYouSent !== undefined)
+        where.thankYouSent = filters.thankYouSent;
+      if (filters.hasReplied !== undefined)
+        where.hasReplied = filters.hasReplied;
     }
 
     const orderBy = {
-      invitationAt: filters?.order ?? 'desc',
+      invitationAt: filters?.order ?? "desc",
     };
 
     const invitations = await this.prisma.campaignInvitation.findMany({
       where,
-      orderBy
+      orderBy,
     });
 
     // Fetch related talent data in parallel
@@ -154,33 +170,33 @@ export class CampaignInvitationService {
           },
         });
 
-        const promoterRating = await this.prisma.talentPromoterState.findUnique({
-          where: {
-            talentId_promoterId: {
-              talentId: inv.talentId,
-              promoterId: promoterId,
+        const promoterRating = await this.prisma.talentPromoterState.findUnique(
+          {
+            where: {
+              talentId_promoterId: {
+                talentId: inv.talentId,
+                promoterId: promoterId,
+              },
+            },
+            select: {
+              trustScore: true,
+              optedOut: true,
+              lastContacted: true,
+              lastReply: true,
             },
           },
-          select: {
-            trustScore: true,
-            optedOut: true,
-            lastContacted: true,
-            lastReply: true,
-          },
-        });
+        );
 
         return {
           ...inv,
           talent: talentProfile,
           promoterState: promoterRating,
         };
-      })
+      }),
     );
 
     return enrichedInvitations;
   }
-
-
 
   /**
    * Get invitations for a campaign, optionally filtered by batch.
@@ -201,7 +217,7 @@ export class CampaignInvitationService {
 
     return this.prisma.campaignInvitation.findMany({
       where,
-      orderBy: { id: 'asc' },
+      orderBy: { id: "asc" },
     });
   }
 
@@ -214,26 +230,30 @@ export class CampaignInvitationService {
     addTalentsDto: AddTalentsToCampaignDto,
     promoterId: number,
   ): Promise<CampaignInvitation[]> {
-
     const batchId = addTalentsDto.batchId ?? 1;
 
     if (batchId == 2) {
-      let canStartBatch = await this.canStartBatch(campaignId, batchId, promoterId)
+      let canStartBatch = await this.canStartBatch(
+        campaignId,
+        batchId,
+        promoterId,
+      );
       if (!canStartBatch) {
         throw new BadRequestException(
-          'Cannot start batch 2. Previous batch is not completed.',
+          "Cannot start batch 2. Previous batch is not completed.",
         );
       }
     }
-
 
     const { campaign } = await this.ensureCampaignBelongsToPromoter(
       campaignId,
       promoterId,
     );
 
-    await this.ensureActiveTemplatesForAllTypes(campaignId, TemplateType.invitation);
-
+    await this.ensureActiveTemplatesForAllTypes(
+      campaignId,
+      TemplateType.invitation,
+    );
 
     // Use batchId from DTO or default to 1
 
@@ -250,7 +270,7 @@ export class CampaignInvitationService {
         (id) => !foundIds.includes(id),
       );
       throw new BadRequestException(
-        `Talents with IDs ${missingIds.join(', ')} not found`,
+        `Talents with IDs ${missingIds.join(", ")} not found`,
       );
     }
 
@@ -285,17 +305,6 @@ export class CampaignInvitationService {
       },
     });
 
-    // if (currentBatchCount === 100 && batchId === 2) {
-    //   await this.prisma.campaign.update({
-    //     where: {
-    //       id: campaignId,
-    //       end_at: null,
-    //     },
-    //     data: {
-    //       end_at: new Date(),
-    //     },
-    //   });
-    // }
     if (currentBatchCount == 100) {
       throw new BadRequestException(
         ` NO slot(s) remaining for Batch ${batchId} for this campaign already has ${currentBatchCount} invitations.`,
@@ -309,7 +318,7 @@ export class CampaignInvitationService {
     }
 
     // Create new invitations
-    await this.prisma.campaignInvitation.createMany({
+    let invitation = await this.prisma.campaignInvitation.createMany({
       data: newTalentIds.map((talentId) => ({
         campaignId,
         eventId: Number(campaign.eventId),
@@ -319,6 +328,25 @@ export class CampaignInvitationService {
         status: InvitationStatus.pending,
       })),
     });
+
+    const countCheck = await this.prisma.campaignInvitation.count({
+      where: {
+        campaignId,
+        batch: batchId,
+      },
+    });
+
+    if (countCheck >= 10 && batchId === 1) {
+      await this.prisma.campaign.updateMany({
+        where: {
+          id: campaignId,
+          status: CampaignStatus.draft,
+        },
+        data: {
+          status: CampaignStatus.active,
+        },
+      });
+    }
 
     // Return all invitations (existing + newly created)
     return this.prisma.campaignInvitation.findMany({
@@ -367,7 +395,6 @@ export class CampaignInvitationService {
     invitationId: number,
     promoterId: number,
   ): Promise<{ message: string }> {
-
     await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
 
     const invitation = await this.prisma.campaignInvitation.findUnique({
@@ -386,9 +413,7 @@ export class CampaignInvitationService {
       );
     }
 
-
     await this.prisma.$transaction(async (tx) => {
-
       await tx.campaignMessage.deleteMany({
         where: { invitationId },
       });
@@ -402,9 +427,6 @@ export class CampaignInvitationService {
       message: `Invitation ${invitationId} deleted successfully`,
     };
   }
-
-
-
 
   async updateInvitationStatus(
     campaignId: number,
@@ -422,7 +444,7 @@ export class CampaignInvitationService {
 
     if (!invitation) {
       throw new NotFoundException(
-        'Invitation not found or does not belong to this campaign/promoter',
+        "Invitation not found or does not belong to this campaign/promoter",
       );
     }
 
@@ -431,9 +453,6 @@ export class CampaignInvitationService {
       data: { status },
     });
   }
-
-
-
 
   async markInvitationsAsAttended(
     campaignId: number,
@@ -456,7 +475,10 @@ export class CampaignInvitationService {
     if (!event || event.userId?.toString() !== promoterId.toString()) {
       throw new NotFoundException(`Campaign does not belong to this promoter`);
     }
-    await this.ensureActiveTemplatesForAllTypes(campaignId, TemplateType.postevent);
+    await this.ensureActiveTemplatesForAllTypes(
+      campaignId,
+      TemplateType.postevent,
+    );
 
     // Verify that all invitations exist and belong to the campaign
     const invitations = await this.prisma.campaignInvitation.findMany({
@@ -469,7 +491,7 @@ export class CampaignInvitationService {
       const foundIds = invitations.map((inv) => inv.id);
       const missingIds = invitationIds.filter((id) => !foundIds.includes(id));
       throw new NotFoundException(
-        `Some invitations not found or don't belong to this campaign: ${missingIds.join(', ')}`,
+        `Some invitations not found or don't belong to this campaign: ${missingIds.join(", ")}`,
       );
     }
     // Update all invitations to attended status
@@ -511,7 +533,10 @@ export class CampaignInvitationService {
       throw new NotFoundException(`Campaign with ID ${campaignId} not found`);
     }
 
-    await this.ensureActiveTemplatesForAllTypes(campaignId, TemplateType.followup);
+    await this.ensureActiveTemplatesForAllTypes(
+      campaignId,
+      TemplateType.followup,
+    );
 
     // Verify that the event belongs to the promoter
     const event = await this.prisma.events.findUnique({
@@ -534,7 +559,7 @@ export class CampaignInvitationService {
       const foundIds = invitations.map((inv) => inv.id);
       const missingIds = invitationIds.filter((id) => !foundIds.includes(id));
       throw new NotFoundException(
-        `Some invitations not found or don't belong to this campaign: ${missingIds.join(', ')}`,
+        `Some invitations not found or don't belong to this campaign: ${missingIds.join(", ")}`,
       );
     }
 
@@ -594,7 +619,7 @@ export class CampaignInvitationService {
         campaignId,
         batch: previousBatchId,
         status: {
-          not: 'pending',
+          not: "pending",
         },
       },
     });
@@ -653,32 +678,29 @@ export class CampaignInvitationService {
     return true;
   }
 
-
-
   async sendMessage(
     token: string | null,
-    receiverId: string,  // sender
+    receiverId: string, // sender
     message: string,
-    senderId: number
+    senderId: number,
   ): Promise<SendMessageResponse | undefined> {
     try {
-      const mode = process.env.MESSAGE_MODE || 'dev';
-      const url = process.env.CHATBOT_URL || '';
-      if (mode === 'live') {
+      const mode = process.env.MESSAGE_MODE || "dev";
+      const url = process.env.CHATBOT_URL || "";
+      if (mode === "live") {
         const response = await axios.post(
           url,
           { receiverId, message },
           {
             headers: {
-              'Content-Type': 'application/json',
-              'x-auth-token': token,
+              "Content-Type": "application/json",
+              "x-auth-token": token,
             },
           },
         );
         return response.data;
       }
-      if (mode === 'dev') {
-
+      if (mode === "dev") {
         const threadId = randomUUID();
         const messageId = randomUUID();
         const senderBigInt = BigInt(senderId);
@@ -716,7 +738,7 @@ export class CampaignInvitationService {
             where: {
               user_id: senderBigInt,
               // pk2: talentPk,
-              username2: String(talent.id)
+              username2: String(talent.id),
             },
           });
 
@@ -744,8 +766,6 @@ export class CampaignInvitationService {
           });
         });
 
-
-
         await this.prisma.message.create({
           data: {
             id: messageId,
@@ -768,16 +788,16 @@ export class CampaignInvitationService {
         });
 
         return {
-          message: 'OK',
+          message: "OK",
           msg: {
             id: messageId,
             userId: senderId,
-            senderUsername: 'promoter',
+            senderUsername: "promoter",
             receiverUsername: talent.id ?? receiverId,
             receiver: Number(talentPk),
             threadId: thread.id,
             message,
-            dt: now.toISOString().split('T')[0],
+            dt: now.toISOString().split("T")[0],
             tm: now.toISOString(),
             createdAt: now.toISOString(),
             clientContext: randomUUID(),
@@ -787,14 +807,9 @@ export class CampaignInvitationService {
       throw new Error(`Invalid MESSAGE_MODE: ${process.env.MESSAGE_MODE}`);
     } catch (error: any) {
       throw new HttpException(
-        error?.response?.data || 'Failed to send message',
+        error?.response?.data || "Failed to send message",
         HttpStatus.BAD_GATEWAY,
       );
     }
   }
-
-
-
-
 }
-
