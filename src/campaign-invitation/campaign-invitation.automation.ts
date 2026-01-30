@@ -5,7 +5,6 @@ import { CampaignMessagesService } from "../campaign-messages/campaign-messages.
 import { CampaignInvitationService } from "./campaign-invitation.service";
 import {
   InvitationStatus,
-  MessageDirection,
   TemplateType,
   Prisma,
   CampaignStatus,
@@ -19,11 +18,6 @@ export class CampaignInvitationAutomationService {
     CampaignInvitationAutomationService.name,
   );
 
-  // private getRandomGapMs(): number {
-  //   const minutes = Math.floor(Math.random() * 1) + 1; // 1, 2, or 3 minutes
-  //   return minutes * 60 * 1000;
-  // }
-
   /**
    * Check if enough time has passed since last sent message for a promoter
    * Returns true if we should send, false if we should wait
@@ -33,25 +27,11 @@ export class CampaignInvitationAutomationService {
     delayMinutes?: number[],
   ): Promise<boolean> {
     // Get the last sent message for this promoter
-    // const lastMessage = await this.prisma.campaignMessage.findFirst({
-    //   where: {
-    //     promoterId: promoterId,
-    //     direction: MessageDirection.sent,
-    //     sentAt: { not: null },
-    //   },
-    //   orderBy: {
-    //     sentAt: "desc",
-    //   },
-    //   select: {
-    //     sentAt: true,
-    //   },
-    // });
-
     const lastMessage = await this.prisma.message.findFirst({
       where: {
         sender: promoterId,
-        invite: true, // optional but recommended
-        ai_processed: true, // optional safety filter
+        invite: true, 
+        ai_processed: true, 
       },
       orderBy: {
         created_at: "desc",
@@ -194,7 +174,6 @@ export class CampaignInvitationAutomationService {
       {
         where: {
           campaignId: campaignId,
-          // CampaignTemplateId: campaignTemplate.id,
           type: templateType,
           lang: { in: ["en", talentLang] },
         },
@@ -308,9 +287,12 @@ export class CampaignInvitationAutomationService {
           AND: [
             { status: InvitationStatus.pending },
             {
-              // campaign: {
-              //   status: CampaignStatus.active,
-              // },
+              campaign: {
+                status: {in:[
+                  CampaignStatus.active,
+                  CampaignStatus.draft
+                ]}
+              },
             },
           ],
         },
