@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CampaignService } from '../campaign/campaign.service';
 import { CampaignStatsDto, BatchStatsDto } from './campaign-stats.dto';
-import { InvitationStatus, MessageDirection } from '@prisma/client';
+import { InvitationStatus } from '@prisma/client';
 import { EventDto } from 'src/event/event.dto';
 
 @Injectable()
@@ -51,34 +51,23 @@ export class CampaignStatsService {
       where: invitationWhere,
     });
 
-    // Get talent IDs from filtered invitations to filter messages
-    const talentIds = invitations.map(inv => inv.talentId);
-
-    // Get messages for this campaign, filtered by talent IDs from filtered invitations
-    const messages = await this.prisma.campaignMessage.findMany({
-      where: {
-        campaignId: id,
-        talentId: { in: talentIds },
-      },
-    });
-
-    // Calculate totals
+    // Calculate totals from CampaignInvitation only
     const totalContacted = invitations.length;
-    const sent = invitations.filter(inv => inv.invitationAt !== null).length;
-    const sentMessages = messages.filter(msg => msg.direction === MessageDirection.sent);
-    const delivered = sentMessages.length;
-    const receivedMessages = messages.filter(msg => msg.direction === MessageDirection.received);
-    const replied = receivedMessages.length;
+    // Sent = invitations with status != pending
+    const sent = invitations.filter(inv => inv.status !== InvitationStatus.pending).length;
+    // Delivered = invitations with status != pending (same as sent)
+    const delivered = sent;
+    // Replied = invitations where hasReplied is true
+    const replied = invitations.filter(inv => inv.hasReplied === true).length;
 
     // Calculate response classification
     const confirmed = invitations.filter(inv => inv.status === InvitationStatus.confirmed).length;
     const interested = invitations.filter(inv => inv.status === InvitationStatus.maybe).length;
     const declined = invitations.filter(inv => inv.status === InvitationStatus.declined).length;
 
-    // Get talent IDs that have received messages
-    const repliedTalentIds = new Set(receivedMessages.map(msg => msg.talentId));
+    // Seen but no reply = invitations that are seen but haven't replied
     const seenNoReply = invitations.filter(inv =>
-      inv.isSeen && !repliedTalentIds.has(inv.talentId)
+      inv.isSeen === true && inv.hasReplied === false
     ).length;
 
     // Calculate batch statistics (only for filtered batches)
@@ -86,6 +75,7 @@ export class CampaignStatsService {
       number,
       {
         invites: number;
+        pendingInvites: number;
         sent: number;
         delivered: number;
         replied: number;
@@ -101,6 +91,7 @@ export class CampaignStatsService {
         if (!batchMap.has(batch)) {
           batchMap.set(batch, {
             invites: 0,
+            pendingInvites: 0,
             sent: 0,
             delivered: 0,
             replied: 0,
@@ -109,36 +100,25 @@ export class CampaignStatsService {
           });
         }
         const batchStats = batchMap.get(batch)!;
-        batchStats.invites++;
-        if (inv.invitationAt) {
-          batchStats.sent++;
-          if (!batchStats.firstSentAt || inv.invitationAt < batchStats.firstSentAt) {
-            batchStats.firstSentAt = inv.invitationAt;
-          }
-          if (!batchStats.lastSentAt || inv.invitationAt > batchStats.lastSentAt) {
-            batchStats.lastSentAt = inv.invitationAt;
+        batchStats.invites++; // Total CampaignInvitation for that batch
+        
+        if (inv.status === InvitationStatus.pending) {
+          batchStats.pendingInvites++; // CampaignInvitation has status pending
+        } else {
+          batchStats.sent++; // CampaignInvitation has status not == pending
+          batchStats.delivered++; // CampaignInvitation has status not == pending
+          if (inv.invitationAt) {
+            if (!batchStats.firstSentAt || inv.invitationAt < batchStats.firstSentAt) {
+              batchStats.firstSentAt = inv.invitationAt;
+            }
+            if (!batchStats.lastSentAt || inv.invitationAt > batchStats.lastSentAt) {
+              batchStats.lastSentAt = inv.invitationAt;
+            }
           }
         }
-      }
-    });
-
-    // Count delivered and replied per batch
-    sentMessages.forEach(msg => {
-      const invitation = invitations.find(inv => inv.talentId === msg.talentId);
-      if (invitation) {
-        const batchStats = batchMap.get(invitation.batch);
-        if (batchStats) {
-          batchStats.delivered++;
-        }
-      }
-    });
-
-    receivedMessages.forEach(msg => {
-      const invitation = invitations.find(inv => inv.talentId === msg.talentId);
-      if (invitation) {
-        const batchStats = batchMap.get(invitation.batch);
-        if (batchStats) {
-          batchStats.replied++;
+        
+        if (inv.hasReplied === true) {
+          batchStats.replied++; // CampaignInvitation hasReply == true for that batch
         }
       }
     });
@@ -148,7 +128,6 @@ export class CampaignStatsService {
     // Convert batch map to array, compute estimations, and sort by batch number
     const batches: BatchStatsDto[] = Array.from(batchMap.entries())
       .map(([batchNumber, stats]) => {
-        const pendingInvites = stats.invites - stats.sent;
 
         let totalTimeSpentSeconds: number | null = null;
         if (stats.firstSentAt && stats.lastSentAt && stats.lastSentAt > stats.firstSentAt) {
@@ -162,13 +141,13 @@ export class CampaignStatsService {
 
         let estimatedRemainingSeconds: number | null = null;
         let estimatedCompletionAt: Date | null = null;
-        if (pendingInvites > 0) {
+        if (stats.pendingInvites > 0) {
           estimatedRemainingSeconds = Math.floor(
-            (pendingInvites * this.averageSendGapMs) / 1000,
+            (stats.pendingInvites * this.averageSendGapMs) / 1000,
           );
           const baseTime = stats.lastSentAt ?? now;
           estimatedCompletionAt = new Date(
-            baseTime.getTime() + pendingInvites * this.averageSendGapMs,
+            baseTime.getTime() + stats.pendingInvites * this.averageSendGapMs,
           );
         }
 
@@ -182,7 +161,7 @@ export class CampaignStatsService {
         return {
           batch: batchNumber,
           invites: stats.invites,
-          pendingInvites,
+          pendingInvites: stats.pendingInvites,
           sent: stats.sent,
           delivered: stats.delivered,
           replied: stats.replied,
