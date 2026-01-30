@@ -793,7 +793,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                             <input class="form-check-input recommendation-talent-checkbox" type="checkbox" value="${talent.id}" id="recommend-talent-${talent.id}">
                             <label class="form-check-label ms-2" for="recommend-talent-${talent.id}">
                                 <strong>${escapeHtml(talent.name || 'Unknown')}</strong> 
-                                <span class="text-muted">@${escapeHtml(talent.accountId || 'unknown')}</span>
+                                <span class="text-muted">@${escapeHtml(talent.id || 'unknown')}</span>
                                 ${talent.city ? `<small class="text-muted"> - ${escapeHtml(talent.city)}</small>` : ''}
                                 ${talent.followers ? `<small class="text-muted"> - ${talent.followers.toLocaleString()} followers</small>` : ''}
                                 ${talent.trustScore !== undefined ? `<small class="text-muted"> - Trust: ${talent.trustScore}</small>` : ''}

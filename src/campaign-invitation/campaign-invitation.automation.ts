@@ -60,7 +60,7 @@ export class CampaignInvitationAutomationService {
       minutes = Math.floor(Math.random() * 3) + 1;
     }
 
-    this.logger.log(`Delay timing value (minutes):${minutes}`);
+    this.logger.log(`Random Delay time add`);
 
     const requiredGapMs = minutes * 60 * 1000;
 
@@ -541,7 +541,7 @@ export class CampaignInvitationAutomationService {
       // Check if enough time has passed since last send for this promoter
       if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
         this.logger.debug(
-          `Skipping followup for promoter ${promoterId}, waiting for random gap`,
+          `Skipping followup for promoter ${promoterId}, waiting for random gap for this invitation ${invitation.id}`,
         );
         return;
       }
