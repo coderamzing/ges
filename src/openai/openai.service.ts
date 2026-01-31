@@ -3,53 +3,53 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class OpenAIService {
-  private readonly logger = new Logger(OpenAIService.name);
-  private openai: any;
-  private isAvailable = false;
+    private readonly logger = new Logger(OpenAIService.name);
+    private openai: any;
+    private isAvailable = false;
 
-  constructor(private configService: ConfigService) {
-    this.initializeOpenAI();
-  }
-
-  private initializeOpenAI() {
-    try {
-      const openaiModule = require('openai');
-      const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-
-      if (!apiKey) {
-        this.logger.warn('OpenAI API key not found. OpenAI service will be disabled.');
-        return;
-      }
-
-      this.openai = new openaiModule({ apiKey });
-      this.isAvailable = true;
-      this.logger.log('OpenAI service initialized successfully');
-    } catch (error: any) {
-      this.logger.warn(`Failed to initialize OpenAI service: ${error.message}`);
-      this.isAvailable = false;
-    }
-  }
-
-  async query(prompt: string, sysPrompt: string = ''): Promise<any> {
-    if (!this.isAvailable || !this.openai) {
-      throw new Error('OpenAI service is not available. Please set OPENAI_API_KEY.');
+    constructor(private configService: ConfigService) {
+        this.initializeOpenAI();
     }
 
-    const completion = await this.openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.2,
-      messages: [
-        { role: 'system', content: sysPrompt },
-        { role: 'user', content: prompt }
-      ],
-      response_format: { type: 'json_object' },
-    });
+    private initializeOpenAI() {
+        try {
+            const openaiModule = require('openai');
+            const apiKey = this.configService.get<string>('OPENAI_API_KEY');
 
-    const content = completion.choices[0].message.content;
-    return JSON.parse(content);
-  }
+            if (!apiKey) {
+                this.logger.warn('OpenAI API key not found. OpenAI service will be disabled.');
+                return;
+            }
 
-  isServiceAvailable(): boolean {
-    return this.isAvailable;
-  }
+            this.openai = new openaiModule({ apiKey });
+            this.isAvailable = true;
+            this.logger.log('OpenAI service initialized successfully');
+        } catch (error: any) {
+            this.logger.warn(`Failed to initialize OpenAI service: ${error.message}`);
+            this.isAvailable = false;
+        }
+    }
+
+    async query(prompt: string, sysPrompt: string = ''): Promise<any> {
+        if (!this.isAvailable || !this.openai) {
+            throw new Error('OpenAI service is not available. Please set OPENAI_API_KEY.');
+        }
+
+        const completion = await this.openai.chat.completions.create({
+            model: 'gpt-4o-mini',//gpt-4o-mini , gpt-4.1-mini , gpt-4.1-nano
+            temperature: 0.2,
+            messages: [
+                { role: 'system', content: sysPrompt },
+                { role: 'user', content: prompt }
+            ],
+            response_format: { type: 'json_object' },
+        });
+
+        const content = completion.choices[0].message.content;
+        return JSON.parse(content);
+    }
+
+    isServiceAvailable(): boolean {
+        return this.isAvailable;
+    }
 }
