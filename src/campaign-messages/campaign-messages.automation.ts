@@ -23,13 +23,7 @@ interface MessageInterpretationResponse {
   status: InvitationStatus;
   score: number;
   score_reason: string;
-  currentCity: string;
-  futureCity: string;
-  futureCityStartAt: string;
-  futureCityEndAt: string;
-  currentCityEndAt: string;
-  cityHome: string;
-  blacklist: string;
+  blacklist: string | null;
   reason: string;
 }
 
@@ -80,6 +74,7 @@ export class CampaignMessagesAutomationService {
           invitation: {
             include: {
               campaign: true,
+              event: true,
             },
           },
         },
@@ -91,11 +86,12 @@ export class CampaignMessagesAutomationService {
 
       const talentReplies = messages.filter((msg) => {
         if (!msg.invitation?.invitationAt || !msg.created_at) return false;
+        const invitation = msg.invitation as any;
 
         return (
-          msg.thread_id === msg.invitation.thread_id &&
-          msg.sender_username === msg.invitation.talentId &&
-          msg.created_at > msg.invitation.createdAt
+          msg.thread_id === invitation.thread_id &&
+          msg.sender_username === invitation.talentId &&
+          msg.created_at > invitation.createdAt
         );
       });
 
@@ -107,7 +103,11 @@ export class CampaignMessagesAutomationService {
       this.logger.log(`Found ${talentReplies.length} messages to process`);
 
       for (const message of talentReplies) {
-        const invitationAt = message.invitation?.createdAt;
+
+        const event = message.invitation?.event;
+        const campaign = message.invitation?.campaign;
+
+        const invitationAt = (message.invitation as any)?.createdAt;
         const threads = await this.prisma.message.findMany({
           select: {
             message: true,
@@ -128,7 +128,6 @@ export class CampaignMessagesAutomationService {
             created_at: "asc",
           },
         });
-        console.log("threads",threads)
 
         const talent = await this.prisma.talentPool.findUnique({
           where: {
@@ -137,24 +136,15 @@ export class CampaignMessagesAutomationService {
         });
 
         const fullMessage =
-          `Current City: ${talent?.currentCity || "Unknown"}\n\n` +
-          `Talent Name : ${talent?.id || "Unknown"}\n\n` +
+          (event?.city ? `Event City: ${event?.city}\n\n` : '') +
+          (event?.dt ? `Event Date: ${event?.dt}\n\n` : '') +
+          (talent?.cityHome ? `Talent In City: ${talent?.cityHome}\n\n` : '') +
           threads
             .map(
               (msg) =>
-                `${msg.sender_username} : ${msg.created_at} ${msg.message}`,
+                `${msg.created_at} ${msg.message}`,
             )
             .join("\n\n");
-
-        console.log("fullMessage",fullMessage)
-
-
-        // const fullMessage = threads
-        //   .map(
-        //     (msg) => msg.sender_username + " : " + msg.created_at + msg.message + talent?.currentCity,
-        //   )
-        //   .join("\n\n");
-        // add here also talent current city
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {
@@ -229,18 +219,11 @@ export class CampaignMessagesAutomationService {
       let interpretation: MessageInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
-        console.log(response, "incoming response from ai");
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
           score_reason: response.score_reason || "neutral_reply",
-          currentCity: response.currentCity || "default",
-          futureCity: response.futureCity,
-          futureCityStartAt: response.futureCityStartAt,
-          futureCityEndAt: response.futureCityEndAt,
-          currentCityEndAt: response.currentCityEndAt,
-          cityHome: response.cityHome,
-          blacklist: response.blacklist,
+          blacklist: null,
           reason: response.reason,
         };
       } catch (error) {
@@ -281,36 +264,6 @@ export class CampaignMessagesAutomationService {
             promoterId: BigInt(promoterId),
             trustScore: 0,
             lastReply: new Date(),
-          },
-        });
-      }
-
-      function toUTC(date?: string | Date | null, isEnd = false): Date | null {
-        if (!date) return null;
-
-        const d = new Date(date);
-        if (isEnd) {
-          d.setUTCHours(23, 59, 59, 0);
-        } else {
-          d.setUTCHours(0, 0, 0, 0);
-        }
-
-        return d;
-      }
-
-      if (
-        interpretation.futureCity &&
-        interpretation.futureCity !== "default"
-      ) {
-        const startUTC = toUTC(interpretation.futureCityStartAt, false);
-        const endUTC = toUTC(interpretation.futureCityEndAt, true);
-
-        await this.prisma.talentPool.update({
-          where: { id: talentId },
-          data: {
-            futureCity: interpretation.futureCity,
-            futureCityStartAt: startUTC,
-            futureCityEndAt: endUTC,
           },
         });
       }
@@ -369,34 +322,6 @@ export class CampaignMessagesAutomationService {
           lastReply: lastReceivedAt,
         },
       });
-
-      // Update talent's current location if provided and different from default
-      if (
-        interpretation.currentCity &&
-        interpretation.currentCity !== "default"
-      ) {
-        await this.prisma.talentPool.update({
-          where: { id: talentId },
-          data: {
-            currentCity: interpretation.currentCity,
-            currentCityEndAt:
-              interpretation.currentCityEndAt &&
-              interpretation.currentCityEndAt.trim() !== ""
-                ? new Date(interpretation.currentCityEndAt)
-                : null,
-          },
-        });
-      }
-
-      if (interpretation.cityHome && interpretation.cityHome !== "default") {
-        await this.prisma.talentPool.update({
-          where: { id: talentId },
-          data: {
-            cityHome: interpretation.cityHome,
-            cityHomeUpdated: new Date(),
-          },
-        });
-      }
 
       if (interpretation.blacklist) {
         let createTalentBlacklistDto = {

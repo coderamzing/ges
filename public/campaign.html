@@ -262,34 +262,41 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
-                // Check blacklist status for each talent
-                const blacklistChecks = await Promise.all(
+                // Fetch talent data and blacklist status for each invitation
+                const enrichedInvitations = await Promise.all(
                     invitations.map(async (inv) => {
+                        // Fetch talent data
+                        let talent = null;
+                        try {
+                            talent = await $.ajax({
+                                url: `${API_BASE}/talents/${inv.talentId}`,
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                        } catch (error) {
+                            console.warn(`Failed to fetch talent ${inv.talentId}:`, error);
+                        }
+
+                        // Check blacklist status
+                        let isBlacklisted = false;
                         try {
                             const blacklistEntry = await $.ajax({
                                 url: `${API_BASE}/talent-blacklist/check/${inv.talentId}`,
                                 headers: { 'Authorization': `Bearer ${token}` }
                             });
-                            return {
-                                talentId: inv.talentId,
-                                isBlacklisted: blacklistEntry !== null
-                            };
+                            isBlacklisted = blacklistEntry !== null;
                         } catch (error) {
-                            return {
-                                talentId: inv.talentId,
-                                isBlacklisted: false
-                            };
+                            // If check fails, assume not blacklisted
                         }
+
+                        return {
+                            ...inv,
+                            talent: talent,
+                            isBlacklisted: isBlacklisted
+                        };
                     })
                 );
-
-                // Add blacklist status to each invitation
-                const blacklistMap = new Map(blacklistChecks.map(b => [b.talentId, b.isBlacklisted]));
-                invitations.forEach(inv => {
-                    inv.isBlacklisted = blacklistMap.get(inv.talentId) || false;
-                });
                 
-                displayInvitations(invitations);
+                displayInvitations(enrichedInvitations);
             } catch (error) {
                 $('#invitationsList').html(`<div class="alert alert-danger">Error loading invitations: ${error.responseJSON?.message || error.statusText}</div>`);
             }
@@ -304,22 +311,22 @@
 
             let html = '<div class="table-responsive"><table class="table table-sm table-striped">';
             html += '<thead><tr>';
-            html += '<th>ID</th><th>Campaign ID</th><th>Event ID</th><th>Promoter ID</th><th>Talent ID</th><th>Talent Name</th>';
-            html += '<th>Batch</th><th>Status</th><th>Invitation At</th><th>Followup Sent</th><th>Thank You Sent</th><th>Is Seen</th><th>Actions</th>';
+            html += '<th>Talent Name</th><th>Id</th><th>currentCity</th><th>cityHome</th><th>Status</th>';
+            html += '<th>Invitation At</th><th>Followup Sent</th><th>Thank You Sent</th><th>Is Seen</th><th>Actions</th>';
             html += '</tr></thead><tbody>';
 
             invitations.forEach(inv => {
-                const talentName = 'Unknown';
-                const talentAccountId = '';
+                const talent = inv.talent || {};
+                const talentName = talent.name || 'Unknown';
+                const talentId = inv.talentId || '';
+                const currentCity = talent.currentCity || '-';
+                const cityHome = talent.cityHome || '-';
                 
                 html += `<tr data-invitation-id="${inv.id}">`;
-                html += `<td>${inv.id}</td>`;
-                html += `<td>${inv.campaignId}</td>`;
-                html += `<td>${inv.eventId}</td>`;
-                html += `<td>${inv.promoterId}</td>`;
-                html += `<td>${inv.talentId}</td>`;
-                html += `<td><strong>${escapeHtml(talentName)}</strong>${talentAccountId ? ` <span class="text-muted">@${escapeHtml(talentAccountId)}</span>` : ''}</td>`;
-                html += `<td>${inv.batch}</td>`;
+                html += `<td><strong><a href="#" class="scroll-to-talent-link text-decoration-none" data-talent-id="${talentId}" style="color: inherit; cursor: pointer;">${escapeHtml(talentName)}</a></strong></td>`;
+                html += `<td>${escapeHtml(talentId)}</td>`;
+                html += `<td>${escapeHtml(currentCity)}</td>`;
+                html += `<td>${escapeHtml(cityHome)}</td>`;
                 html += `<td><span class="badge bg-${getStatusColor(inv.status)}">${inv.status}</span></td>`;
                 html += `<td>${inv.invitationAt ? formatDate(inv.invitationAt) : '-'}</td>`;
                 html += `<td>${inv.followupSent ? '✓' : '✗'}</td>`;
@@ -336,6 +343,25 @@
 
             html += '</tbody></table></div>';
             $('#invitationsList').html(html);
+
+            // Handle scroll to talent messages
+            $('.scroll-to-talent-link').on('click', function(e) {
+                e.preventDefault();
+                const talentId = $(this).data('talent-id');
+                const talentSection = $(`.talent-section[data-talent-id="${talentId}"]`);
+                if (talentSection.length) {
+                    $('html, body').animate({
+                        scrollTop: talentSection.offset().top - 100
+                    }, 500);
+                    // Highlight the section briefly
+                    talentSection.css('background-color', '#fff3cd');
+                    setTimeout(() => {
+                        talentSection.css('background-color', '');
+                    }, 2000);
+                } else {
+                    alert('Talent messages not found. They may not have any messages yet.');
+                }
+            });
 
             // Attach edit handlers
             $('.edit-invitation-btn').on('click', function() {

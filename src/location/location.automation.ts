@@ -1,0 +1,257 @@
+import { Injectable, Logger } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { PrismaService } from "../prisma/prisma.service";
+import { OpenAIService } from "../openai/openai.service";
+import { Message } from "@prisma/client";
+import { renderTemplate } from "utils/handlebar";
+
+interface LocationInterpretationResponse {
+  currentCity?: string | null;
+  futureCity?: string | null;
+  futureCityStartAt?: string | null;
+  futureCityEndAt?: string | null;
+  currentCityEndAt?: string | null;
+  cityHome?: string | null;
+}
+
+@Injectable()
+export class LocationAutomationService {
+  private readonly logger = new Logger(LocationAutomationService.name);
+  private prompt: any;
+
+  constructor(
+    private prisma: PrismaService,
+    private openAIService: OpenAIService,
+  ) {}
+
+  /**
+   * Process messages to extract location information
+   * Fetches all new messages, groups by thread_id and talent, and interprets location data
+   * Runs every minute via cron
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async processLastMinuteMessages(): Promise<void> {
+    try {
+      // Get the LOCATION_INTERPRETATION prompt
+      this.prompt = await this.prisma.aiPrompt.findFirst({
+        where: {
+          key: "LOCATION_INTERPRETATION",
+        },
+      });
+
+      if (!this.prompt) {
+        this.logger.warn("LOCATION_INTERPRETATION prompt not found");
+        return;
+      }
+
+      // Fetch all new messages with thread_id created in the last minute
+      const oneMinuteAgo = new Date(Date.now() - 120 * 1000); // Current time minus 1 minute
+      const messages = await this.prisma.message.findMany({
+        where: {
+          ai_city_detected: null,
+          thread_id: { not: null },
+          created_at: {
+            gte: oneMinuteAgo,
+          },
+        },
+        select: {
+          id: true,
+          thread_id: true,
+          sender_username: true,
+          created_at: true,
+        },
+        orderBy: {
+          created_at: "asc",
+        },
+      });
+
+      if (messages.length === 0) {
+        this.logger.log("No new messages to process for location");
+        return;
+      }
+
+      // Process each group
+      for (const message of messages) {
+        if (!message.thread_id || !message.sender_username) continue;
+        
+        // Get all previous messages in the thread for this talent (reverse order - oldest to newest)
+        const allThreadMessages = await this.prisma.message.findMany({
+          select: {
+            message: true,
+            created_at: true,
+            sender_username: true,
+          },
+          where: {
+            thread_id: message.thread_id,
+            sender_username: message.sender_username,
+          },
+          orderBy: {
+            created_at: "asc",
+          },
+        });
+
+        const talent = await this.prisma.talentPool.findUnique({
+          where: {
+            id: message.sender_username,
+          },
+        });
+        if (!talent) continue;
+
+        // Create full message thread (reverse - oldest to newest)
+        const fullMessage =
+          (`Today's Date: ${new Date().toDateString()}\n\n`) +
+          (talent.name ? `Talent Name: ${talent?.name}\n\n` : '') +
+          (`Talent City: ${talent?.currentCity || ''}\n\n`) +
+          allThreadMessages
+            .map(
+              (msg) =>
+                `${msg.created_at} ${msg.message}`,
+            )
+            .join("\n\n");
+
+        await this.processTalentLocation(
+          message as unknown as Message,
+          talent.id,
+          fullMessage,
+        );
+      }
+    } catch (error) {
+      this.logger.error("Error processing last minute messages for location:", error);
+      throw error;
+    }
+  }
+
+
+  /**
+   * Convert string 'null' to actual null, or return the value as is
+   */
+  private parseNullString(value: string | null | undefined): string | null {
+    if (!value || value === 'null' || value === 'NULL' || value.trim() === '') {
+      return null;
+    }
+    return value;
+  }
+
+  /**
+   * Convert a date string to UTC Date object, or return null if invalid/null
+   */
+  private async convertToUTC(date: string | null | undefined): Promise<Date | null> {
+    // Handle null or 'null' string
+    const parsedDate = this.parseNullString(date);
+    if (!parsedDate) {
+      return null;
+    }
+
+    // Check if the input is a valid date string
+    const parsed = Date.parse(parsedDate);
+    if (isNaN(parsed)) {
+      this.logger.warn(`Invalid date provided: ${date}, returning null`);
+      return null;
+    }
+    
+    const d = new Date(parsedDate);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+
+  /**
+   * Process location information for a specific talent
+   */
+  private async processTalentLocation(
+    message: Message,
+    talentId: string,
+    fullMessage: string,
+  ): Promise<void> {
+    try {
+      if (!talentId) {
+        this.logger.warn(`No talentId provided for message ${message.id}`);
+        return;
+      }
+
+      // Prepare the prompt
+      const prompt = renderTemplate(this.prompt.defs, {
+        messages: fullMessage,
+      });
+      const sysPrompt = this.prompt.role;
+
+      // Call OpenAI to interpret location
+      let interpretation: LocationInterpretationResponse;
+      try {
+        const response = await this.openAIService.query(prompt, sysPrompt);
+        this.logger.log(`Location interpretation response for talent ${talentId}:`, response);
+        interpretation = {
+          currentCity: this.parseNullString(response.currentCity),
+          futureCity: this.parseNullString(response.futureCity),
+          futureCityStartAt: response.futureCityStartAt,
+          futureCityEndAt: response.futureCityEndAt,
+          currentCityEndAt: response.currentCityEndAt,
+          cityHome: this.parseNullString(response.cityHome),
+        };
+      } catch (error) {
+        this.logger.error(
+          `Error calling OpenAI for location interpretation - talent ${talentId}:`,
+          error,
+        );
+        return;
+      }
+
+      // Update future city if provided
+      if (interpretation.futureCity) {
+        try {
+          const startUTC = await this.convertToUTC(interpretation.futureCityStartAt);
+          const endUTC = await this.convertToUTC(interpretation.futureCityEndAt);
+          let finalEndUTC = new Date().getTime() + 7 * 24 * 60 * 60 * 1000;
+
+          await this.prisma.talentPool.update({
+            where: { id: talentId },
+            data: {
+              futureCity: interpretation.futureCity,
+              futureCityStartAt: startUTC,
+              futureCityEndAt: endUTC ? endUTC : new Date(finalEndUTC),
+            },
+          });
+        } catch (error) {
+          this.logger.error(`Error converting future city dates to UTC: ${error}`);
+          return;
+        }
+      }
+
+      // Update current city if provided and different from default
+      if (interpretation.currentCity) {
+        const currentCityEndAtUTC = await this.convertToUTC(interpretation.currentCityEndAt);
+        await this.prisma.talentPool.update({
+          where: { id: talentId },
+          data: {
+            currentCity: interpretation.currentCity,
+            currentCityEndAt: currentCityEndAtUTC,
+          },
+        });
+      }
+
+      // Update city home if provided
+      if (interpretation.cityHome) {
+        await this.prisma.talentPool.update({
+          where: { id: talentId },
+          data: {
+            cityHome: interpretation.cityHome,
+            cityHomeUpdated: new Date(),
+          },
+        });
+      }
+
+      await this.prisma.message.update({
+        where: { id: message.id },
+        data: {
+          ai_city_detected: 'true',
+        },
+      });
+
+      this.logger.log(
+        `Processed location for talent ${talentId}`,
+      );
+    } catch (error) {
+      this.logger.error(`Error processing location for message ${message.id}:`, error);
+      throw error;
+    }
+  }
+}
