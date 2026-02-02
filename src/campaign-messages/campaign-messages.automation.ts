@@ -36,7 +36,7 @@ export class CampaignMessagesAutomationService {
     private prisma: PrismaService,
     private openAIService: OpenAIService,
     private readonly talentBlacklistService: TalentBlacklistService,
-  ) {}
+  ) { }
 
   /**
    * Process messages that haven't been interpreted yet
@@ -61,6 +61,9 @@ export class CampaignMessagesAutomationService {
 
           invitation: {
             is: {
+              event: {
+                is: {}, // ✅ means event must exist
+              },
               campaign: {
                 status: {
                   not: CampaignStatus.completed,
@@ -269,7 +272,7 @@ export class CampaignMessagesAutomationService {
       }
 
       const lastReceivedAt = message.created_at || new Date();
-    
+
       const existing = await this.prisma.trustScoreLog.findFirst({
         where: {
           talentId,
