@@ -220,7 +220,7 @@ export class TalentService {
             {
               OR: [
                 { currentCity: { equals: city, mode: "insensitive" } },
-                // { city: { equals: city, mode: "insensitive" } },
+                { city: { equals: city, mode: "insensitive" } },
               ],
             },
           ],
