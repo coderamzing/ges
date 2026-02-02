@@ -253,7 +253,13 @@ export class CampaignInvitationController {
     @Param('batchId', ParseIntPipe) batchId: number,
     @Query() filters: TalentRecommendationFiltersDto,
     @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<(TalentPool & { promoterState?: TalentPromoterState | null })[]> {
+  ): Promise<{
+    data: (TalentPool & { promoterState?: TalentPromoterState | null })[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     return this.talentService.getRecommendations(
       campaignId,
       batchId,

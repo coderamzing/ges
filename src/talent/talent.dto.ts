@@ -3,68 +3,6 @@ import { IsOptional, IsInt, Min, IsBoolean, IsString, IsIn, IsBooleanString, IsA
 import { Transform, Type } from 'class-transformer';
 import { BadRequestException } from '@nestjs/common';
 
-// export class TalentRecommendationFiltersDto {
-//   @ApiPropertyOptional({ description: 'Filter by openchat', example: true })
-//   @IsOptional()
-//   @Type(() => Boolean)
-//   @IsBoolean()
-//   openchat?: boolean;
-
-//   @ApiPropertyOptional({ description: 'Filter by DM sent', example: true })
-//   @IsOptional()
-//   @Type(() => Boolean)
-//   @IsBoolean()
-//   dmSent?: boolean;
-
-//   @ApiPropertyOptional({ description: 'Filter by FirstChoice priority status', example: true })
-//   @IsOptional()
-//   @Type(() => Boolean)
-//   @IsBoolean()
-//   firstChoice?: boolean;
-
-//   @ApiPropertyOptional({ description: 'Filter by Backup guests priority status', example: true })
-//   @IsOptional()
-//   @Type(() => Boolean)
-//   @IsBoolean()
-//   backupGuests?: boolean;
-
-//   @ApiPropertyOptional({ description: 'Filter by blacklist', example: false })
-//   @IsOptional()
-//   @Type(() => Boolean)
-//   @IsBoolean()
-//   blacklist?: boolean;
-
-//   @ApiPropertyOptional({ description: 'Filter by liked', example: true })
-//   @IsOptional()
-//   @Type(() => Boolean)
-//   @IsBoolean()
-//   liked?: boolean;
-
-//   @ApiPropertyOptional({ description: 'Filter by hide', example: false })
-//   @IsOptional()
-//   @Type(() => Boolean)
-//   @IsBoolean()
-//   hide?: boolean;
-
-//   @ApiPropertyOptional({ description: 'Filter by talent type', example: 'civilian' })
-//   @IsOptional()
-//   @IsString()
-//   talentType?: string;
-
-//   @ApiPropertyOptional({ description: 'Minimum trust score', example: 0 })
-//   @IsOptional()
-//   @Type(() => Number)
-//   @IsInt()
-//   trustScore?: number;
-
-//   @ApiPropertyOptional({ description: 'Limit number of results', default: 100 })
-//   @IsOptional()
-//   @Type(() => Number)
-//   @IsInt()
-//   @Min(1)
-//   limit?: number;
-// }
-
 
 export class TalentRecommendationFiltersDto {
   @ApiPropertyOptional({
@@ -79,6 +17,18 @@ export class TalentRecommendationFiltersDto {
   search?: string;
 
 
+  @ApiPropertyOptional({
+    description: 'Search talents by  city',
+    example: 'paris',
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value
+  )
+  city?: string;
+
+
   @ApiPropertyOptional({ description: 'Show only talents who have replied before', example: true })
   @IsOptional()
   @IsBoolean()
@@ -91,6 +41,18 @@ export class TalentRecommendationFiltersDto {
   @Transform(({ value }) => value === 'true')
   dmSent?: boolean;
 
+
+  @ApiPropertyOptional({ description: 'Show only talents already messaged in this batch', example: true })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  firstChoice?: boolean;
+
+  @ApiPropertyOptional({ description: 'Show only talents already messaged in this batch', example: true })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  liked?: boolean;
 
 
   @ApiPropertyOptional({ description: 'Show only blacklisted talents', example: false })
@@ -187,5 +149,17 @@ export class TalentRecommendationFiltersDto {
   @IsInt()
   @Min(1)
   limit?: number;
+
+  @ApiPropertyOptional({
+    description: 'Page number',
+    default: 1,
+    example: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
 }
 

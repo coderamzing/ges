@@ -6,7 +6,7 @@ import { InvitationStatus } from "@prisma/client";
 
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -23,7 +23,13 @@ export class TalentService {
     campaignId: number,
     batchId: number,
     filters: TalentRecommendationFiltersDto,
-  ): Promise<any[]> {
+  ): Promise<{
+    data: TalentPool[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
     });
@@ -41,7 +47,7 @@ export class TalentService {
     if (!promoterId) throw new NotFoundException(`Event has no promoter`);
 
     // 48 hours rule
-    const limit = filters.limit ?? 100;
+
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
 
     const hiddenTalents48h = await this.prisma.campaignInvitation.findMany({
@@ -146,8 +152,8 @@ export class TalentService {
       ];
     }
 
-    const city = event.city?.trim();
-
+    const city = filters?.city ? filters?.city?.trim() : event.city?.trim();
+    console.log(city, "incoming vity ")
     if (city) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
@@ -244,58 +250,50 @@ export class TalentService {
       baseWhere.talentType = { in: filters.talentType };
     }
 
-    // search with blacklist
-    const blacklistFilter =
-      filters.blacklist === false
-        ? { none: { promoterId } }
-        : filters.blacklist === true
-          ? { some: { promoterId } }
-          : undefined;
+    // search with Open Chat , Dm Sent , First Choice , Liked 
 
+    const TP_STATUS_MAP = {
+      "All": 1,
+      "Open Chat": 2,
+      "DM Sent": 3,
+      "First Choice": 9,
+      "Back Up Guest": 10,
+      "Blacklist": 11,
+      "Liked": 12,
+    };
+    const statusFilters = [
+      { enabled: filters.openchat === true, name: "Open Chat" },
+      { enabled: filters.dmSent === true, name: "DM Sent" },
+      { enabled: filters.firstChoice === true, name: "First Choice" },
+      { enabled: filters.liked === true, name: "Liked" },
+      { enabled: filters.blacklist === true, name: "Blacklist" },
+    ];
+    for (const status of statusFilters) {
+      if (!status.enabled) continue;
+      const statusId = TP_STATUS_MAP[status.name];
+
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          userTpStatus: {
+            some: {
+              userId: promoterId,
+              // statusName: status.name,
+              statusId: statusId,
+            },
+          },
+        },
+      ];
+    }
+
+    //trust score with filter
     const hasTrustScoreFilter =
       filters.trustScoreRange !== undefined &&
       ((filters.trustScoreRange.min !== undefined &&
         filters.trustScoreRange.min > 0) ||
         filters.trustScoreRange.max !== undefined);
 
-    // const hasOpenChatFilter = filters.openchat === true;
-    // const hasDmSentFilter = filters.dmSent === true;
 
-    // const shouldFilterPromoterState =
-    //   hasOpenChatFilter || hasDmSentFilter || hasTrustScoreFilter;
-
-    const hasOpenChatFilter = filters.openchat === true;
-    const hasDmSentFilter = filters.dmSent === true;
-
-    if (hasOpenChatFilter) {
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        {
-          userTpStatus: {
-            some: {
-              userId: promoterId,
-              statusName: "Open Chat",
-            },
-          },
-        },
-      ];
-    }
-
-    if (hasDmSentFilter) {
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        {
-          userTpStatus: {
-            some: {
-              userId: promoterId,
-              statusName: "DM Sent",
-            },
-          },
-        },
-      ];
-    }
-
-    // open chat , dms , trust score with filter
     if (hasTrustScoreFilter) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
@@ -305,30 +303,23 @@ export class TalentService {
               promoterId,
               optedOut: false,
 
-              // ...(hasOpenChatFilter ? { lastContacted: { not: null } } : {}),
-
-              // ...(hasDmSentFilter ? { lastReply: { not: null } } : {}),
 
               ...(hasTrustScoreFilter
                 ? {
-                    AND: [
-                      ...(filters.trustScoreRange?.min !== undefined
-                        ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
-                        : []),
-                      ...(filters.trustScoreRange?.max !== undefined
-                        ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
-                        : []),
-                    ],
-                  }
+                  AND: [
+                    ...(filters.trustScoreRange?.min !== undefined
+                      ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
+                      : []),
+                    ...(filters.trustScoreRange?.max !== undefined
+                      ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
+                      : []),
+                  ],
+                }
                 : {}),
             },
           },
         },
       ];
-    }
-
-    if (blacklistFilter) {
-      baseWhere.blacklists = blacklistFilter;
     }
 
     // -------- Exclusions by batch --------
@@ -345,6 +336,9 @@ export class TalentService {
       ];
     }
 
+    const page = filters.page && filters.page > 0 ? filters.page : 1;
+    const limit = filters.limit && filters.limit > 0 ? filters.limit : 100;
+
     const limitPerChunk = 5000; // safe chunk size
     let offset = 0;
     let allTalents: any[] = [];
@@ -360,12 +354,7 @@ export class TalentService {
             where: { promoterId },
             take: 1,
             select: { trustScore: true },
-          },
-          //    userTpStatus: {
-          //   where: { user_id: promoterId },
-          //   take: 1,
-          //   select: { status_name: true },
-          // },
+          }
         },
       });
 
@@ -382,8 +371,22 @@ export class TalentService {
         trustScore: tp.promoterStates[0]?.trustScore ?? 0,
       }))
       .sort((a, b) => b.trustScore - a.trustScore)
-      .slice(0, limit);
 
-    return rankedTalents;
+    //  total count AFTER all filters
+    const totalCount = rankedTalents.length;
+
+    //  pagination calculation
+    const totalPages = Math.ceil(totalCount / limit);
+    const startIndex = (page - 1) * limit;
+    const paginatedTalents = rankedTalents.slice(startIndex, startIndex + limit);
+
+    return {
+      total: totalCount,
+      page,
+      limit,
+      totalPages,
+      data: paginatedTalents,
+    };
+
   }
 }
