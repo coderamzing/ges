@@ -261,14 +261,48 @@ export class TalentService {
       ((filters.trustScoreRange.min !== undefined &&
         filters.trustScoreRange.min > 0) ||
         filters.trustScoreRange.max !== undefined);
+
+
+
+    // const hasOpenChatFilter = filters.openchat === true;
+    // const hasDmSentFilter = filters.dmSent === true;
+
+    // const shouldFilterPromoterState =
+    //   hasOpenChatFilter || hasDmSentFilter || hasTrustScoreFilter;
+
     const hasOpenChatFilter = filters.openchat === true;
     const hasDmSentFilter = filters.dmSent === true;
 
-    const shouldFilterPromoterState =
-      hasOpenChatFilter || hasDmSentFilter || hasTrustScoreFilter;
+    const shouldFilterUserStatus =
+      hasOpenChatFilter || hasDmSentFilter;
+
+    if (shouldFilterUserStatus) {
+      const statusConditions: any[] = [];
+
+      if (hasOpenChatFilter) {
+        statusConditions.push({ status_name: "Open Chat" });
+      }
+
+      if (hasDmSentFilter) {
+        statusConditions.push({ status_name: "DM Sent" });
+      }
+
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          userTpStatus: {
+            some: {
+              user_id: promoterId, // promoterId match
+              OR: statusConditions, // status match
+            },
+          },
+        },
+      ];
+    }
+
 
     // open chat , dms , trust score with filter 
-    if (shouldFilterPromoterState) {
+    if (hasTrustScoreFilter) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
         {
@@ -277,9 +311,9 @@ export class TalentService {
               promoterId,
               optedOut: false,
 
-              ...(hasOpenChatFilter ? { lastContacted: { not: null } } : {}),
+              // ...(hasOpenChatFilter ? { lastContacted: { not: null } } : {}),
 
-              ...(hasDmSentFilter ? { lastReply: { not: null } } : {}),
+              // ...(hasDmSentFilter ? { lastReply: { not: null } } : {}),
 
               ...(hasTrustScoreFilter
                 ? {
@@ -333,6 +367,11 @@ export class TalentService {
             take: 1,
             select: { trustScore: true },
           },
+          //    userTpStatus: {
+          //   where: { user_id: promoterId },
+          //   take: 1,
+          //   select: { status_name: true },
+          // },
         },
       });
 
@@ -353,42 +392,6 @@ export class TalentService {
 
     return rankedTalents;
 
-
-    // const talentPools = await this.prisma.talentPool.findMany({
-    //   where: baseWhere,
-    //   include: {
-    //     blacklists: { where: { promoterId }, take: 1 },
-    //     promoterStates: {
-    //       where: { promoterId },
-    //       take: 1
-    //     }
-    //   },
-    // });
-
-
-    // const talentIds = talentPools.map(tp => tp.id);
-
-    // //  Fetch promoterStates only for these filtered talents
-    // const trustScores = await this.prisma.talentPromoterState.findMany({
-    //   where: {
-    //     promoterId,
-    //     talentId: { in: talentIds }, // ONLY filtered talents
-    //   },
-    //   select: { talentId: true, trustScore: true },
-    //   orderBy: {
-    //     trustScore: 'desc', // sort descending by trustScore
-    //   },
-    // });
-
-    // const rankedTalents = talentPools
-    //   .map(tp => ({
-    //     ...tp,
-    //     trustScore: trustScores.find(t => t.talentId === tp.id)?.trustScore ?? 0,
-    //   }))
-    //   .sort((a, b) => b.trustScore - a.trustScore)
-    //   .slice(0, limit);
-
-    // return rankedTalents;
 
   }
 
