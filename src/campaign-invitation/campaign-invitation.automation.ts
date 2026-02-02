@@ -11,6 +11,7 @@ import {
 } from "@prisma/client";
 import { renderTemplate } from "utils/handlebar";
 import { SendMessageResponse } from "./campaign-invitation.types";
+import { TP_STATUS_MAP } from "../talent/talent.config";
 
 @Injectable()
 export class CampaignInvitationAutomationService {
@@ -30,8 +31,8 @@ export class CampaignInvitationAutomationService {
     const lastMessage = await this.prisma.message.findFirst({
       where: {
         sender: promoterId,
-        invite: true, 
-        ai_processed: true, 
+        invite: true,
+        ai_processed: true,
       },
       orderBy: {
         created_at: "desc",
@@ -278,6 +279,7 @@ export class CampaignInvitationAutomationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async sendInitialMessages() {
     this.logger.log("Process sending initial messages");
+    const now = new Date();
 
     try {
       // Find pending invitations that haven't been sent yet
@@ -288,10 +290,15 @@ export class CampaignInvitationAutomationService {
             { status: InvitationStatus.pending },
             {
               campaign: {
-                status: {in:[
-                  CampaignStatus.active,
-                  CampaignStatus.draft
-                ]}
+                status: { in: [CampaignStatus.active, CampaignStatus.draft] },
+              },
+            },
+            {
+              event: {
+                dt: {
+                  not: null,
+                  gt: now,
+                },
               },
             },
           ],
@@ -302,6 +309,7 @@ export class CampaignInvitationAutomationService {
         orderBy: { id: "asc" },
         take: 20, // Process up to 20 invitations per run
       });
+
 
       if (!pendingInvitations.length) {
         this.logger.log(
@@ -340,7 +348,7 @@ export class CampaignInvitationAutomationService {
 
         // // Then check if enough time has passed since last send for this promoter
         // const mode = process.env.MESSAGE_MODE || "dev";
-        // const delayMinutes = mode === "dev" ? [1, 3] : [15, 20]; 
+        // const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
 
         // this.logger.log(`[Message Scheduler] Mode: ${mode}`);
         //  this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
@@ -470,6 +478,36 @@ export class CampaignInvitationAutomationService {
       },
     });
 
+    const dmSentStatus = await this.prisma.tpStatus.findUnique({
+      where: {
+        id: TP_STATUS_MAP.DM_SENT,
+      },
+    });
+
+    if (!dmSentStatus) {
+      throw new Error("DM_SENT status not found in tp_status");
+    }
+
+    const exists = await this.prisma.userTpStatus.findFirst({
+      where: {
+        userId: BigInt(promoterId),
+        talentPoolId: talent.id,
+        statusId: dmSentStatus.id,
+      },
+    });
+
+    if (!exists) {
+      await this.prisma.userTpStatus.create({
+        data: {
+          userId: BigInt(promoterId),
+          talentPoolId: talent.id,
+          statusId: dmSentStatus.id,
+          statusName: dmSentStatus.name,
+          createdAt: new Date(),
+        },
+      });
+    }
+
     await this.updateTalentPromoterState({
       talentId: talent.id,
       promoterId: BigInt(promoterId),
@@ -488,6 +526,7 @@ export class CampaignInvitationAutomationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async sendFollowupMessages() {
     this.logger.log("Process sending followup messages");
+     const now = new Date();
 
     try {
       // Calculate the date 5 minutes ago
@@ -526,6 +565,14 @@ export class CampaignInvitationAutomationService {
                   },
                 },
               },
+              {
+                event: {
+                  dt: {
+                    not: null,
+                    gt: now,
+                  },
+                },
+              },
             ],
           },
           include: {
@@ -544,9 +591,11 @@ export class CampaignInvitationAutomationService {
       const promoterId = invitation.promoterId;
 
       const mode = process.env.MESSAGE_MODE || "dev";
-      const delayMinutes = mode === "dev" ? [1, 3] : [15, 20]; 
+      const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
       this.logger.log(`[Message Scheduler] Mode: ${mode}`);
-      this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
+      this.logger.log(
+        `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
+      );
 
       // Check if enough time has passed since last send for this promoter
       if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
@@ -618,9 +667,11 @@ export class CampaignInvitationAutomationService {
         }
 
         const mode = process.env.MESSAGE_MODE || "dev";
-        const delayMinutes = mode === "dev" ? [1, 3] : [15, 20]; 
+        const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
         this.logger.log(`[Message Scheduler] Mode: ${mode}`);
-      this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
+        this.logger.log(
+          `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
+        );
 
         // Check promoter-specific rate limiting
         if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
@@ -811,10 +862,12 @@ export class CampaignInvitationAutomationService {
       const promoterId = invitation.promoterId;
 
       const mode = process.env.MESSAGE_MODE || "dev";
-      const delayMinutes = mode === "dev" ? [1, 3] : [15, 20]; 
+      const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
 
       this.logger.log(`[Message Scheduler] Mode: ${mode}`);
-      this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
+      this.logger.log(
+        `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
+      );
 
       // Check if enough time has passed since last send for this promoter
       if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {

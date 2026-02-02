@@ -18,6 +18,7 @@ import {
 } from "./campaign-messages.config";
 import { renderTemplate } from "utils/handlebar";
 import { TalentBlacklistService } from "src/talend-blacklist/talent-blacklist.service";
+import { TP_STATUS_MAP } from "src/talent/talent.config";
 
 interface MessageInterpretationResponse {
   status: InvitationStatus;
@@ -36,7 +37,7 @@ export class CampaignMessagesAutomationService {
     private prisma: PrismaService,
     private openAIService: OpenAIService,
     private readonly talentBlacklistService: TalentBlacklistService,
-  ) { }
+  ) {}
 
   /**
    * Process messages that haven't been interpreted yet
@@ -106,7 +107,6 @@ export class CampaignMessagesAutomationService {
       this.logger.log(`Found ${talentReplies.length} messages to process`);
 
       for (const message of talentReplies) {
-
         const event = message.invitation?.event;
         const campaign = message.invitation?.campaign;
 
@@ -139,15 +139,10 @@ export class CampaignMessagesAutomationService {
         });
 
         const fullMessage =
-          (event?.city ? `Event City: ${event?.city}\n\n` : '') +
-          (event?.dt ? `Event Date: ${event?.dt}\n\n` : '') +
-          (talent?.cityHome ? `Talent In City: ${talent?.cityHome}\n\n` : '') +
-          threads
-            .map(
-              (msg) =>
-                `${msg.created_at} ${msg.message}`,
-            )
-            .join("\n\n");
+          (event?.city ? `Event City: ${event?.city}\n\n` : "") +
+          (event?.dt ? `Event Date: ${event?.dt}\n\n` : "") +
+          (talent?.cityHome ? `Talent In City: ${talent?.cityHome}\n\n` : "") +
+          threads.map((msg) => `${msg.created_at} ${msg.message}`).join("\n\n");
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {
@@ -340,12 +335,41 @@ export class CampaignMessagesAutomationService {
           },
         });
         if (!existingBlacklist) {
-          console.log("hiiit in create balcklist");
           await this.talentBlacklistService.create(
             createTalentBlacklistDto,
             Number(promoterId),
           );
         }
+      }
+
+      const openChatStatus = await this.prisma.tpStatus.findUnique({
+        where: {
+          id: TP_STATUS_MAP.OPEN_CHAT,
+        },
+      });
+
+      if (!openChatStatus) {
+        throw new Error("OPEN_CHAT status not found in tp_status");
+      }
+
+      const exists = await this.prisma.userTpStatus.findFirst({
+        where: {
+          userId: BigInt(promoterId),
+          talentPoolId: talentId,
+          statusId: openChatStatus.id,
+        },
+      });
+
+      if (!exists) {
+        await this.prisma.userTpStatus.create({
+          data: {
+            userId: BigInt(promoterId),
+            talentPoolId: talentId,
+            statusId: openChatStatus.id,
+            statusName: openChatStatus.name,
+            createdAt: new Date(),
+          },
+        });
       }
 
       await this.prisma.message.updateMany({

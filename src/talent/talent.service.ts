@@ -3,10 +3,10 @@ import { PrismaService } from "../prisma/prisma.service";
 import { TalentPool } from "@prisma/client";
 import { TalentRecommendationFiltersDto } from "./talent.dto";
 import { InvitationStatus } from "@prisma/client";
-
+import { TP_STATUS_MAP } from "./talent.config";
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -153,7 +153,7 @@ export class TalentService {
     }
 
     const city = filters?.city ? filters?.city?.trim() : event.city?.trim();
-    console.log(city, "incoming vity ")
+    console.log(city, "incoming vity ");
     if (city) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
@@ -250,39 +250,28 @@ export class TalentService {
       baseWhere.talentType = { in: filters.talentType };
     }
 
-    // search with Open Chat , Dm Sent , First Choice , Liked 
-
-    const TP_STATUS_MAP = {
-      "All": 1,
-      "Open Chat": 2,
-      "DM Sent": 3,
-      "First Choice": 9,
-      "Back Up Guest": 10,
-      "Blacklist": 11,
-      "Liked": 12,
-    };
+    // search with Open Chat , Dm Sent , First Choice , Liked
     const statusFilters = [
-      { enabled: filters.openchat === true, name: "Open Chat" },
-      { enabled: filters.dmSent === true, name: "DM Sent" },
-      { enabled: filters.firstChoice === true, name: "First Choice" },
-      { enabled: filters.liked === true, name: "Liked" },
-      { enabled: filters.blacklist === true, name: "Blacklist" },
+      { enabled: filters.openchat === true, id: TP_STATUS_MAP.OPEN_CHAT },
+      { enabled: filters.dmSent === true, id: TP_STATUS_MAP.DM_SENT },
+      { enabled: filters.firstChoice === true, id: TP_STATUS_MAP.FIRST_CHOICE },
+      { enabled: filters.liked === true, id: TP_STATUS_MAP.LIKED },
+      { enabled: filters.blacklist === true, id: TP_STATUS_MAP.BLACKLIST },
     ];
-    for (const status of statusFilters) {
-      if (!status.enabled) continue;
-      const statusId = TP_STATUS_MAP[status.name];
 
+    const enabledStatuses = statusFilters.filter((s) => s.enabled);
+
+    if (enabledStatuses.length > 0) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
-        {
+        ...enabledStatuses.map((status) => ({
           userTpStatus: {
             some: {
               userId: promoterId,
-              // statusName: status.name,
-              statusId: statusId,
+              statusId: status.id,
             },
           },
-        },
+        })),
       ];
     }
 
@@ -293,7 +282,6 @@ export class TalentService {
         filters.trustScoreRange.min > 0) ||
         filters.trustScoreRange.max !== undefined);
 
-
     if (hasTrustScoreFilter) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
@@ -303,18 +291,17 @@ export class TalentService {
               promoterId,
               optedOut: false,
 
-
               ...(hasTrustScoreFilter
                 ? {
-                  AND: [
-                    ...(filters.trustScoreRange?.min !== undefined
-                      ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
-                      : []),
-                    ...(filters.trustScoreRange?.max !== undefined
-                      ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
-                      : []),
-                  ],
-                }
+                    AND: [
+                      ...(filters.trustScoreRange?.min !== undefined
+                        ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
+                        : []),
+                      ...(filters.trustScoreRange?.max !== undefined
+                        ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
+                        : []),
+                    ],
+                  }
                 : {}),
             },
           },
@@ -354,7 +341,7 @@ export class TalentService {
             where: { promoterId },
             take: 1,
             select: { trustScore: true },
-          }
+          },
         },
       });
 
@@ -370,7 +357,7 @@ export class TalentService {
         ...tp,
         trustScore: tp.promoterStates[0]?.trustScore ?? 0,
       }))
-      .sort((a, b) => b.trustScore - a.trustScore)
+      .sort((a, b) => b.trustScore - a.trustScore);
 
     //  total count AFTER all filters
     const totalCount = rankedTalents.length;
@@ -378,7 +365,10 @@ export class TalentService {
     //  pagination calculation
     const totalPages = Math.ceil(totalCount / limit);
     const startIndex = (page - 1) * limit;
-    const paginatedTalents = rankedTalents.slice(startIndex, startIndex + limit);
+    const paginatedTalents = rankedTalents.slice(
+      startIndex,
+      startIndex + limit,
+    );
 
     return {
       total: totalCount,
@@ -387,6 +377,5 @@ export class TalentService {
       totalPages,
       data: paginatedTalents,
     };
-
   }
 }
