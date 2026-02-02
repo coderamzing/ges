@@ -149,11 +149,23 @@ export class TalentService {
       ];
     }
 
+    const city = event.city?.trim();
+
+    if (city) {
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          city: {
+            equals: city,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
     // search with recommendation
     const orderBy: any[] = [];
 
     if (filters.recommendation === true) {
-      const city = event.city?.trim();
       baseWhere.OR = [
         {
           AND: [
@@ -208,7 +220,7 @@ export class TalentService {
             {
               OR: [
                 { currentCity: { equals: city, mode: "insensitive" } },
-                { city: { equals: city, mode: "insensitive" } },
+                // { city: { equals: city, mode: "insensitive" } },
               ],
             },
           ],
