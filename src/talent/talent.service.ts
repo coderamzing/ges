@@ -6,7 +6,7 @@ import { InvitationStatus } from "@prisma/client";
 
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -40,7 +40,6 @@ export class TalentService {
     const promoterId = event.userId ? BigInt(event.userId) : null;
     if (!promoterId) throw new NotFoundException(`Event has no promoter`);
 
-
     // 48 hours rule
     const limit = filters.limit ?? 100;
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
@@ -64,14 +63,13 @@ export class TalentService {
     if (!event.dt)
       throw new NotFoundException(`Event ${campaign.eventId} not found`);
 
-
     const startOfDay = new Date(event.dt);
     startOfDay.setHours(0, 0, 0, 0);
 
     const endOfDay = new Date(event.dt);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // fetch same days events 
+    // fetch same days events
     const eventIds = await this.prisma.events.findMany({
       where: {
         dt: {
@@ -83,7 +81,7 @@ export class TalentService {
       select: { id: true },
     });
 
-    // fetch talent those accept invitation for other event on same date . 
+    // fetch talent those accept invitation for other event on same date .
     const acceptedInvitations = await this.prisma.campaignInvitation.findMany({
       where: {
         status: "confirmed",
@@ -99,10 +97,10 @@ export class TalentService {
 
     const acceptedTalentIds = acceptedInvitations.map((i) => i.talentId);
 
-    // filter  condtions 
+    // filter  condtions
     const baseWhere: any = {};
 
-    //exclude 48 hours talents 
+    //exclude 48 hours talents
     if (hidden48.length) {
       baseWhere.AND = [...(baseWhere.AND || []), { id: { notIn: hidden48 } }];
     }
@@ -117,8 +115,7 @@ export class TalentService {
       ];
     }
 
-
-    // with  search  
+    // with  search
     if (filters.search && filters.search.trim().length > 0) {
       const q = filters.search.trim();
 
@@ -255,14 +252,11 @@ export class TalentService {
           ? { some: { promoterId } }
           : undefined;
 
-
     const hasTrustScoreFilter =
       filters.trustScoreRange !== undefined &&
       ((filters.trustScoreRange.min !== undefined &&
         filters.trustScoreRange.min > 0) ||
         filters.trustScoreRange.max !== undefined);
-
-
 
     // const hasOpenChatFilter = filters.openchat === true;
     // const hasDmSentFilter = filters.dmSent === true;
@@ -273,35 +267,35 @@ export class TalentService {
     const hasOpenChatFilter = filters.openchat === true;
     const hasDmSentFilter = filters.dmSent === true;
 
-    const shouldFilterUserStatus =
-      hasOpenChatFilter || hasDmSentFilter;
-
-    if (shouldFilterUserStatus) {
-      const statusConditions: any[] = [];
-
-      if (hasOpenChatFilter) {
-        statusConditions.push({ status_name: "Open Chat" });
-      }
-
-      if (hasDmSentFilter) {
-        statusConditions.push({ status_name: "DM Sent" });
-      }
-
+    if (hasOpenChatFilter) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
         {
           userTpStatus: {
             some: {
-              user_id: promoterId, // promoterId match
-              OR: statusConditions, // status match
+              userId: promoterId,
+              statusName: "Open Chat",
             },
           },
         },
       ];
     }
 
+    if (hasDmSentFilter) {
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          userTpStatus: {
+            some: {
+              userId: promoterId,
+              statusName: "DM Sent",
+            },
+          },
+        },
+      ];
+    }
 
-    // open chat , dms , trust score with filter 
+    // open chat , dms , trust score with filter
     if (hasTrustScoreFilter) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
@@ -317,15 +311,15 @@ export class TalentService {
 
               ...(hasTrustScoreFilter
                 ? {
-                  AND: [
-                    ...(filters.trustScoreRange?.min !== undefined
-                      ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
-                      : []),
-                    ...(filters.trustScoreRange?.max !== undefined
-                      ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
-                      : []),
-                  ],
-                }
+                    AND: [
+                      ...(filters.trustScoreRange?.min !== undefined
+                        ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
+                        : []),
+                      ...(filters.trustScoreRange?.max !== undefined
+                        ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
+                        : []),
+                    ],
+                  }
                 : {}),
             },
           },
@@ -383,7 +377,7 @@ export class TalentService {
 
     // Map trustScore = 0 if missing and sort
     const rankedTalents = allTalents
-      .map(tp => ({
+      .map((tp) => ({
         ...tp,
         trustScore: tp.promoterStates[0]?.trustScore ?? 0,
       }))
@@ -391,11 +385,5 @@ export class TalentService {
       .slice(0, limit);
 
     return rankedTalents;
-
-
   }
-
-
-
-
 }

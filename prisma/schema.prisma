@@ -36,6 +36,7 @@ model User {
   // Relations
   talentPromoterStates TalentPromoterState[]
   talentBlacklists     TalentBlacklist[]
+  userTpStatuses       UserTpStatus[]
 
   @@map("users")
 }
@@ -347,6 +348,8 @@ model TalentPool {
   // Relations
   promoterStates TalentPromoterState[]
   blacklists     TalentBlacklist[]
+  userTpStatus   UserTpStatus[] @relation("TalentUserStatus")
+
 
   @@map("talent_pool")
 }
@@ -465,3 +468,30 @@ model AiPrompt {
 
   @@map("aiprompt")
 }
+
+model UserTpStatus {
+  id             BigInt    @id @default(autoincrement()) @map("id")
+  createdAt      DateTime? @map("created_at")
+  statusId       Int?      @map("status_id")
+  statusName     String?   @map("status_name")
+  talentPoolId   String?   @map("talent_pool_id")
+  userId         BigInt?   @map("user_id")
+
+  // Relations 
+  talentPool TalentPool? @relation(name: "TalentUserStatus", fields: [talentPoolId], references: [id])
+  user       User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, statusId, talentPoolId])
+  @@map("user_tp_status")
+}
+
+model TpStatus {
+  id          Int     @id @default(autoincrement())
+  colorCode   String? @map("color_code") @db.VarChar(255)
+  description String? @db.VarChar(255)
+  name        String? @db.VarChar(255)
+
+  @@map("tp_status")
+}
+
+
