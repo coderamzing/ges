@@ -101,8 +101,8 @@
                                     <small class="form-text text-muted">Enter a single number (e.g., 25) or a range (e.g., 10-40)</small>
                                 </div>
                                 <div class="mb-2">
-                                    <label for="filterQuery" class="form-label small">Query</label>
-                                    <input type="text" class="form-control form-control-sm" id="filterQuery" name="query" placeholder="Name, @id or city">
+                                    <label for="filterSearch" class="form-label small">Search</label>
+                                    <input type="text" class="form-control form-control-sm" id="filterSearch" name="search" placeholder="Name, @id or city">
                                 </div>
                             </div>
                         </div>
@@ -921,9 +921,9 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                     filters.trustScoreRange = trustScoreRange;
                 }
 
-                const query = $('#filterQuery').val().trim();
-                if (query) {
-                    filters.query = query;
+                const search = $('#filterSearch').val().trim();
+                if (search) {
+                    filters.search = search;
                 }
                 
                 loadTalentRecommendations(batchId, filters);
@@ -1043,10 +1043,10 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                 filters.trustScoreRange = trustScoreRange;
             }
 
-            // Query filter
-            const query = $('#filterQuery').val().trim();
-            if (query) {
-                filters.query = query;
+            // search filter
+            const search = $('#filterSearch').val().trim();
+            if (search) {
+                filters.search = search;
             }
             
             loadTalentRecommendations(batchId, filters);
