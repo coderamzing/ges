@@ -118,9 +118,9 @@ export class TalentService {
     }
 
 
-    // search with query 
-    if (filters.query && filters.query.trim().length > 0) {
-      const q = filters.query.trim();
+    // with  search  
+    if (filters.search && filters.search.trim().length > 0) {
+      const q = filters.search.trim();
 
       baseWhere.AND = [
         ...(baseWhere.AND || []),

@@ -76,7 +76,7 @@ export class TalentRecommendationFiltersDto {
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim() : value
   )
-  query?: string;
+  search?: string;
 
 
   @ApiPropertyOptional({ description: 'Show only talents who have replied before', example: true })
