@@ -293,14 +293,14 @@ export class CampaignInvitationAutomationService {
                 status: { in: [CampaignStatus.active, CampaignStatus.draft] },
               },
             },
-            {
-              event: {
-                dt: {
-                  not: null,
-                  gt: now,
-                },
-              },
-            },
+            // {
+            //   event: {
+            //     dt: {
+            //       not: null,
+            //       gt: now,
+            //     },
+            //   },
+            // },
           ],
         },
         include: {
@@ -565,14 +565,14 @@ export class CampaignInvitationAutomationService {
                   },
                 },
               },
-              {
-                event: {
-                  dt: {
-                    not: null,
-                    gt: now,
-                  },
-                },
-              },
+              // {
+              //   event: {
+              //     dt: {
+              //       not: null,
+              //       gt: now,
+              //     },
+              //   },
+              // },
             ],
           },
           include: {
