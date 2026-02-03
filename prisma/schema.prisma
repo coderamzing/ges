@@ -183,6 +183,7 @@ enum InvitationStatus {
   interested
   optout
   moved
+  blacklist
 }
 
 model CampaignInvitation {
