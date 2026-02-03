@@ -45,13 +45,14 @@ export class LocationAutomationService {
       }
 
       // Fetch all new messages with thread_id created in the last minute
-      const oneMinuteAgo = new Date(Date.now() - 120 * 1000); // Current time minus 1 minute
+      const HOURS = 1;
+      const oneHourAgo = new Date(Date.now() - HOURS * 60 * 60 * 1000); // Current time minus 1 hour
       const messages = await this.prisma.message.findMany({
         where: {
           ai_city_detected: null,
           thread_id: { not: null },
           created_at: {
-            gte: oneMinuteAgo,
+            gte: oneHourAgo,
           },
         },
         select: {
