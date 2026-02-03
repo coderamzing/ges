@@ -218,6 +218,7 @@ export class CampaignMessagesAutomationService {
       let interpretation: MessageInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
+        console.log("Incominf response from ai ", response)
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
@@ -244,6 +245,14 @@ export class CampaignMessagesAutomationService {
           isSeen: true,
         },
       });
+
+      if(interpretation.status == InvitationStatus.blacklist){
+         await updateUserTpStatus({
+        userId: BigInt(promoterId),
+        talentPoolId: talentId,
+        statusId: TP_STATUS_MAP.BLACKLIST,
+      });
+      }
 
       // Get or create TalentPromoterState
       let talentPromoterState =
@@ -322,26 +331,26 @@ export class CampaignMessagesAutomationService {
         },
       });
 
-      if (interpretation.blacklist) {
-        let createTalentBlacklistDto = {
-          talentId: talentId,
-          reason: interpretation.reason,
-        };
-        const existingBlacklist = await this.prisma.talentBlacklist.findUnique({
-          where: {
-            talentId_promoterId: {
-              talentId: talentId,
-              promoterId: BigInt(promoterId),
-            },
-          },
-        });
-        if (!existingBlacklist) {
-          await this.talentBlacklistService.create(
-            createTalentBlacklistDto,
-            Number(promoterId),
-          );
-        }
-      }
+      // if (interpretation.blacklist) {
+      //   let createTalentBlacklistDto = {
+      //     talentId: talentId,
+      //     reason: interpretation.reason,
+      //   };
+      //   const existingBlacklist = await this.prisma.talentBlacklist.findUnique({
+      //     where: {
+      //       talentId_promoterId: {
+      //         talentId: talentId,
+      //         promoterId: BigInt(promoterId),
+      //       },
+      //     },
+      //   });
+      //   if (!existingBlacklist) {
+      //     await this.talentBlacklistService.create(
+      //       createTalentBlacklistDto,
+      //       Number(promoterId),
+      //     );
+      //   }
+      // }
 
       await updateUserTpStatus({
         userId: BigInt(promoterId),
@@ -386,6 +395,7 @@ export class CampaignMessagesAutomationService {
       interested: InvitationStatus.interested,
       optout: InvitationStatus.optout,
       moved: InvitationStatus.moved,
+      blacklist:InvitationStatus.blacklist,
     };
 
     return statusMap[status.toLowerCase()] || InvitationStatus.pending;
