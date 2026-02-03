@@ -293,14 +293,14 @@ export class CampaignInvitationAutomationService {
                 status: { in: [CampaignStatus.active, CampaignStatus.draft] },
               },
             },
-            // {
-            //   event: {
-            //     dt: {
-            //       not: null,
-            //       gt: now,
-            //     },
-            //   },
-            // },
+            {
+              event: {
+                dt: {
+                  not: null,
+                  gt: now,
+                },
+              },
+            },
           ],
         },
         include: {
@@ -410,7 +410,8 @@ export class CampaignInvitationAutomationService {
     }
 
     if (!event) {
-      throw new Error(`Event with ID ${invitation.eventId} not found`);
+      this.logger.log(`[Initial message Skip] Event not found. invitationId=${invitation.id}, eventId=${invitation.eventId}`);
+      return; 
     }
 
     // Get talent's preferred language or default to 'en'
@@ -565,14 +566,14 @@ export class CampaignInvitationAutomationService {
                   },
                 },
               },
-              // {
-              //   event: {
-              //     dt: {
-              //       not: null,
-              //       gt: now,
-              //     },
-              //   },
-              // },
+              {
+                event: {
+                  dt: {
+                    not: null,
+                    gt: now,
+                  },
+                },
+              },
             ],
           },
           include: {
@@ -746,8 +747,9 @@ export class CampaignInvitationAutomationService {
       throw new Error(`Talent with ID ${invitation.talentId} not found`);
     }
 
-    if (!event) {
-      throw new Error(`Event with ID ${invitation.eventId} not found`);
+   if (!event) {
+      this.logger.log(`[Followup Skip] Event not found. invitationId=${invitation.id}, eventId=${invitation.eventId}`);
+      return; 
     }
 
     // Get talent's preferred language or default to 'en'
@@ -930,7 +932,8 @@ export class CampaignInvitationAutomationService {
     }
 
     if (!event) {
-      throw new Error(`Event with ID ${invitation.eventId} not found`);
+      this.logger.log(`[Thank you message Skip] Event not found. invitationId=${invitation.id}, eventId=${invitation.eventId}`);
+      return; 
     }
 
     // Get talent's preferred language or default to 'en'
