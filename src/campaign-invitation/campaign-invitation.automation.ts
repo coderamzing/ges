@@ -3,6 +3,7 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 import { CampaignMessagesService } from "../campaign-messages/campaign-messages.service";
 import { CampaignInvitationService } from "./campaign-invitation.service";
+import { updateUserTpStatus } from "src/talent/talent.utils";
 import {
   InvitationStatus,
   TemplateType,
@@ -229,8 +230,7 @@ export class CampaignInvitationAutomationService {
       );
 
       throw new Error(
-        `Automation stopped: Failed to send message - ${
-          error?.message || error
+        `Automation stopped: Failed to send message - ${error?.message || error
         }`,
       );
     }
@@ -274,7 +274,7 @@ export class CampaignInvitationAutomationService {
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
     private campaignInvitationService: CampaignInvitationService,
-  ) {}
+  ) { }
 
   @Cron(CronExpression.EVERY_MINUTE)
   async sendInitialMessages() {
@@ -411,7 +411,7 @@ export class CampaignInvitationAutomationService {
 
     if (!event) {
       this.logger.log(`[Initial message Skip] Event not found. invitationId=${invitation.id}, eventId=${invitation.eventId}`);
-      return; 
+      return;
     }
 
     // Get talent's preferred language or default to 'en'
@@ -479,35 +479,11 @@ export class CampaignInvitationAutomationService {
       },
     });
 
-    const dmSentStatus = await this.prisma.tpStatus.findUnique({
-      where: {
-        id: TP_STATUS_MAP.DM_SENT,
-      },
+    await updateUserTpStatus({
+      userId: BigInt(promoterId),
+      talentPoolId: talent.id,
+      statusId: TP_STATUS_MAP.DM_SENT,
     });
-
-    if (!dmSentStatus) {
-      throw new Error("DM_SENT status not found in tp_status");
-    }
-
-    const exists = await this.prisma.userTpStatus.findFirst({
-      where: {
-        userId: BigInt(promoterId),
-        talentPoolId: talent.id,
-        statusId: dmSentStatus.id,
-      },
-    });
-
-    if (!exists) {
-      await this.prisma.userTpStatus.create({
-        data: {
-          userId: BigInt(promoterId),
-          talentPoolId: talent.id,
-          statusId: dmSentStatus.id,
-          statusName: dmSentStatus.name,
-          createdAt: new Date(),
-        },
-      });
-    }
 
     await this.updateTalentPromoterState({
       talentId: talent.id,
@@ -527,7 +503,7 @@ export class CampaignInvitationAutomationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async sendFollowupMessages() {
     this.logger.log("Process sending followup messages");
-     const now = new Date();
+    const now = new Date();
 
     try {
       // Calculate the date 5 minutes ago
@@ -657,7 +633,7 @@ export class CampaignInvitationAutomationService {
         // Calculate dynamic followup time based on campaign.followup_delay
         const followupTime = new Date(
           invitation.invitationAt!.getTime() +
-            invitation.campaign.followup_delay * 60 * 60 * 1000,
+          invitation.campaign.followup_delay * 60 * 60 * 1000,
         );
         if (new Date() < followupTime) {
           // Not yet time to send followup
@@ -747,9 +723,9 @@ export class CampaignInvitationAutomationService {
       throw new Error(`Talent with ID ${invitation.talentId} not found`);
     }
 
-   if (!event) {
+    if (!event) {
       this.logger.log(`[Followup Skip] Event not found. invitationId=${invitation.id}, eventId=${invitation.eventId}`);
-      return; 
+      return;
     }
 
     // Get talent's preferred language or default to 'en'
@@ -933,7 +909,7 @@ export class CampaignInvitationAutomationService {
 
     if (!event) {
       this.logger.log(`[Thank you message Skip] Event not found. invitationId=${invitation.id}, eventId=${invitation.eventId}`);
-      return; 
+      return;
     }
 
     // Get talent's preferred language or default to 'en'

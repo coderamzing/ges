@@ -30,17 +30,17 @@ import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
 export class CampaignSpintaxTemplateController {
   constructor(
     private readonly campaignSpintaxTemplateService: CampaignSpintaxTemplateService,
-  ) {}
+  ) { }
 
   @Get('spintax/:id')
   @ApiOperation({ summary: 'Get a spintax template by ID' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Spintax template found' 
+  @ApiResponse({
+    status: 200,
+    description: 'Spintax template found'
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Spintax template not found' 
+  @ApiResponse({
+    status: 404,
+    description: 'Spintax template not found'
   })
   async findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -49,9 +49,15 @@ export class CampaignSpintaxTemplateController {
   }
 
   @Get(':campaignId/spintax')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get spintax templates for a campaign',
     description: 'Fetch all spintax templates for a campaign. Optionally filter by type, lang, and batch query parameters.'
+  })
+  @ApiQuery({
+    name: 'templateId',
+    required: false,
+    type: Number,
+    description: 'Filter by campaign template Id',
   })
   @ApiQuery({
     name: 'type',
@@ -71,26 +77,29 @@ export class CampaignSpintaxTemplateController {
     type: Number,
     description: 'Filter by batch number (1 or 2)',
   })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'List of spintax templates for the campaign' 
+  @ApiResponse({
+    status: 200,
+    description: 'List of spintax templates for the campaign'
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Campaign not found' 
+  @ApiResponse({
+    status: 404,
+    description: 'Campaign not found'
   })
   async findByCampaign(
     @Param('campaignId', ParseIntPipe) campaignId: number,
     @Query('type') type?: TemplateType,
     @Query('lang') lang?: string,
     @Query('batch') batch?: string,
+    @Query('templateId') templateId?: string,
   ): Promise<CampaignSpintaxTemplate[]> {
     const batchNumber = batch ? parseInt(batch, 10) : undefined;
+    const CampaignTemplateId = templateId ? parseInt(templateId, 10) : undefined;
     return this.campaignSpintaxTemplateService.findByCampaign(
       campaignId,
       type,
       lang,
       batchNumber,
+      CampaignTemplateId
     );
   }
 
@@ -104,9 +113,9 @@ export class CampaignSpintaxTemplateController {
     status: 404,
     description: 'Spintax template not found',
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Bad request - validation failed' 
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation failed'
   })
   async update(
     @Param('id', ParseIntPipe) id: number,

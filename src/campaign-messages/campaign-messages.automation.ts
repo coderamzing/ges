@@ -19,6 +19,7 @@ import {
 import { renderTemplate } from "utils/handlebar";
 import { TalentBlacklistService } from "src/talend-blacklist/talent-blacklist.service";
 import { TP_STATUS_MAP } from "src/talent/talent.config";
+import { updateUserTpStatus } from "src/talent/talent.utils";
 
 interface MessageInterpretationResponse {
   status: InvitationStatus;
@@ -37,7 +38,7 @@ export class CampaignMessagesAutomationService {
     private prisma: PrismaService,
     private openAIService: OpenAIService,
     private readonly talentBlacklistService: TalentBlacklistService,
-  ) {}
+  ) { }
 
   /**
    * Process messages that haven't been interpreted yet
@@ -63,7 +64,7 @@ export class CampaignMessagesAutomationService {
           invitation: {
             is: {
               event: {
-                is: {}, // ✅ means event must exist
+                is: {}, // means event must exist
               },
               campaign: {
                 status: {
@@ -342,35 +343,11 @@ export class CampaignMessagesAutomationService {
         }
       }
 
-      const openChatStatus = await this.prisma.tpStatus.findUnique({
-        where: {
-          id: TP_STATUS_MAP.OPEN_CHAT,
-        },
+      await updateUserTpStatus({
+        userId: BigInt(promoterId),
+        talentPoolId: talentId,
+        statusId: TP_STATUS_MAP.OPEN_CHAT,
       });
-
-      if (!openChatStatus) {
-        throw new Error("OPEN_CHAT status not found in tp_status");
-      }
-
-      const exists = await this.prisma.userTpStatus.findFirst({
-        where: {
-          userId: BigInt(promoterId),
-          talentPoolId: talentId,
-          statusId: openChatStatus.id,
-        },
-      });
-
-      if (!exists) {
-        await this.prisma.userTpStatus.create({
-          data: {
-            userId: BigInt(promoterId),
-            talentPoolId: talentId,
-            statusId: openChatStatus.id,
-            statusName: openChatStatus.name,
-            createdAt: new Date(),
-          },
-        });
-      }
 
       await this.prisma.message.updateMany({
         where: {

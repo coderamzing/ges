@@ -55,6 +55,7 @@ export class CampaignSpintaxTemplateService {
     type?: TemplateType,
     lang?: string,
     batch?: number,
+    CampaignTemplateId?: number,
   ): Promise<any[]> {
 
     const where: any = { campaignId };
@@ -73,6 +74,7 @@ export class CampaignSpintaxTemplateService {
     if (type) where.type = type;
     if (lang) where.lang = lang;
     if (batch !== undefined) where.batch = batch;
+    if (CampaignTemplateId !== undefined) where.CampaignTemplateId = CampaignTemplateId;
 
 
     const templates = await this.prisma.campaignSpintaxTemplate.findMany({
