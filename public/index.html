@@ -463,7 +463,7 @@
                 $('#blacklistList').html('<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Loading blacklist...</div>');
 
                 const blacklist = await $.ajax({
-                    url: `${API_BASE}/talent-blacklist`,
+                    url: `${API_BASE}/temp/blacklist`,
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -482,13 +482,12 @@
 
             let html = '<div class="table-responsive"><table class="table table-sm table-striped">';
             html += '<thead><tr>';
-            html += '<th>Talent ID</th><th>Reason</th><th>Blacklisted At</th><th>Actions</th>';
+            html += '<th>Talent ID</th><th>Blacklisted At</th><th>Actions</th>';
             html += '</tr></thead><tbody>';
 
             blacklist.forEach(entry => {
                 html += `<tr data-blacklist-id="${entry.id}">`;
-                html += `<td><strong>${escapeHtml(entry.talentId)}</strong></td>`;
-                html += `<td>${escapeHtml(entry.reason)}</td>`;
+                html += `<td><strong>${escapeHtml(entry.talentPoolId)}</strong></td>`;
                 html += `<td>${formatDate(entry.createdAt)}</td>`;
                 html += `<td>
                     <button class="btn btn-sm btn-danger remove-blacklist-btn" data-blacklist-id="${entry.id}" data-talent-id="${entry.talentId}">Remove</button>

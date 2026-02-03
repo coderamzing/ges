@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessageDirection } from '@prisma/client';
+import { TP_STATUS_MAP } from 'src/talent/talent.config';
 
 @Injectable()
 export class TempService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getCampaignMessages(campaignId: number) {
     // 1) Load all invitations for this campaign that have a linked DM thread
@@ -29,7 +30,7 @@ export class TempService {
         thankYouSent: true,
         hasReplied: true,
         thread_id: true,
-        createdAt:true,
+        createdAt: true,
       },
     });
 
@@ -187,46 +188,46 @@ export class TempService {
   // }
 
   async sendTalentMessage(
-  campaignId: number,
-  talentId: string,
-  message: string,
-  promoterId: number,
-) {
-  const invitation = await this.prisma.campaignInvitation.findFirst({
-    where: { campaignId, talentId },
-  });
+    campaignId: number,
+    talentId: string,
+    message: string,
+    promoterId: number,
+  ) {
+    const invitation = await this.prisma.campaignInvitation.findFirst({
+      where: { campaignId, talentId },
+    });
 
-  if (!invitation) {
-    throw new NotFoundException('Invitation not found');
-  }
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
 
 
     if (!invitation.thread_id) {
-    throw new NotFoundException('Thread not associated with invitation');
-  }
+      throw new NotFoundException('Thread not associated with invitation');
+    }
 
-  const thread = await this.prisma.thread.findFirst({
-    where: {
-      id:invitation.thread_id
-    },
-  });
+    const thread = await this.prisma.thread.findFirst({
+      where: {
+        id: invitation.thread_id
+      },
+    });
 
 
-  if (!thread) {
-    throw new NotFoundException('Message thread not found');
-  }
-  const now = new Date();
+    if (!thread) {
+      throw new NotFoundException('Message thread not found');
+    }
+    const now = new Date();
 
-  const promoter = await this.prisma.user.findUnique({
-    where: {
-      id: BigInt(promoterId),
-    },
-  });
-  if (!promoter) {
-    throw new NotFoundException('Promoter not found');
-  }
+    const promoter = await this.prisma.user.findUnique({
+      where: {
+        id: BigInt(promoterId),
+      },
+    });
+    if (!promoter) {
+      throw new NotFoundException('Promoter not found');
+    }
 
-  return this.prisma.message.create({
+    return this.prisma.message.create({
       data: {
         id: `${crypto.randomUUID()}`,
         created_at: now,
@@ -244,7 +245,7 @@ export class TempService {
         pending_reply: false,
       },
     });
-}
+  }
 
 
   async getTalentPromoterState(talentId: string, promoterId: number) {
@@ -278,4 +279,23 @@ export class TempService {
       },
     });
   }
+
+
+  async getBlacklistedTalents(promoterId: bigint) {
+    const blacklist = await this.prisma.userTpStatus.findMany({
+      where: {
+        userId: promoterId,
+        statusId: TP_STATUS_MAP.BLACKLIST,
+      },
+      include: {
+        talentPool: true,
+      },
+      orderBy: {
+        id: "desc",
+      },
+    });
+
+    return blacklist;
+  }
+
 }

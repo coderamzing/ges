@@ -82,4 +82,18 @@ export class TempController {
       promoter.id,
     );
   }
+
+
+
+  @Get('blacklist')
+  @ApiOperation({ summary: 'Get all blacklisted talents for the authenticated promoter' })
+  @ApiResponse({ status: 200, description: 'List of blacklisted talents for the authenticated promoter' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async findAll(
+    @GetPromoter() promoter: { id: number; email: string },
+  ): Promise<any[]> {
+    return this.tempService.getBlacklistedTalents(BigInt(promoter.id));
+  }
+
+
 }

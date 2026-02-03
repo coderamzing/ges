@@ -349,6 +349,15 @@ export class TalentService {
           take: 1,
           select: { trustScore: true },
         },
+        userTpStatus: {
+          where: { userId: promoterId },
+          select: {
+            id: true,
+            statusId: true,
+            statusName: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
