@@ -1,17 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Campaign Detail - Temp Testing</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .message-sent { background-color: #e3f2fd; margin-left: 20%; }
-        .message-received { background-color: #f5f5f5; margin-right: 20%; }
-        .message-card { padding: 10px; margin: 5px 0; border-radius: 8px; }
-        .talent-section { margin-bottom: 30px; border: 1px solid #ddd; border-radius: 8px; padding: 20px; }
+        .message-sent {
+            background-color: #e3f2fd;
+            margin-left: 20%;
+        }
+
+        .message-received {
+            background-color: #f5f5f5;
+            margin-right: 20%;
+        }
+
+        .message-card {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+        }
+
+        .talent-section {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
     </style>
 </head>
+
 <body>
     <div class="container mt-5">
         <a href="index.html" class="btn btn-secondary mb-3">← Back to Campaigns</a>
@@ -25,9 +45,12 @@
                     <h5 class="card-title mb-0">Campaign Stats</h5>
                     <div>
                         <div class="btn-group btn-group-sm" role="group" aria-label="Batch stats toggle">
-                            <button type="button" class="btn btn-outline-primary active" id="statsBatchAllBtn" data-batch="all">All Batches</button>
-                            <button type="button" class="btn btn-outline-primary" id="statsBatch1Btn" data-batch="1">Batch 1</button>
-                            <button type="button" class="btn btn-outline-primary" id="statsBatch2Btn" data-batch="2">Batch 2</button>
+                            <button type="button" class="btn btn-outline-primary active" id="statsBatchAllBtn"
+                                data-batch="all">All Batches</button>
+                            <button type="button" class="btn btn-outline-primary" id="statsBatch1Btn"
+                                data-batch="1">Batch 1</button>
+                            <button type="button" class="btn btn-outline-primary" id="statsBatch2Btn"
+                                data-batch="2">Batch 2</button>
                         </div>
                     </div>
                 </div>
@@ -45,15 +68,17 @@
                     <div class="mb-3">
                         <label class="form-label">Batch</label>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="recommendBatchId" id="recommendBatch1" value="1" checked>
+                            <input class="form-check-input" type="radio" name="recommendBatchId" id="recommendBatch1"
+                                value="1" checked>
                             <label class="form-check-label" for="recommendBatch1">Batch 1</label>
                         </div>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="recommendBatchId" id="recommendBatch2" value="2">
+                            <input class="form-check-input" type="radio" name="recommendBatchId" id="recommendBatch2"
+                                value="2">
                             <label class="form-check-label" for="recommendBatch2">Batch 2</label>
                         </div>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label fw-bold">Filters</label>
                         <div class="row">
@@ -67,54 +92,68 @@
                                     <label class="form-check-label" for="filterDmSent">DM Sent</label>
                                 </div>
                                 <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="filterBlacklist" name="blacklist">
+                                    <input class="form-check-input" type="checkbox" id="filterBlacklist"
+                                        name="blacklist">
                                     <label class="form-check-label" for="filterBlacklist">Blacklist</label>
                                 </div>
                                 <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="filterRecommendation" name="recommendation" checked>
+                                    <input class="form-check-input" type="checkbox" id="filterRecommendation"
+                                        name="recommendation" checked>
                                     <label class="form-check-label" for="filterRecommendation">Recommended by AI</label>
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label small">Talent Type</label>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeCivilian" name="talentType" value="civilian">
+                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeCivilian"
+                                            name="talentType" value="civilian">
                                         <label class="form-check-label" for="filterTalentTypeCivilian">Civilian</label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeHybrid" name="talentType" value="hybrid">
+                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeHybrid"
+                                            name="talentType" value="hybrid">
                                         <label class="form-check-label" for="filterTalentTypeHybrid">Hybrid</label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeSupermodel" name="talentType" value="supermodel">
-                                        <label class="form-check-label" for="filterTalentTypeSupermodel">Supermodel</label>
+                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeSupermodel"
+                                            name="talentType" value="supermodel">
+                                        <label class="form-check-label"
+                                            for="filterTalentTypeSupermodel">Supermodel</label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeModel" name="talentType" value="model">
+                                        <input class="form-check-input" type="checkbox" id="filterTalentTypeModel"
+                                            name="talentType" value="model">
                                         <label class="form-check-label" for="filterTalentTypeModel">Model</label>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-2">
-                                    <label for="filterTrustScoreRange" class="form-label small">Trust Score Range</label>
-                                    <input type="text" class="form-control form-control-sm" id="filterTrustScoreRange" name="trustScoreRange" placeholder="e.g., 10-40 or 25">
-                                    <small class="form-text text-muted">Enter a single number (e.g., 25) or a range (e.g., 10-40)</small>
+                                    <label for="filterTrustScoreRange" class="form-label small">Trust Score
+                                        Range</label>
+                                    <input type="text" class="form-control form-control-sm" id="filterTrustScoreRange"
+                                        name="trustScoreRange" placeholder="e.g., 10-40 or 25">
+                                    <small class="form-text text-muted">Enter a single number (e.g., 25) or a range
+                                        (e.g., 10-40)</small>
                                 </div>
                                 <div class="mb-2">
                                     <label for="filterSearch" class="form-label small">Search</label>
-                                    <input type="text" class="form-control form-control-sm" id="filterSearch" name="search" placeholder="Name, @id or city">
+                                    <input type="text" class="form-control form-control-sm" id="filterSearch"
+                                        name="search" placeholder="Name, @id or city">
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <button type="submit" class="btn btn-primary">Search Recommendations</button>
                 </form>
-                
+
                 <div class="mt-4">
-                    <input type="text" class="form-control mb-2" id="recommendationsSearch" placeholder="Search recommendations...">
-                    <div id="talentRecommendationsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px;">
-                        <div class="text-center text-muted">Use the form above to search for talent recommendations...</div>
+                    <input type="text" class="form-control mb-2" id="recommendationsSearch"
+                        placeholder="Search recommendations...">
+                    <div id="talentRecommendationsList"
+                        style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px;">
+                        <div class="text-center text-muted">Use the form above to search for talent recommendations...
+                        </div>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mt-2">
                         <div class="d-flex align-items-center gap-3 flex-wrap">
@@ -130,9 +169,11 @@
                             <button type="button" class="btn btn-outline-secondary btn-sm" id="selectRandom20Btn">
                                 Random 20
                             </button>
-                            <small class="text-muted mb-0">Selected: <span id="recommendationsSelectedCount">0</span></small>
+                            <small class="text-muted mb-0">Selected: <span
+                                    id="recommendationsSelectedCount">0</span></small>
                         </div>
-                        <button type="button" class="btn btn-primary btn-sm" id="inviteSelectedRecommendationsBtn">Invite Selected Talents</button>
+                        <button type="button" class="btn btn-primary btn-sm"
+                            id="inviteSelectedRecommendationsBtn">Invite Selected Talents</button>
                     </div>
                 </div>
             </div>
@@ -261,7 +302,7 @@
                     url: `${API_BASE}/campaign-invitations/campaign/${campaignId}`,
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 // Fetch talent data and blacklist status for each invitation
                 const enrichedInvitations = await Promise.all(
                     invitations.map(async (inv) => {
@@ -295,7 +336,7 @@
                         };
                     })
                 );
-                
+
                 displayInvitations(enrichedInvitations);
             } catch (error) {
                 $('#invitationsList').html(`<div class="alert alert-danger">Error loading invitations: ${error.responseJSON?.message || error.statusText}</div>`);
@@ -321,7 +362,7 @@
                 const talentId = inv.talentId || '';
                 const currentCity = talent.currentCity || '-';
                 const cityHome = talent.cityHome || '-';
-                
+
                 html += `<tr data-invitation-id="${inv.id}">`;
                 html += `<td><strong><a href="#" class="scroll-to-talent-link text-decoration-none" data-talent-id="${talentId}" style="color: inherit; cursor: pointer;">${escapeHtml(talentName)}</a></strong></td>`;
                 html += `<td>${escapeHtml(talentId)}</td>`;
@@ -345,7 +386,7 @@
             $('#invitationsList').html(html);
 
             // Handle scroll to talent messages
-            $('.scroll-to-talent-link').on('click', function(e) {
+            $('.scroll-to-talent-link').on('click', function (e) {
                 e.preventDefault();
                 const talentId = $(this).data('talent-id');
                 const talentSection = $(`.talent-section[data-talent-id="${talentId}"]`);
@@ -364,7 +405,7 @@
             });
 
             // Attach edit handlers
-            $('.edit-invitation-btn').on('click', function() {
+            $('.edit-invitation-btn').on('click', function () {
                 const invitationId = $(this).data('invitation-id');
                 const invitation = invitations.find(inv => inv.id === invitationId);
                 if (invitation) {
@@ -373,11 +414,11 @@
             });
 
             // Handle mark blacklist button in invitations list
-            $('.toggle-blacklist-invitation-btn').on('click', async function() {
+            $('.toggle-blacklist-invitation-btn').on('click', async function () {
                 const button = $(this);
                 const talentId = button.data('talent-id');
                 button.prop('disabled', true);
-                
+
                 try {
                     // Add to blacklist
                     const reason = prompt('Enter reason for blacklisting:');
@@ -456,7 +497,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
 
                 const invitationId = invitation.id;
                 const isBlacklisted = group.isBlacklisted || false;
-                
+
                 const cityParts = [];
                 if (talent.cityHome) {
                     cityParts.push(`Home: ${escapeHtml(talent.cityHome)}`);
@@ -522,7 +563,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             $('#content').html(html);
 
             // Handle reply forms
-            $('.reply-form').on('submit', async function(e) {
+            $('.reply-form').on('submit', async function (e) {
                 e.preventDefault();
                 const form = $(this);
                 const talentId = form.data('talent-id').toString();
@@ -551,7 +592,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             });
 
             // Handle send followup button
-            $('.send-followup-btn').on('click', async function() {
+            $('.send-followup-btn').on('click', async function () {
                 const button = $(this);
                 const invitationId = parseInt(button.data('invitation-id'), 10);
                 const currentCampaignId = parseInt(campaignId, 10);
@@ -579,7 +620,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             });
 
             // Handle mark attend button
-            $('.mark-attend-btn').on('click', async function() {
+            $('.mark-attend-btn').on('click', async function () {
                 const button = $(this);
                 const invitationId = parseInt(button.data('invitation-id'), 10);
                 const currentCampaignId = parseInt(campaignId, 10);
@@ -607,11 +648,11 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             });
 
             // Handle mark blacklist button
-            $('.toggle-blacklist-btn').on('click', async function() {
+            $('.toggle-blacklist-btn').on('click', async function () {
                 const button = $(this);
                 const talentId = button.data('talent-id');
                 button.prop('disabled', true);
-                
+
                 try {
                     // Add to blacklist
                     const reason = prompt('Enter reason for blacklisting:');
@@ -762,7 +803,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
         async function loadTalentRecommendations(batchId, filters = {}) {
             try {
                 $('#talentRecommendationsList').html('<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Loading recommendations...</div>');
-                
+
                 // Build query string from filters
                 const queryParams = new URLSearchParams();
                 Object.keys(filters).forEach(key => {
@@ -778,16 +819,16 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                         }
                     }
                 });
-                
+
                 const queryString = queryParams.toString();
                 // Always request up to 200 talents
                 const url = `${API_BASE}/campaign-invitations/campaign/${campaignId}/${batchId}/recommendations${queryString ? '?' + queryString + '&' : '?'}limit=200`;
-                
+
                 const recommendations = await $.ajax({
                     url: url,
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 displayTalentRecommendations(recommendations);
             } catch (error) {
                 $('#talentRecommendationsList').html(`<div class="alert alert-danger">Error loading recommendations: ${error.responseJSON?.message || error.statusText}</div>`);
@@ -803,12 +844,12 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             }
 
             let html = '';
-            recommendations.forEach(talent => {
+            recommendations.data.forEach(talent => {
                 const promoterState = talent.promoterState || {};
                 const isBlacklisted = talent.blacklist !== null && talent.blacklist !== undefined;
-                const statusBadge = isBlacklisted 
+                const statusBadge = isBlacklisted
                     ? '<span class="badge bg-danger">Blacklisted</span>'
-                    : promoterState.liked 
+                    : promoterState.liked
                         ? '<span class="badge bg-success">Liked</span>'
                         : promoterState.hide
                             ? '<span class="badge bg-warning">Hidden</span>'
@@ -844,26 +885,26 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
         }
 
         // Recommendations search
-        $('#recommendationsSearch').on('input', function() {
+        $('#recommendationsSearch').on('input', function () {
             const searchTerm = $(this).val().toLowerCase();
-            $('.recommendation-talent-item').each(function() {
+            $('.recommendation-talent-item').each(function () {
                 const text = $(this).text().toLowerCase();
                 $(this).toggle(text.includes(searchTerm));
             });
         });
 
         // Recommendation checkbox change
-        $(document).on('change', '.recommendation-talent-checkbox', function() {
+        $(document).on('change', '.recommendation-talent-checkbox', function () {
             updateRecommendationsSelectedCount();
         });
 
         // Handle toggle blacklist button in recommendations
-        $(document).on('click', '.toggle-blacklist-recommendation-btn', async function() {
+        $(document).on('click', '.toggle-blacklist-recommendation-btn', async function () {
             const button = $(this);
             const talentId = button.data('talent-id');
             const isBlacklisted = button.data('is-blacklisted');
             button.prop('disabled', true);
-            
+
             try {
                 if (isBlacklisted) {
                     // Remove from blacklist
@@ -899,7 +940,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                 // Reload recommendations to reflect the change
                 const batchId = parseInt($('input[name="recommendBatchId"]:checked').val());
                 const filters = {};
-                
+
                 // Collect filter values
                 const booleanFilters = ['openchat', 'dmSent', 'blacklist', 'recommendation'];
                 booleanFilters.forEach(filter => {
@@ -908,14 +949,14 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                         filters[filter] = true;
                     }
                 });
-                
-                const talentTypes = $('input[name="talentType"]:checked').map(function() {
+
+                const talentTypes = $('input[name="talentType"]:checked').map(function () {
                     return $(this).val();
                 }).get();
                 if (talentTypes.length > 0) {
                     filters.talentType = talentTypes;
                 }
-                
+
                 const trustScoreRange = $('#filterTrustScoreRange').val().trim();
                 if (trustScoreRange) {
                     filters.trustScoreRange = trustScoreRange;
@@ -925,7 +966,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                 if (search) {
                     filters.search = search;
                 }
-                
+
                 loadTalentRecommendations(batchId, filters);
             } catch (error) {
                 alert('Error updating blacklist: ' + (error.responseJSON?.message || error.statusText));
@@ -935,7 +976,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
         });
 
         // Select all / deselect all recommendations
-        $('#selectAllRecommendations').on('change', function() {
+        $('#selectAllRecommendations').on('change', function () {
             const checked = $(this).is(':checked');
             $('.recommendation-talent-checkbox').prop('checked', checked);
             updateRecommendationsSelectedCount();
@@ -966,17 +1007,17 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             updateRecommendationsSelectedCount();
         }
 
-        $('#selectRandom10Btn').on('click', function() {
+        $('#selectRandom10Btn').on('click', function () {
             selectRandomRecommendations(10);
         });
 
-        $('#selectRandom20Btn').on('click', function() {
+        $('#selectRandom20Btn').on('click', function () {
             selectRandomRecommendations(20);
         });
 
         // Invite selected recommendations
-        $('#inviteSelectedRecommendationsBtn').on('click', async function() {
-            const selectedTalents = $('.recommendation-talent-checkbox:checked').map(function() {
+        $('#inviteSelectedRecommendationsBtn').on('click', async function () {
+            const selectedTalents = $('.recommendation-talent-checkbox:checked').map(function () {
                 // Keep as string since talent IDs are strings
                 return $(this).val();
             }).get();
@@ -994,7 +1035,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                 await $.ajax({
                     url: `${API_BASE}/campaign-invitations/campaign/${campaignId}`,
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
@@ -1012,14 +1053,14 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
         });
 
         // Recommendations form submit
-        $('#recommendationsForm').on('submit', async function(e) {
+        $('#recommendationsForm').on('submit', async function (e) {
             e.preventDefault();
-            
+
             const batchId = parseInt($('input[name="recommendBatchId"]:checked').val());
-            
+
             // Collect filter values
             const filters = {};
-            
+
             // Boolean filters (checkboxes)
             const booleanFilters = ['openchat', 'dmSent', 'blacklist', 'recommendation'];
             booleanFilters.forEach(filter => {
@@ -1028,15 +1069,15 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                     filters[filter] = true;
                 }
             });
-            
+
             // Array filter (talentType) - collect all checked values
-            const talentTypes = $('input[name="talentType"]:checked').map(function() {
+            const talentTypes = $('input[name="talentType"]:checked').map(function () {
                 return $(this).val();
             }).get();
             if (talentTypes.length > 0) {
                 filters.talentType = talentTypes;
             }
-            
+
             // Trust score range filter
             const trustScoreRange = $('#filterTrustScoreRange').val().trim();
             if (trustScoreRange) {
@@ -1048,7 +1089,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             if (search) {
                 filters.search = search;
             }
-            
+
             loadTalentRecommendations(batchId, filters);
         });
 
@@ -1057,4 +1098,5 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
         loadCampaignStats('all');
     </script>
 </body>
+
 </html>
