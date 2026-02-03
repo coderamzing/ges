@@ -6,7 +6,7 @@ import { InvitationStatus } from "@prisma/client";
 import { TP_STATUS_MAP } from "./talent.config";
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -293,15 +293,15 @@ export class TalentService {
 
               ...(hasTrustScoreFilter
                 ? {
-                    AND: [
-                      ...(filters.trustScoreRange?.min !== undefined
-                        ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
-                        : []),
-                      ...(filters.trustScoreRange?.max !== undefined
-                        ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
-                        : []),
-                    ],
-                  }
+                  AND: [
+                    ...(filters.trustScoreRange?.min !== undefined
+                      ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
+                      : []),
+                    ...(filters.trustScoreRange?.max !== undefined
+                      ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
+                      : []),
+                  ],
+                }
                 : {}),
             },
           },
@@ -323,59 +323,99 @@ export class TalentService {
       ];
     }
 
+
     const page = filters.page && filters.page > 0 ? filters.page : 1;
     const limit = filters.limit && filters.limit > 0 ? filters.limit : 100;
+    const skip = (page - 1) * limit;
 
-    const limitPerChunk = 5000; // safe chunk size
-    let offset = 0;
-    let allTalents: any[] = [];
+    // -------------------- orderBy (NO trustScore sorting now) --------------------
 
-    while (true) {
-      const chunk = await this.prisma.talentPool.findMany({
-        skip: offset,
-        take: limitPerChunk,
-        where: baseWhere,
-        include: {
-          blacklists: { where: { promoterId }, take: 1 },
-          promoterStates: {
-            where: { promoterId },
-            take: 1,
-            select: { trustScore: true },
-          },
+
+    // -------------------- total count --------------------
+    const total = await this.prisma.talentPool.count({
+      where: baseWhere,
+    });
+
+    // -------------------- fetch paginated data --------------------
+    const data = await this.prisma.talentPool.findMany({
+      where: baseWhere,
+      skip,
+      take: limit,
+      // orderBy,
+      include: {
+        blacklists: { where: { promoterId }, take: 1 },
+        promoterStates: {
+          where: { promoterId },
+          take: 1,
+          select: { trustScore: true },
         },
-      });
+      },
+    });
 
-      if (chunk.length === 0) break;
-
-      allTalents.push(...chunk);
-      offset += limitPerChunk;
-    }
-
-    // Map trustScore = 0 if missing and sort
-    const rankedTalents = allTalents
-      .map((tp) => ({
-        ...tp,
-        trustScore: tp.promoterStates[0]?.trustScore ?? 0,
-      }))
-      .sort((a, b) => b.trustScore - a.trustScore);
-
-    //  total count AFTER all filters
-    const totalCount = rankedTalents.length;
-
-    //  pagination calculation
-    const totalPages = Math.ceil(totalCount / limit);
-    const startIndex = (page - 1) * limit;
-    const paginatedTalents = rankedTalents.slice(
-      startIndex,
-      startIndex + limit,
-    );
+    const totalPages = Math.ceil(total / limit);
 
     return {
-      total: totalCount,
+      data,
+      total,
       page,
       limit,
       totalPages,
-      data: paginatedTalents,
     };
+
+
+    //   const page = filters.page && filters.page > 0 ? filters.page : 1;
+    //   const limit = filters.limit && filters.limit > 0 ? filters.limit : 100;
+
+    //   const limitPerChunk = 5000; // safe chunk size
+    //   let offset = 0;
+    //   let allTalents: any[] = [];
+
+    //   while (true) {
+    //     const chunk = await this.prisma.talentPool.findMany({
+    //       skip: offset,
+    //       take: limitPerChunk,
+    //       where: baseWhere,
+    //       include: {
+    //         blacklists: { where: { promoterId }, take: 1 },
+    //         promoterStates: {
+    //           where: { promoterId },
+    //           take: 1,
+    //           select: { trustScore: true },
+    //         },
+    //       },
+    //     });
+
+    //     if (chunk.length === 0) break;
+
+    //     allTalents.push(...chunk);
+    //     offset += limitPerChunk;
+    //   }
+
+    //   // Map trustScore = 0 if missing and sort
+    //   const rankedTalents = allTalents
+    //     .map((tp) => ({
+    //       ...tp,
+    //       trustScore: tp.promoterStates[0]?.trustScore ?? 0,
+    //     }))
+    //     .sort((a, b) => b.trustScore - a.trustScore);
+
+    //   //  total count AFTER all filters
+    //   const totalCount = rankedTalents.length;
+
+    //   //  pagination calculation
+    //   const totalPages = Math.ceil(totalCount / limit);
+    //   const startIndex = (page - 1) * limit;
+    //   const paginatedTalents = rankedTalents.slice(
+    //     startIndex,
+    //     startIndex + limit,
+    //   );
+
+    //   return {
+    //     total: totalCount,
+    //     page,
+    //     limit,
+    //     totalPages,
+    //     data: paginatedTalents,
+    //   };
   }
 }
