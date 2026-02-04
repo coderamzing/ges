@@ -728,6 +728,11 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
 
             let html = '';
             html += '<div class="row mb-3">';
+            html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Target</div><div class="fs-5 fw-bold">' + (stats.event.guests ?? 0) + '</div></div></div>';
+            html += '</div>';
+
+            // let html = '';
+            html += '<div class="row mb-3">';
             html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Total Contacted</div><div class="fs-5 fw-bold">' + (stats.totalContacted ?? 0) + '</div></div></div>';
             html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Sent</div><div class="fs-5 fw-bold">' + (stats.sent ?? 0) + '</div></div></div>';
             html += '  <div class="col-md-3"><div class="border rounded p-2 text-center"><div class="small text-muted">Delivered</div><div class="fs-5 fw-bold">' + (stats.delivered ?? 0) + '</div></div></div>';

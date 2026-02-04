@@ -80,7 +80,7 @@ export class CampaignSpintaxTemplateService {
     const templates = await this.prisma.campaignSpintaxTemplate.findMany({
       where,
       orderBy: {
-        createdAt: 'desc',
+        id: 'asc',
       },
     });
 
