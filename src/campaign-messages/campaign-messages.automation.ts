@@ -90,6 +90,7 @@ export class CampaignMessagesAutomationService {
       });
 
 
+
       const messages = await this.prisma.message.findMany({
         where: {
           ai_processed: false,
@@ -98,32 +99,53 @@ export class CampaignMessagesAutomationService {
         orderBy: {
           created_at: "asc",
         },
-        include: {
-          invitation: {
-            include: {
-              campaign: true,
-              event: true,
-            },
-          },
-        },
       });
 
-      type MessageWithInvitation = typeof messages[number];
-      const result: MessageWithInvitation[] = [];
-
-      for (const msg of messages) {
-        const invitation = msg.invitation;
-
-        if (!invitation) continue; // same as invitation must exist
-        if (!invitation.event) continue; // same as event: { is: {} }
-        if (!invitation.campaign || invitation.campaign.status === CampaignStatus.completed) continue;
-
-        result.push(msg); // msg already contains invitation + campaign + event
+      console.log(messages, "message")
+      if (!messages.length) {
+        return;
       }
 
 
+      const threadIds = messages
+        .map(m => m.thread_id)
+        .filter((id): id is string => !!id);
 
-      console.log(result, "result")
+      const invitations = await this.prisma.campaignInvitation.findMany({
+        where: {
+          thread_id: { in: threadIds },
+        },
+        include: {
+          campaign: true,
+          event: true,
+        },
+      });
+
+      const invitationMap = new Map(
+        invitations.map(inv => [inv.thread_id, inv])
+      );
+
+
+      const result = messages
+        .map(msg => {
+          const invitation = invitationMap.get(msg.thread_id!);
+          if (!invitation) return null;
+
+          if (!invitation.event) return null;
+          if (!invitation.campaign || invitation.campaign.status === CampaignStatus.completed) {
+            return null;
+          }
+
+          return {
+            ...msg,
+            invitation,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null); // TS-safe filter
+
+      console.log(result, "incoming result")
+
+
 
       // const messages = await this.prisma.message.findMany({
       //   where: {
