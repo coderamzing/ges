@@ -96,9 +96,9 @@ export class CampaignMessagesAutomationService {
 
           invitation: {
             is: {
-              event: {
-                is: {}, // means event must exist
-              },
+              // event: {
+              //   is: {}, // means event must exist
+              // },
               campaign: {
                 status: {
                   not: CampaignStatus.completed,
@@ -261,7 +261,7 @@ export class CampaignMessagesAutomationService {
           reason: response.reason,
         };
       } catch (error) {
-        throw new Error(`Error calling OpenAI for campaign ${invitation.campaignId}, talent ${invitation.talentId}:`,error,)
+        throw new Error(`Error calling OpenAI for campaign ${invitation.campaignId}, talent ${invitation.talentId}:`, error,)
 
       }
 
@@ -401,8 +401,8 @@ export class CampaignMessagesAutomationService {
     } catch (error) {
       this.logger.error(`Error processing message ${message.id}:`, error);
       throw error;
-    }finally{
-       await this.prisma.message.updateMany({
+    } finally {
+      await this.prisma.message.updateMany({
         where: {
           ai_processed: false,
           id: {
