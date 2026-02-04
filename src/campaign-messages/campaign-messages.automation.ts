@@ -234,9 +234,10 @@ export class CampaignMessagesAutomationService {
     try {
       const invitationData = invitation;
       if (!invitation) {
-        this.logger.warn(`No invitation found for message ${message.id}`);
-        return;
+        throw new Error(`No invitation found for message ${message.id}`)
       }
+
+      console.log("hittsss here ")
 
       const { promoterId, eventId, campaignId, talentId } = invitationData;
       const invitationId = invitation.id;
@@ -260,12 +261,8 @@ export class CampaignMessagesAutomationService {
           reason: response.reason,
         };
       } catch (error) {
-        this.logger.error(
-          `Error calling OpenAI for campaign ${invitation.campaignId}, talent ${invitation.talentId}:`,
-          error,
-        );
-        // Use default values if OpenAI fails
-        return;
+        throw new Error(`Error calling OpenAI for campaign ${invitation.campaignId}, talent ${invitation.talentId}:`,error,)
+
       }
 
 
@@ -398,7 +395,14 @@ export class CampaignMessagesAutomationService {
         statusId: TP_STATUS_MAP.OPEN_CHAT,
       });
 
-      await this.prisma.message.updateMany({
+      this.logger.log(
+        `Processed messages for campaign ${campaignId}, talent ${talentId}. Status: ${interpretation.status}, Score: ${interpretation.score}`,
+      );
+    } catch (error) {
+      this.logger.error(`Error processing message ${message.id}:`, error);
+      throw error;
+    }finally{
+       await this.prisma.message.updateMany({
         where: {
           ai_processed: false,
           id: {
@@ -410,13 +414,9 @@ export class CampaignMessagesAutomationService {
           ai_processed_at: new Date(),
         },
       });
-
       this.logger.log(
-        `Processed messages for campaign ${campaignId}, talent ${talentId}. Status: ${interpretation.status}, Score: ${interpretation.score}`,
+        `Processed message interpretation for this talent: ${invitation.talentId}`,
       );
-    } catch (error) {
-      this.logger.error(`Error processing message ${message.id}:`, error);
-      throw error;
     }
   }
 

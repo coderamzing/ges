@@ -165,8 +165,7 @@ export class LocationAutomationService {
   ): Promise<void> {
     try {
       if (!talentId) {
-        this.logger.warn(`No talentId provided for message ${message.id}`);
-        return;
+        throw new Error(`No talentId provided for message ${message.id}`)
       }
 
       // Prepare the prompt
@@ -189,11 +188,7 @@ export class LocationAutomationService {
           cityHome: this.parseNullString(response.cityHome),
         };
       } catch (error) {
-        this.logger.error(
-          `Error calling OpenAI for location interpretation - talent ${talentId}:`,
-          error,
-        );
-        return;
+        throw new Error(`Error calling OpenAI for location interpretation - talent ${talentId}:`)
       }
 
       // Update future city if provided
@@ -212,8 +207,7 @@ export class LocationAutomationService {
             },
           });
         } catch (error) {
-          this.logger.error(`Error converting future city dates to UTC: ${error}`);
-          return;
+          throw new Error(`Error converting future city dates to UTC: ${error}`)
         }
       }
 
@@ -240,7 +234,11 @@ export class LocationAutomationService {
         });
       }
 
-      await this.prisma.message.update({
+    } catch (error) {
+      this.logger.error(`Error processing location for message ${message.id}:`, error);
+      throw error;
+    }finally{
+       await this.prisma.message.update({
         where: { id: message.id },
         data: {
           ai_city_detected: 'true',
@@ -250,9 +248,6 @@ export class LocationAutomationService {
       this.logger.log(
         `Processed location for talent ${talentId}`,
       );
-    } catch (error) {
-      this.logger.error(`Error processing location for message ${message.id}:`, error);
-      throw error;
     }
   }
 }
