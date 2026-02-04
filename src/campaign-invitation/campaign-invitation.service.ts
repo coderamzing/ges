@@ -17,7 +17,7 @@ import {
   GetInvitationsQueryDto,
 } from "./campaign-invitation.dto";
 import { AddTalentsToCampaignDto } from "../campaign/campaign.dto";
-import axios from "axios";
+import axios, { get } from "axios";
 import { randomUUID } from "crypto";
 import { SendMessageResponse } from "./campaign-invitation.types";
 import { logger } from "handlebars";
@@ -824,4 +824,54 @@ export class CampaignInvitationService {
       );
     }
   }
+
+
+  async UnsendMessage(
+    token: string | null,
+    invitationId: number,
+  ): Promise<SendMessageResponse | undefined> {
+    try {
+      const fetchInvitation = await this.prisma.campaignInvitation.findFirst({
+        where: { id: invitationId }
+      })
+
+      const mode = process.env.MESSAGE_MODE || "dev";
+      const url = process.env.CHATBOT_UNSEND_MESSAGE || "";
+      if (mode === "live") {
+        const response = await axios.post(
+          url,
+          { "id": fetchInvitation?.thread_id },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "x-auth-token": token,
+            },
+          },
+        );
+        return response.data;
+      }
+      if (mode === "dev") {
+        const unsendLastMessages = await this.prisma.message.deleteMany({
+          where: {
+            thread_id: fetchInvitation?.thread_id,
+            created_at: {
+              gte: fetchInvitation?.createdAt,
+              lte: new Date(),
+            },
+          }
+        })
+
+      }
+      // throw new Error(`Error while Unsend Previous Message with invitation  ${fetchInvitation?.id}`);
+    } catch (error: any) {
+
+      throw new HttpException(
+        error?.response?.data || "Failed to Unsend Message",
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+
+
 }

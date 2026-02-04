@@ -437,6 +437,39 @@ export class CampaignInvitationAutomationService {
     // Render the template with variables using handlebar
     // const message = renderTemplate(randomTemplate.content, variables);
     const message = renderTemplate(finalMessageContent, variables);
+    // add logic for unsend if last reply is false 
+
+    const lastReply = await this.prisma.campaignInvitation.findFirst({
+      where: {
+        talentId: talent.id,
+        promoterId,
+        hasReplied: false,
+        thread_id: {
+          not: null,
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (lastReply) {
+      await this.campaignInvitationService.UnsendMessage(
+        "token",
+        lastReply.id
+      );
+
+      await this.prisma.campaignInvitation.update({
+        where: {
+          id: lastReply?.id,
+        },
+        data: {
+          hasReplied: true,
+        },
+      });
+      this.logger.log(`Processed for Unsend Last Message for invitation ${lastReply?.id}`)
+    }
+
 
     const response = await this.sendMessageCommon({
       receiverId: talent.id,
