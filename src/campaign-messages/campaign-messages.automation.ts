@@ -155,7 +155,7 @@ export class CampaignMessagesAutomationService {
         const event = await this.prisma.events.findUnique({
           where: { id: invitation.eventId },
         });
-        console.log("event-----------------------------------",event)
+
         if (!event) continue;
 
         if (
