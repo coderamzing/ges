@@ -93,21 +93,10 @@ export class CampaignMessagesAutomationService {
         where: {
           ai_processed: false,
           thread_id: { not: null },
-
-          invitation: {
-            is: {
-              // event: {
-              //   is: {}, // means event must exist
-              // },
-              campaign: {
-                status: {
-                  not: CampaignStatus.completed,
-                },
-              },
-            },
-          },
         },
-
+        orderBy: {
+          created_at: "asc",
+        },
         include: {
           invitation: {
             include: {
@@ -116,13 +105,72 @@ export class CampaignMessagesAutomationService {
             },
           },
         },
-
-        orderBy: {
-          created_at: "asc",
-        },
       });
+      console.log(messages, "message")
+      const result: typeof messages = [];
 
-      const talentReplies = messages.filter((msg) => {
+      for (const msg of messages) {
+        if (!msg.invitation) continue; // skip if no invitation
+
+        const invitation = await this.prisma.campaignInvitation.findUnique({
+          where: { id: msg.invitation.id },
+          include: {
+            campaign: true,
+            event: true,
+          },
+        });
+        // skip if invitation not found
+        if (!invitation) continue;
+        // skip if event missing
+        if (!invitation.event) continue;
+        // skip if campaign missing or completed
+        if (!invitation.campaign || invitation.campaign.status === CampaignStatus.completed) {
+          continue;
+        }
+        result.push({
+          ...msg,
+          invitation,
+        });
+      }
+      console.log(result, "result")
+
+      // const messages = await this.prisma.message.findMany({
+      //   where: {
+      //     ai_processed: false,
+      //     thread_id: { not: null },
+
+      //     invitation: {
+      //       is: {
+      //         event: {
+      //           is: {},
+      //         },
+      //         campaign: {
+      //           status: {
+      //             not: CampaignStatus.completed,
+      //           },
+      //         },
+      //       },
+      //     },
+      //   },
+
+      //   include: {
+      //     invitation: {
+      //       include: {
+      //         campaign: true,
+      //         event: true,
+      //       },
+      //     },
+      //   },
+
+      //   orderBy: {
+      //     created_at: "asc",
+      //   },
+      // });
+
+
+
+
+      const talentReplies = result.filter((msg) => {
         if (!msg.invitation?.invitationAt || !msg.created_at) return false;
         const invitation = msg.invitation as any;
 
