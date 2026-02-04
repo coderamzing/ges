@@ -34,6 +34,39 @@ export class CampaignMessagesAutomationService {
   private readonly logger = new Logger(CampaignMessagesAutomationService.name);
   private prompt: any;
 
+
+  private async campaignTargetReached(campaignId: number, eventId: number) {
+
+    const currentBatchCount = await this.prisma.campaignInvitation.count({
+      where: {
+        campaignId,
+        status: {
+          in: [InvitationStatus.confirmed],
+        },
+      },
+    });
+    const event = await this.prisma.events.findFirst({
+      where: {
+        id: eventId
+      }
+    })
+
+    const guests = event?.guests ?? 10;
+
+    if (currentBatchCount >= guests) {
+      await this.prisma.campaign.update({
+        where: { id: campaignId },
+        data: { end_at: new Date(), status: CampaignStatus.completed },
+      });
+      this.logger.log(`Campaign ${campaignId} end_at updated at ${new Date()}`);
+    } else {
+      this.logger.log(
+        `Campaign ${campaignId}  has ${currentBatchCount} invitations.`,
+      );
+    }
+  }
+
+
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
@@ -234,6 +267,10 @@ export class CampaignMessagesAutomationService {
         // Use default values if OpenAI fails
         return;
       }
+
+
+
+
       // Update CampaignInvitation status, mark as replied and mark as seen using invitationId
       const update = await this.prisma.campaignInvitation.update({
         where: {
@@ -246,12 +283,15 @@ export class CampaignMessagesAutomationService {
         },
       });
 
-      if(interpretation.status == InvitationStatus.blacklist){
-         await updateUserTpStatus({
-        userId: BigInt(promoterId),
-        talentPoolId: talentId,
-        statusId: TP_STATUS_MAP.BLACKLIST,
-      });
+
+      await this.campaignTargetReached(update.campaignId, Number(update.eventId));
+
+      if (interpretation.status == InvitationStatus.blacklist) {
+        await updateUserTpStatus({
+          userId: BigInt(promoterId),
+          talentPoolId: talentId,
+          statusId: TP_STATUS_MAP.BLACKLIST,
+        });
       }
 
       // Get or create TalentPromoterState
@@ -395,7 +435,7 @@ export class CampaignMessagesAutomationService {
       interested: InvitationStatus.interested,
       optout: InvitationStatus.optout,
       moved: InvitationStatus.moved,
-      blacklist:InvitationStatus.blacklist,
+      blacklist: InvitationStatus.blacklist,
     };
 
     return statusMap[status.toLowerCase()] || InvitationStatus.pending;

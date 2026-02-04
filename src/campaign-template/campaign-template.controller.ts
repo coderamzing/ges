@@ -37,7 +37,7 @@ import { JwtAuthGuard, GetPromoter } from "../../guard";
 export class CampaignTemplateController {
   constructor(
     private readonly campaignTemplateService: CampaignTemplateService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({ summary: "Create a new campaign template" })
@@ -110,6 +110,12 @@ export class CampaignTemplateController {
     enum: TemplateType,
     description: "Template type to filter (invitation, followup, postevent)",
   })
+  @ApiQuery({
+    name: 'lang',
+    required: false,
+    type: String,
+    description: 'Filter by language code (e.g., en, fr)',
+  })
   @ApiResponse({
     status: 200,
     description: "List of campaign templates matching the campaign ID and type",
@@ -117,8 +123,9 @@ export class CampaignTemplateController {
   async findByCampaignAndType(
     @Query("campaignId", ParseIntPipe) campaignId: number,
     @Query("type") type: TemplateType,
+    @Query('lang') lang?: string,
   ): Promise<CampaignTemplate[]> {
-    return this.campaignTemplateService.findByCampaignAndType(campaignId, type);
+    return this.campaignTemplateService.findByCampaignAndType(campaignId, type, lang);
   }
 
   @Get(":id")

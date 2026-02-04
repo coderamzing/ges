@@ -270,6 +270,7 @@ export class CampaignInvitationAutomationService {
     }
   }
 
+
   constructor(
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
@@ -458,6 +459,8 @@ export class CampaignInvitationAutomationService {
 
       this.logger.log("checking for Update Campaign Status END TIME");
       await this.checkAndUpdateCampaignEnd(update.campaignId, update.batch);
+
+
       this.logger.log("thread Id updated in campaign invitation");
     }
 

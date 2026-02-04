@@ -20,10 +20,11 @@ import { AddTalentsToCampaignDto } from "../campaign/campaign.dto";
 import axios from "axios";
 import { randomUUID } from "crypto";
 import { SendMessageResponse } from "./campaign-invitation.types";
+import { logger } from "handlebars";
 
 @Injectable()
 export class CampaignInvitationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -335,8 +336,19 @@ export class CampaignInvitationService {
         batch: batchId,
       },
     });
+    let event = await this.prisma.events.findFirst({
+      where: {
+        id: campaign.eventId
+      }
+    })
+    if (!event) {
+      throw new NotFoundException(
+        `Event not found with id ${campaign.eventId}`,
+      );
+    }
 
-    if (countCheck >= 10 && batchId === 1) {
+    let limit = event?.guests || 10
+    if (countCheck >= limit && batchId === 1) {
       await this.prisma.campaign.updateMany({
         where: {
           id: campaignId,

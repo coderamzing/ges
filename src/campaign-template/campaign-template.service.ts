@@ -90,12 +90,15 @@ export class CampaignTemplateService {
   async findByCampaignAndType(
     campaignId: number,
     type: TemplateType,
+    lang?: string,
   ): Promise<CampaignTemplate[]> {
+
+    const where: any = { campaignId };
+
+    if (type) where.type = type;
+    if (lang) where.lang = lang;
     return this.prisma.campaignTemplate.findMany({
-      where: {
-        campaignId,
-        type,
-      },
+      where,
       orderBy: {
         createdAt: 'desc',
       },
@@ -317,10 +320,10 @@ export class CampaignTemplateService {
   }
 
   async updateSpintaxEnabledByType(
-  campaignId: number,
-  type: TemplateType,
-  spintaxEnabled: boolean,
-  promoterId: number,
+    campaignId: number,
+    type: TemplateType,
+    spintaxEnabled: boolean,
+    promoterId: number,
   ) {
     // 1️⃣ Validate campaign ownership
     const campaign = await this.prisma.campaign.findUnique({
