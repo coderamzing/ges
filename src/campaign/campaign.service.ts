@@ -190,10 +190,11 @@ export class CampaignService {
           batch: 1,
         },
       });
+      let guests = event.guests ?? 10;
 
-      if (invitationCount < 10) {
+      if (invitationCount < guests) {
         throw new BadRequestException(
-          `You must send at least 10 invitations in batch 1 before activating the campaign. Currently sent: ${invitationCount}`
+          `You must send at least ${guests} invitations in batch 1 before activating the campaign. Currently sent: ${invitationCount}`
         );
       }
       if (!campaign.start_at) {
