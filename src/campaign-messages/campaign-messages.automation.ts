@@ -89,6 +89,7 @@ export class CampaignMessagesAutomationService {
         },
       });
 
+
       const messages = await this.prisma.message.findMany({
         where: {
           ai_processed: false,
@@ -106,32 +107,22 @@ export class CampaignMessagesAutomationService {
           },
         },
       });
-      console.log(messages, "message")
-      const result: typeof messages = [];
+
+      type MessageWithInvitation = typeof messages[number];
+      const result: MessageWithInvitation[] = [];
 
       for (const msg of messages) {
-        if (!msg.invitation) continue; // skip if no invitation
+        const invitation = msg.invitation;
 
-        const invitation = await this.prisma.campaignInvitation.findUnique({
-          where: { id: msg.invitation.id },
-          include: {
-            campaign: true,
-            event: true,
-          },
-        });
-        // skip if invitation not found
-        if (!invitation) continue;
-        // skip if event missing
-        if (!invitation.event) continue;
-        // skip if campaign missing or completed
-        if (!invitation.campaign || invitation.campaign.status === CampaignStatus.completed) {
-          continue;
-        }
-        result.push({
-          ...msg,
-          invitation,
-        });
+        if (!invitation) continue; // same as invitation must exist
+        if (!invitation.event) continue; // same as event: { is: {} }
+        if (!invitation.campaign || invitation.campaign.status === CampaignStatus.completed) continue;
+
+        result.push(msg); // msg already contains invitation + campaign + event
       }
+
+
+
       console.log(result, "result")
 
       // const messages = await this.prisma.message.findMany({
