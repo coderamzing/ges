@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 import { OpenAIService } from "../openai/openai.service";
-import { Prisma } from "@prisma/client";
+import { Campaign, Events, Prisma } from "@prisma/client";
 import {
   MessageDirection,
   InvitationStatus,
@@ -29,14 +29,21 @@ interface MessageInterpretationResponse {
   reason: string;
 }
 
+type CampaignInvitationHydrated = CampaignInvitation & {
+  campaign: Campaign;
+  event: Events;
+};
+
+type MessageWithInvitationAndEvent = Message & {
+  invitation: CampaignInvitationHydrated;
+};
+
 @Injectable()
 export class CampaignMessagesAutomationService {
   private readonly logger = new Logger(CampaignMessagesAutomationService.name);
   private prompt: any;
 
-
   private async campaignTargetReached(campaignId: number, eventId: number) {
-
     const currentBatchCount = await this.prisma.campaignInvitation.count({
       where: {
         campaignId,
@@ -47,9 +54,9 @@ export class CampaignMessagesAutomationService {
     });
     const event = await this.prisma.events.findFirst({
       where: {
-        id: eventId
-      }
-    })
+        id: eventId,
+      },
+    });
 
     const guests = event?.guests ?? 10;
 
@@ -66,12 +73,11 @@ export class CampaignMessagesAutomationService {
     }
   }
 
-
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
     private readonly talentBlacklistService: TalentBlacklistService,
-  ) { }
+  ) {}
 
   /**
    * Process messages that haven't been interpreted yet
@@ -89,8 +95,6 @@ export class CampaignMessagesAutomationService {
         },
       });
 
-
-
       const messages = await this.prisma.message.findMany({
         where: {
           ai_processed: false,
@@ -101,14 +105,12 @@ export class CampaignMessagesAutomationService {
         },
       });
 
-      console.log(messages, "message")
       if (!messages.length) {
         return;
       }
 
-
       const threadIds = messages
-        .map(m => m.thread_id)
+        .map((m) => m.thread_id)
         .filter((id): id is string => !!id);
 
       const invitations = await this.prisma.campaignInvitation.findMany({
@@ -117,35 +119,60 @@ export class CampaignMessagesAutomationService {
         },
         include: {
           campaign: true,
-          event: true,
+          // event: true,
         },
       });
 
       const invitationMap = new Map(
-        invitations.map(inv => [inv.thread_id, inv])
+        invitations.map((inv) => [inv.thread_id, inv]),
       );
 
+      // const result = messages
+      //   .map(msg => {
+      //     const invitation = invitationMap.get(msg.thread_id!);
+      //     if (!invitation) return null;
 
-      const result = messages
-        .map(msg => {
-          const invitation = invitationMap.get(msg.thread_id!);
-          if (!invitation) return null;
+      //     if (!invitation.event) return null;
+      //     if (!invitation.campaign || invitation.campaign.status === CampaignStatus.completed) {
+      //       return null;
+      //     }
 
-          if (!invitation.event) return null;
-          if (!invitation.campaign || invitation.campaign.status === CampaignStatus.completed) {
-            return null;
-          }
+      //     return {
+      //       ...msg,
+      //       invitation,
+      //     };
+      //   })
+      //   .filter((x): x is NonNullable<typeof x> => x !== null); // TS-safe filter
 
-          return {
-            ...msg,
-            invitation,
-          };
-        })
-        .filter((x): x is NonNullable<typeof x> => x !== null); // TS-safe filter
+      const result: MessageWithInvitationAndEvent[] = [];
 
-      console.log(result, "incoming result")
+      for (const msg of messages) {
+        const invitation = invitationMap.get(msg.thread_id!);
+        if (!invitation) continue;
 
+        if (!invitation.eventId) continue;
 
+        const event = await this.prisma.events.findUnique({
+          where: { id: invitation.eventId },
+        });
+        console.log("event-----------------------------------",event)
+        if (!event) continue;
+
+        if (
+          !invitation.campaign ||
+          invitation.campaign.status === CampaignStatus.completed
+        ) {
+          continue;
+        }
+
+        result.push({
+          ...msg,
+          invitation: {
+            ...invitation,
+            event,
+          },
+        });
+      }
 
       // const messages = await this.prisma.message.findMany({
       //   where: {
@@ -179,9 +206,6 @@ export class CampaignMessagesAutomationService {
       //     created_at: "asc",
       //   },
       // });
-
-
-
 
       const talentReplies = result.filter((msg) => {
         if (!msg.invitation?.invitationAt || !msg.created_at) return false;
@@ -295,10 +319,8 @@ export class CampaignMessagesAutomationService {
     try {
       const invitationData = invitation;
       if (!invitation) {
-        throw new Error(`No invitation found for message ${message.id}`)
+        throw new Error(`No invitation found for message ${message.id}`);
       }
-
-      console.log("hittsss here ")
 
       const { promoterId, eventId, campaignId, talentId } = invitationData;
       const invitationId = invitation.id;
@@ -313,7 +335,7 @@ export class CampaignMessagesAutomationService {
       let interpretation: MessageInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
-        console.log("Incominf response from ai ", response)
+        console.log("Incominf response from ai ", response);
         interpretation = {
           status: this.mapStatusToEnum(response.status),
           score: response.score || 0,
@@ -322,12 +344,11 @@ export class CampaignMessagesAutomationService {
           reason: response.reason,
         };
       } catch (error) {
-        throw new Error(`Error calling OpenAI for campaign ${invitation.campaignId}, talent ${invitation.talentId}:`, error,)
-
+        throw new Error(
+          `Error calling OpenAI for campaign ${invitation.campaignId}, talent ${invitation.talentId}:`,
+          error,
+        );
       }
-
-
-
 
       // Update CampaignInvitation status, mark as replied and mark as seen using invitationId
       const update = await this.prisma.campaignInvitation.update({
@@ -341,8 +362,10 @@ export class CampaignMessagesAutomationService {
         },
       });
 
-
-      await this.campaignTargetReached(update.campaignId, Number(update.eventId));
+      await this.campaignTargetReached(
+        update.campaignId,
+        Number(update.eventId),
+      );
 
       if (interpretation.status == InvitationStatus.blacklist) {
         await updateUserTpStatus({

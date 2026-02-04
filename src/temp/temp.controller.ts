@@ -76,7 +76,7 @@ export class TempController {
     @GetPromoter() promoter: { id: number; email: string },
   ) {
     return this.campaignInvitationService.sendMessage(
-      token,
+      // token,
       body.receiverUsername,
       body.message,
       promoter.id,

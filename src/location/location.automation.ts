@@ -74,7 +74,7 @@ export class LocationAutomationService {
       // Process each group
       for (const message of messages) {
         if (!message.thread_id || !message.sender_username) continue;
-        
+
         // Get all previous messages in the thread for this talent (reverse order - oldest to newest)
         const allThreadMessages = await this.prisma.message.findMany({
           select: {
@@ -84,12 +84,23 @@ export class LocationAutomationService {
           },
           where: {
             thread_id: message.thread_id,
-            sender_username: message.sender_username,
+            // sender_username: message.sender_username,
           },
           orderBy: {
             created_at: "asc",
           },
         });
+
+        const thread = await this.prisma.thread.findUnique({
+          where: {
+            id: message.thread_id,
+          },
+        });
+
+        if (!thread || !thread.username2) continue;
+
+        const talentUsername = thread.username2;
+        const promoterUsername = thread.username1;
 
         const talent = await this.prisma.talentPool.findUnique({
           where: {
@@ -100,15 +111,26 @@ export class LocationAutomationService {
 
         // Create full message thread (reverse - oldest to newest)
         const fullMessage =
-          (`Today's Date: ${new Date().toDateString()}\n\n`) +
-          (talent.name ? `Talent Name: ${talent?.name}\n\n` : '') +
-          (`Talent City: ${talent?.currentCity || ''}\n\n`) +
+          `Today's Date: ${new Date().toDateString()}\n\n` +
+          // (talent.name ? `Talent Name: ${talent?.name}\n\n` : "") +
+          // `Talent City: ${talent?.currentCity || ""}\n\n` +
+          `Conversation:\n\n` +
           allThreadMessages
-            .map(
-              (msg) =>
-                `${msg.created_at} ${msg.message}`,
-            )
+            .map((msg) => {
+              let label = "Unknown";
+
+              if (msg.sender_username === talentUsername) {
+                label = "Talent";
+              } else if (msg.sender_username === promoterUsername) {
+                label = "Promoter";
+              }
+
+              // return `${msg.created_at} ${msg.message}`,
+              return `[${msg.created_at?.toISOString()}] ${label}: ${msg.message}`;
+            })
             .join("\n\n");
+
+        console.log("fullMessage -------->", fullMessage);
 
         await this.processTalentLocation(
           message as unknown as Message,
@@ -117,17 +139,19 @@ export class LocationAutomationService {
         );
       }
     } catch (error) {
-      this.logger.error("Error processing last minute messages for location:", error);
+      this.logger.error(
+        "Error processing last minute messages for location:",
+        error,
+      );
       throw error;
     }
   }
-
 
   /**
    * Convert string 'null' to actual null, or return the value as is
    */
   private parseNullString(value: string | null | undefined): string | null {
-    if (!value || value === 'null' || value === 'NULL' || value.trim() === '') {
+    if (!value || value === "null" || value === "NULL" || value.trim() === "") {
       return null;
     }
     return value;
@@ -136,7 +160,9 @@ export class LocationAutomationService {
   /**
    * Convert a date string to UTC Date object, or return null if invalid/null
    */
-  private async convertToUTC(date: string | null | undefined): Promise<Date | null> {
+  private async convertToUTC(
+    date: string | null | undefined,
+  ): Promise<Date | null> {
     // Handle null or 'null' string
     const parsedDate = this.parseNullString(date);
     if (!parsedDate) {
@@ -149,7 +175,7 @@ export class LocationAutomationService {
       this.logger.warn(`Invalid date provided: ${date}, returning null`);
       return null;
     }
-    
+
     const d = new Date(parsedDate);
     d.setUTCHours(0, 0, 0, 0);
     return d;
@@ -165,20 +191,24 @@ export class LocationAutomationService {
   ): Promise<void> {
     try {
       if (!talentId) {
-        throw new Error(`No talentId provided for message ${message.id}`)
+        throw new Error(`No talentId provided for message ${message.id}`);
       }
 
       // Prepare the prompt
       const prompt = renderTemplate(this.prompt.defs, {
         messages: fullMessage,
       });
+
       const sysPrompt = this.prompt.role;
 
       // Call OpenAI to interpret location
       let interpretation: LocationInterpretationResponse;
       try {
         const response = await this.openAIService.query(prompt, sysPrompt);
-        this.logger.log(`Location interpretation response for talent ${talentId}:`, response);
+        this.logger.log(
+          `Location interpretation response for talent ${talentId}:`,
+          response,
+        );
         interpretation = {
           currentCity: this.parseNullString(response.currentCity),
           futureCity: this.parseNullString(response.futureCity),
@@ -188,66 +218,69 @@ export class LocationAutomationService {
           cityHome: this.parseNullString(response.cityHome),
         };
       } catch (error) {
-        throw new Error(`Error calling OpenAI for location interpretation - talent ${talentId}:`)
+        throw new Error(
+          `Error calling OpenAI for location interpretation - talent ${talentId}:`,
+        );
       }
 
-      // Update future city if provided
+      const data: any = {};
+      //future city 
       if (interpretation.futureCity) {
-        try {
-          const startUTC = await this.convertToUTC(interpretation.futureCityStartAt);
-          const endUTC = await this.convertToUTC(interpretation.futureCityEndAt);
-          let finalEndUTC = new Date().getTime() + 7 * 24 * 60 * 60 * 1000;
+        const startUTC = interpretation.futureCityStartAt
+          ? await this.convertToUTC(interpretation.futureCityStartAt)
+          : null;
 
-          await this.prisma.talentPool.update({
-            where: { id: talentId },
-            data: {
-              futureCity: interpretation.futureCity,
-              futureCityStartAt: startUTC,
-              futureCityEndAt: endUTC ? endUTC : new Date(finalEndUTC),
-            },
-          });
-        } catch (error) {
-          throw new Error(`Error converting future city dates to UTC: ${error}`)
+        const endUTC = interpretation.futureCityEndAt
+          ? await this.convertToUTC(interpretation.futureCityEndAt)
+          : null;
+
+        const defaultEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        data.futureCity = interpretation.futureCity;
+        data.futureCityStartAt = startUTC;
+        data.futureCityEndAt = endUTC ?? defaultEnd;
+      }
+
+      // Current city and city update 
+      if (interpretation.currentCity) {
+        data.currentCity = interpretation.currentCity;
+        data.city = interpretation.currentCity;
+
+        if (interpretation.currentCityEndAt) {
+          data.currentCityEndAt = await this.convertToUTC(
+            interpretation.currentCityEndAt
+          );
         }
       }
 
-      // Update current city if provided and different from default
-      if (interpretation.currentCity) {
-        const currentCityEndAtUTC = await this.convertToUTC(interpretation.currentCityEndAt);
-        await this.prisma.talentPool.update({
-          where: { id: talentId },
-          data: {
-            currentCity: interpretation.currentCity,
-            currentCityEndAt: currentCityEndAtUTC,
-          },
-        });
-      }
-
-      // Update city home if provided
+      // City home
       if (interpretation.cityHome) {
-        await this.prisma.talentPool.update({
-          where: { id: talentId },
-          data: {
-            cityHome: interpretation.cityHome,
-            cityHomeUpdated: new Date(),
-          },
-        });
+        data.cityHome = interpretation.cityHome;
+        data.cityHomeUpdated = new Date();
       }
 
+      // Only update if there is something to update
+      if (Object.keys(data).length > 0) {
+        await this.prisma.talentPool.update({
+          where: { id: talentId },
+          data,
+        });
+      }
     } catch (error) {
-      this.logger.error(`Error processing location for message ${message.id}:`, error);
+      this.logger.error(
+        `Error processing location for message ${message.id}:`,
+        error,
+      );
       throw error;
-    }finally{
-       await this.prisma.message.update({
+    } finally {
+      await this.prisma.message.update({
         where: { id: message.id },
         data: {
-          ai_city_detected: 'true',
+          ai_city_detected: "true",
         },
       });
 
-      this.logger.log(
-        `Processed location for talent ${talentId}`,
-      );
+      this.logger.log(`Processed location for talent ${talentId}`);
     }
   }
 }
