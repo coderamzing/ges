@@ -217,7 +217,7 @@ export class CampaignInvitationAutomationService {
 
     try {
       const response = await this.campaignInvitationService.sendMessage(
-        token,
+        // token,
         receiverId,
         message,
         senderId,

@@ -9,65 +9,67 @@ export class TalentAutomationService {
 
   constructor(
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   @Cron(CronExpression.EVERY_MINUTE)
-  async  updateFutureCities(): Promise<void> {
-  const now = new Date(new Date().toISOString());
-  this.logger.log(`process update future location of talent`);
-  try {
-    const talents = await this.prisma.talentPool.findMany({
-     
-      where: {
-        OR: [
-          {
-            futureCity: { not: null },
-            futureCityStartAt: { lte: now },
-          },
-          {
-            currentCity: { not: null },
-            currentCityEndAt: { lt: now },
-          },
-        ],
-      },
-    });
-    if (talents.length === 0) {
-          this.logger.log(`No future cities to update at this time.`);
-      return;
-    }
+  async updateFutureCities(): Promise<void> {
+    const now = new Date(new Date().toISOString());
+    this.logger.log(`process update future location of talent`);
+    try {
+      const talents = await this.prisma.talentPool.findMany({
 
-    for (const talent of talents) {
-      let currentCityEndAt = talent.currentCityEndAt;
-      if(talent.futureCity){
-        await this.prisma.talentPool.update({
-          where: { id: talent.id },
-          data: {
-            currentCity: talent.futureCity,
-            futureCity: null,
-            futureCityStartAt: null,
-            currentCityEndAt: talent.futureCityEndAt,
-            futureCityEndAt: null, 
-          }
-        });
-        this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.futureCity}`);
+        where: {
+          OR: [
+            {
+              futureCity: { not: null },
+              futureCityStartAt: { lte: now },
+            },
+            {
+              currentCity: { not: null },
+              currentCityEndAt: { lt: now },
+            },
+          ],
+        },
+      });
+      if (talents.length === 0) {
+        this.logger.log(`No future cities to update at this time.`);
+        return;
       }
-      if(talent.currentCity && currentCityEndAt){
-        if(currentCityEndAt < now){
+
+      for (const talent of talents) {
+        let currentCityEndAt = talent.currentCityEndAt;
+        if (talent.futureCity) {
           await this.prisma.talentPool.update({
             where: { id: talent.id },
             data: {
-              currentCity: talent.cityHome?.trim() || talent.city,
-              currentCityEndAt: null,
+              currentCity: talent.futureCity,
+              city: talent.futureCity,
+              futureCity: null,
+              futureCityStartAt: null,
+              currentCityEndAt: talent.futureCityEndAt,
+              futureCityEndAt: null,
             }
           });
+          this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.futureCity}`);
         }
-        this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.cityHome?.trim() || talent.city}`);
-      }
+        if (talent.currentCity && currentCityEndAt) {
+          if (currentCityEndAt < now) {
+            await this.prisma.talentPool.update({
+              where: { id: talent.id },
+              data: {
+                currentCity: talent.cityHome?.trim() || talent.city,
+                city: talent.cityHome?.trim() || talent.city,
+                currentCityEndAt: null,
+              }
+            });
+          }
+          this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.cityHome?.trim() || talent.city}`);
+        }
 
+      }
+    } catch (err) {
+      console.error("Error updating future cities:", err);
     }
-  } catch (err) {
-    console.error("Error updating future cities:", err);
   }
-}
 
 }

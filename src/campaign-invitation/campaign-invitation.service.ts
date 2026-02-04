@@ -691,7 +691,7 @@ export class CampaignInvitationService {
   }
 
   async sendMessage(
-    token: string | null,
+    // token: string | null,
     receiverId: string, // sender
     message: string,
     senderId: number,
@@ -699,16 +699,35 @@ export class CampaignInvitationService {
     try {
       const mode = process.env.MESSAGE_MODE || "dev";
       const url = process.env.CHATBOT_URL || "";
+      const promoter = await this.prisma.user.findUnique({
+        where: {
+          id: BigInt(senderId),
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          username: true,
+          role: true,
+          city: true,
+          status: true,
+        },
+      });
+
+      if (!promoter) {
+        throw new Error(`Promote with ${senderId} not found`);
+      }
       if (mode === "live") {
+        let sender_username = promoter?.username
         const response = await axios.post(
           url,
-          { receiverId, message },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "x-auth-token": token,
-            },
-          },
+          { sender_username, receiverId, message },
+          // {
+          //   headers: {
+          //     "Content-Type": "application/json",
+          //     "x-auth-token": token,
+          //   },
+          // },
         );
         return response.data;
       }
@@ -716,24 +735,7 @@ export class CampaignInvitationService {
         const threadId = randomUUID();
         const messageId = randomUUID();
         const senderBigInt = BigInt(senderId);
-        const promoter = await this.prisma.user.findUnique({
-          where: {
-            id: BigInt(senderId),
-          },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            username: true,
-            role: true,
-            city: true,
-            status: true,
-          },
-        });
 
-        if (!promoter) {
-          throw new Error(`Promote with ${senderId} not found`);
-        }
 
         const now = new Date();
         const talent = await this.prisma.talentPool.findUnique({
@@ -770,7 +772,7 @@ export class CampaignInvitationService {
               pk1: talent.fromTrackerPk,
               pk2: talentPk,
               user_id: senderBigInt,
-              username1: talent.fromTracker,
+              username1: promoter?.username,
               username2: String(talent.id),
               name2: talent.name ?? null,
               picture2: talent.profilePicture ?? talent.mainPicture ?? null,
@@ -841,12 +843,12 @@ export class CampaignInvitationService {
         const response = await axios.post(
           url,
           { "id": fetchInvitation?.thread_id },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "x-auth-token": token,
-            },
-          },
+          // {
+          //   headers: {
+          //     "Content-Type": "application/json",
+          //     "x-auth-token": token,
+          //   },
+          // },
         );
         return response.data;
       }
