@@ -112,7 +112,6 @@ export class TempService {
             orderBy: { tm: 'asc' },
             take,
         });
-
         if (!rawMessages.length) {
             throw new NotFoundException(`No messages found for thread ${threadSafe.id}`);
         }
@@ -214,7 +213,7 @@ export class TempService {
         const take = Math.max(1, Math.min(Number(limit) || 200, 1000));
         const rawMessages: any[] = await this.prisma.message.findMany({
             where: { thread_id: thread.id },
-            orderBy: { created_at: 'asc' },
+            orderBy: { tm: 'asc' },
             take,
         });
 
@@ -230,7 +229,7 @@ export class TempService {
                         ? 'received'
                         : 'unknown';
 
-            const ts = m.created_at || m.tm || null;
+            const ts = m.tm || m.created_at || null;
             return {
                 id: m.id,
                 thread_id: m.thread_id,
@@ -255,7 +254,7 @@ export class TempService {
                     if (thread.username2 && m.sender_username === thread.username2) label = 'Talent';
                     else if (thread.username1 && m.sender_username === thread.username1) label = 'Promoter';
 
-                    const ts = m.created_at || m.tm;
+                    const ts = m.tm || m.created_at;
                     const iso = ts ? new Date(ts as any).toISOString() : '';
                     return `[${iso}] ${label}: ${m.message ?? ''}`;
                 })
