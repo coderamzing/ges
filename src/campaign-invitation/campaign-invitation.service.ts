@@ -24,7 +24,7 @@ import { logger } from "handlebars";
 
 @Injectable()
 export class CampaignInvitationService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -338,16 +338,16 @@ export class CampaignInvitationService {
     });
     let event = await this.prisma.events.findFirst({
       where: {
-        id: campaign.eventId
-      }
-    })
+        id: campaign.eventId,
+      },
+    });
     if (!event) {
       throw new NotFoundException(
         `Event not found with id ${campaign.eventId}`,
       );
     }
 
-    let limit = event?.guests || 10
+    let limit = event?.guests || 10;
     if (countCheck >= limit && batchId === 1) {
       await this.prisma.campaign.updateMany({
         where: {
@@ -718,7 +718,7 @@ export class CampaignInvitationService {
         throw new Error(`Promote with ${senderId} not found`);
       }
       if (mode === "live") {
-        let sender_username = promoter?.username
+        let sender_username = promoter?.username;
         const response = await axios.post(
           url,
           { sender_username, receiverId, message },
@@ -735,7 +735,6 @@ export class CampaignInvitationService {
         const threadId = randomUUID();
         const messageId = randomUUID();
         const senderBigInt = BigInt(senderId);
-
 
         const now = new Date();
         const talent = await this.prisma.talentPool.findUnique({
@@ -827,53 +826,62 @@ export class CampaignInvitationService {
     }
   }
 
-
   async UnsendMessage(
     token: string | null,
     invitationId: number,
   ): Promise<SendMessageResponse | undefined> {
     try {
       const fetchInvitation = await this.prisma.campaignInvitation.findFirst({
-        where: { id: invitationId }
-      })
+        where: { id: invitationId },
+      });
+
+      const findUnsendLastMessages = await this.prisma.message.findMany({
+        where: {
+          thread_id: fetchInvitation?.thread_id,
+          created_at: {
+            gte: fetchInvitation?.createdAt,
+            lte: new Date(),
+          },
+        },
+        orderBy: {
+          created_at: "desc",
+        },
+      });
 
       const mode = process.env.MESSAGE_MODE || "dev";
       const url = process.env.CHATBOT_UNSEND_MESSAGE || "";
       if (mode === "live") {
-        const response = await axios.post(
-          url,
-          { "id": fetchInvitation?.thread_id },
-          // {
-          //   headers: {
-          //     "Content-Type": "application/json",
-          //     "x-auth-token": token,
-          //   },
-          // },
-        );
-        return response.data;
+        for (const msg of findUnsendLastMessages) {
+          const response = await axios.post(
+            url,
+            { id: msg.id },
+            // {
+            //   headers: {
+            //     "Content-Type": "application/json",
+            //     "x-auth-token": token,
+            //   },
+            // },
+          );
+          return response.data;
+        }
       }
       if (mode === "dev") {
-        const unsendLastMessages = await this.prisma.message.deleteMany({
+        await this.prisma.message.deleteMany({
           where: {
             thread_id: fetchInvitation?.thread_id,
             created_at: {
               gte: fetchInvitation?.createdAt,
               lte: new Date(),
             },
-          }
-        })
-
+          },
+        });
       }
       // throw new Error(`Error while Unsend Previous Message with invitation  ${fetchInvitation?.id}`);
     } catch (error: any) {
-
       throw new HttpException(
         error?.response?.data || "Failed to Unsend Message",
         HttpStatus.BAD_GATEWAY,
       );
     }
   }
-
-
-
 }
