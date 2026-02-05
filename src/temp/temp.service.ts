@@ -166,7 +166,7 @@ export class TempService {
                         label = 'Talent';
                     }
 
-                    const ts = (m.created_at || m.tm);
+                    const ts = (m.tm || m.created_at);
                     const iso = ts ? new Date(ts as any).toISOString() : '';
                     return `[${iso}] ${label}: ${m.message ?? ''}`;
                 })
