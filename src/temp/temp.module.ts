@@ -6,6 +6,7 @@ import { TempService } from './temp.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
 import { CampaignInvitationService } from 'src/campaign-invitation/campaign-invitation.service';
+import { OpenAIModule } from '../openai/openai.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CampaignInvitationService } from 'src/campaign-invitation/campaign-invi
       }),
       inject: [ConfigService],
     }),
+    OpenAIModule,
   ],
   controllers: [TempController],
   providers: [TempService, PrismaService, JwtAuthGuard, CampaignInvitationService],

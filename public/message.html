@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages → Location Prompt Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .messages-box {
+            max-height: 360px;
+            overflow: auto;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .msg {
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .msg.promoter { background: #e7f1ff; border: 1px solid #cfe2ff; }
+        .msg.talent { background: #eaf7ef; border: 1px solid #cfead9; }
+
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+        pre { white-space: pre-wrap; word-break: break-word; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <a href="index.html" class="btn btn-secondary btn-sm">← Back</a>
+                <h3 class="mt-3 mb-0">Messages → Location Prompt Test</h3>
+                <small class="text-muted">Loads messages from a campaign, builds a full conversation string, then calls the new endpoint.</small>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Promoter Username (optional)</label>
+                        <input id="promoterUsername" class="form-control" type="text" placeholder="Leave empty = use token user (thread.username1)" />
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Talent ID (direct thread lookup)</label>
+                        <input id="talentId" class="form-control" type="text" placeholder="Paste talent.id (TalentPool.id)" />
+                    </div>
+                    <div class="col-md-3">
+                        <button id="loadThreadBtn" class="btn btn-outline-primary w-100">Load thread</button>
+                    </div>
+                </div>
+
+                <div class="text-center text-muted my-2">— OR —</div>
+
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-9">
+                        <label class="form-label">Thread ID</label>
+                        <input id="threadId" class="form-control" type="text" placeholder="Paste thread.id" />
+                    </div>
+                    <div class="col-md-3">
+                        <button id="loadByThreadIdBtn" class="btn btn-outline-dark w-100">Load by threadId</button>
+                    </div>
+                </div>
+
+                <div id="loadStatus" class="mt-3"></div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">fullMessage (editable)</h5>
+                            <button id="interpretBtn" class="btn btn-success btn-sm" disabled>Interpret location</button>
+                        </div>
+                        <textarea id="fullMessage" class="form-control mono" rows="12" placeholder="Click “Build fullMessage →” or paste your own message thread here..."></textarea>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="mb-2">Response (raw JSON)</h5>
+                        <pre id="result" class="mono mb-0">{}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = '/api';
+        const token = localStorage.getItem('token');
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialTalentId = urlParams.get('talentId');
+
+        if (!token) {
+            window.location.href = 'index.html';
+        }
+
+        // Conversation panel removed: we only fill the textarea
+
+        async function hydrateMe() {
+            try {
+                const me = await $.ajax({
+                    url: `${API_BASE}/auth/me`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const username = me?.user?.username || '';
+                if (username && !($('#promoterUsername').val() || '').toString().trim()) {
+                    $('#promoterUsername').val(username);
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        function setStatus(html, type = 'info') {
+            $('#loadStatus').html(`<div class="alert alert-${type} py-2 mb-0">${html}</div>`);
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Conversation panel removed
+
+        async function interpretLocation(messages) {
+            $('#result').text('Loading…');
+            try {
+                const res = await $.ajax({
+                    url: `${API_BASE}/temp/location/interpret`,
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify({ messages })
+                });
+                $('#result').text(JSON.stringify(res, null, 2));
+            } catch (error) {
+                const msg = error?.responseJSON?.message || error.statusText || 'Request failed';
+                $('#result').text(JSON.stringify({ error: msg }, null, 2));
+            }
+        }
+
+        async function loadThreadByTalentId(talentId) {
+            setStatus('Loading thread…', 'info');
+            $('#interpretBtn').prop('disabled', true);
+            $('#result').text('{}');
+
+            try {
+                const promoterUsername = ($('#promoterUsername').val() || '').toString().trim();
+                const qs = promoterUsername ? `?limit=500&promoterUsername=${encodeURIComponent(promoterUsername)}` : `?limit=500`;
+                const data = await $.ajax({
+                    url: `${API_BASE}/temp/talent/${encodeURIComponent(talentId)}/thread${qs}`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const full = (data?.fullMessage || '').toString();
+                if (full.trim()) {
+                    $('#fullMessage').val(full);
+                    $('#interpretBtn').prop('disabled', false);
+                }
+
+                setStatus(`Loaded thread ${escapeHtml(data?.thread?.id || '')} for talent ${escapeHtml(talentId)}. fullMessage auto-filled.`, 'success');
+            } catch (error) {
+                const msg = error?.responseJSON?.message || error.statusText || 'Request failed';
+                setStatus(`Error loading thread: ${escapeHtml(msg)}`, 'danger');
+            }
+        }
+
+        async function loadThreadByThreadId(threadId) {
+            setStatus('Loading thread…', 'info');
+            $('#interpretBtn').prop('disabled', true);
+            $('#result').text('{}');
+
+            try {
+                const data = await $.ajax({
+                    url: `${API_BASE}/temp/thread/${encodeURIComponent(threadId)}?limit=500`,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const full = (data?.fullMessage || '').toString();
+                if (full.trim()) {
+                    $('#fullMessage').val(full);
+                    $('#interpretBtn').prop('disabled', false);
+                }
+
+                setStatus(`Loaded thread ${escapeHtml(data?.thread?.id || threadId)}. fullMessage auto-filled.`, 'success');
+            } catch (error) {
+                const msg = error?.responseJSON?.message || error.statusText || 'Request failed';
+                setStatus(`Error loading thread: ${escapeHtml(msg)}`, 'danger');
+            }
+        }
+
+        // Events
+        $('#loadThreadBtn').on('click', function () {
+            const talentId = ($('#talentId').val() || '').toString().trim();
+            if (!talentId) {
+                setStatus('Talent ID is required.', 'warning');
+                return;
+            }
+            loadThreadByTalentId(talentId);
+        });
+
+        $('#loadByThreadIdBtn').on('click', function () {
+            const threadId = ($('#threadId').val() || '').toString().trim();
+            if (!threadId) {
+                setStatus('Thread ID is required.', 'warning');
+                return;
+            }
+            loadThreadByThreadId(threadId);
+        });
+
+        $('#fullMessage').on('input', function () {
+            const val = ($(this).val() || '').toString();
+            $('#interpretBtn').prop('disabled', !val.trim());
+        });
+
+        $('#interpretBtn').on('click', function () {
+            const messages = ($('#fullMessage').val() || '').toString();
+            if (!messages.trim()) return;
+            interpretLocation(messages);
+        });
+
+        // Init
+        hydrateMe();
+        if (initialTalentId) {
+            $('#talentId').val(initialTalentId);
+            loadThreadByTalentId(initialTalentId);
+        } else {
+            setStatus('Paste a Talent ID, click “Load thread”, then interpret (or type your own fullMessage).', 'info');
+        }
+    </script>
+</body>
+</html>
+
