@@ -99,7 +99,7 @@ model CampaignTemplate {
   type       TemplateType
   name       String
   content    String
-  mode       String       @default(auto)
+  mode       String       @default("auto")
   batchId    Int          @default(1)
   isActive   Boolean      @default(false)
   spintaxEnabled Boolean  @default(true)

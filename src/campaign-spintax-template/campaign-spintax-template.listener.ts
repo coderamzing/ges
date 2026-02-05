@@ -59,7 +59,6 @@ export class CampaignSpintaxTemplateListener {
                 throw new Error(`No valid items returned from OpenAI`);
             }
 
-
             const spintaxTemplates: any[] = [];
             items.forEach((item, index) => {
                 spintaxTemplates.push({
