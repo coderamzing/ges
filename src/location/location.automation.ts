@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 import { OpenAIService } from "../openai/openai.service";
@@ -75,27 +75,38 @@ export class LocationAutomationService {
       for (const message of messages) {
         if (!message.thread_id || !message.sender_username) continue;
 
+         const DAYS = 7;
+         const sevenDaysAgo = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
         // Get all previous messages in the thread for this talent (reverse order - oldest to newest)
         const allThreadMessages = await this.prisma.message.findMany({
           select: {
             message: true,
             created_at: true,
             sender_username: true,
+            tm:true,
           },
           where: {
             thread_id: message.thread_id,
-            // sender_username: message.sender_username,
+            created_at: {
+            gte: sevenDaysAgo,
+          },
           },
           orderBy: {
-            created_at: "asc",
+            tm: "asc",
           },
         });
+
+
 
         const thread = await this.prisma.thread.findUnique({
           where: {
             id: message.thread_id,
           },
         });
+
+        if (!thread) {
+            throw new NotFoundException(`Thread not found: ${message.thread_id}`);
+        }
 
         if (!thread || !thread.username2) continue;
 
@@ -119,14 +130,13 @@ export class LocationAutomationService {
             .map((msg) => {
               let label = "Unknown";
 
-              if (msg.sender_username === talentUsername) {
+              if (talentUsername && msg.sender_username === talentUsername) {
                 label = "Talent";
-              } else if (msg.sender_username === promoterUsername) {
+              } else if (promoterUsername && msg.sender_username === promoterUsername) {
                 label = "Promoter";
               }
 
-              // return `${msg.created_at} ${msg.message}`,
-              return `[${msg.created_at?.toISOString()}] ${label}: ${msg.message}`;
+              return `[${msg.tm?.toISOString() || msg.created_at?.toISOString()}] ${label}: ${msg.message}`;
             })
             .join("\n\n");
 

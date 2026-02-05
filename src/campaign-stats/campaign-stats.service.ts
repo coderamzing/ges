@@ -186,6 +186,7 @@ export class CampaignStatsService {
 
     return {
       event: eventDto,
+      target:eventDto.guests ?? 0,
       totalContacted,
       sent,
       delivered,

@@ -75,6 +75,9 @@ export class CampaignStatsDto {
   @ApiProperty({ description: 'Total profiles contacted' })
   totalContacted: number;
 
+  @ApiProperty({ description: 'Target guest' })
+  target: number;
+
   @ApiProperty({ description: 'Total sent' })
   sent: number;
 

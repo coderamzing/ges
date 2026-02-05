@@ -852,7 +852,7 @@ export class CampaignInvitationAutomationService {
             // Check if enough time has passed since last send for this promoter
             if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
                 this.logger.debug(
-                    `Skipping thank you for promoter ${promoterId}, waiting for random gap`,
+                    `Skipping thank you for promoter ${promoterId}, waiting for random gap for this invitation: ${invitation.id}`,
                 );
                 return;
             }
