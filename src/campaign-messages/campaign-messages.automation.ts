@@ -4,18 +4,11 @@ import { PrismaService } from "../prisma/prisma.service";
 import { OpenAIService } from "../openai/openai.service";
 import { Campaign, Events, Prisma } from "@prisma/client";
 import {
-  MessageDirection,
   InvitationStatus,
-  CampaignMessage,
   Message,
   CampaignStatus,
   CampaignInvitation,
-  AiPrompt,
 } from "@prisma/client";
-import {
-  MESSAGE_INTERPRETATION_PROMPT,
-  MESSAGE_INTERPRETATION_SYSTEM_PROMPT,
-} from "./campaign-messages.config";
 import { renderTemplate } from "utils/handlebar";
 import { TalentBlacklistService } from "src/talend-blacklist/talent-blacklist.service";
 import { TP_STATUS_MAP } from "src/talent/talent.config";
@@ -95,6 +88,11 @@ export class CampaignMessagesAutomationService {
         },
       });
 
+       if (!this.prompt) {
+        this.logger.warn("EVENT_INTERPRETATION prompt not found");
+        return;
+      }
+
       const messages = await this.prisma.message.findMany({
         where: {
           ai_processed: false,
@@ -126,23 +124,6 @@ export class CampaignMessagesAutomationService {
       const invitationMap = new Map(
         invitations.map((inv) => [inv.thread_id, inv]),
       );
-
-      // const result = messages
-      //   .map(msg => {
-      //     const invitation = invitationMap.get(msg.thread_id!);
-      //     if (!invitation) return null;
-
-      //     if (!invitation.event) return null;
-      //     if (!invitation.campaign || invitation.campaign.status === CampaignStatus.completed) {
-      //       return null;
-      //     }
-
-      //     return {
-      //       ...msg,
-      //       invitation,
-      //     };
-      //   })
-      //   .filter((x): x is NonNullable<typeof x> => x !== null); // TS-safe filter
 
       const result: MessageWithInvitationAndEvent[] = [];
 
