@@ -109,7 +109,7 @@ export class TempService {
         // STEP 2: load all messages for that thread_id ordered by created_at asc
         const rawMessages: any[] = await this.prisma.message.findMany({
             where: { thread_id: threadSafe.id },
-            orderBy: { created_at: 'asc' },
+            orderBy: { tm: 'asc' },
             take,
         });
 
