@@ -361,8 +361,14 @@ export class TalentService {
 
     const totalPages = Math.ceil(total / limit);
 
+    const sortedData = data.sort((a, b) => {
+      const trustScoreA = a.promoterStates?.[0]?.trustScore ?? 0;
+      const trustScoreB = b.promoterStates?.[0]?.trustScore ?? 0;
+      return trustScoreB - trustScoreA;
+    });
+
     return {
-      data,
+      data: sortedData,
       total,
       page,
       limit,
