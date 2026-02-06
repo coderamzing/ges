@@ -101,62 +101,6 @@ export class TalentRecommendationFiltersDto {
 
 
   @ApiPropertyOptional({
-    description: 'Trust score range. Examples: "10-40", "25"',
-    example: '10-40',
-    type: String,
-  })
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (value === undefined || value === null || value === '') {
-      return undefined;
-    }
-
-    const input = String(value).trim();
-
-    // single number → min only
-    if (/^\d+$/.test(input)) {
-      return {
-        min: Number(input),
-        max: undefined,
-      };
-    }
-
-    // range: min-max
-    if (/^\d+\s*-\s*\d+$/.test(input)) {
-      const [minStr, maxStr] = input.split('-').map(v => v.trim());
-
-      const min = Number(minStr);
-      const max = Number(maxStr);
-
-      if (max <= min) {
-        throw new BadRequestException(
-          'trustScoreRange: max value must be greater than min value',
-        );
-      }
-
-      return { min, max };
-    }
-
-    throw new BadRequestException(
-      'trustScoreRange format must be "min-max" or "min"',
-    );
-  })
-  trustScoreRange?: {
-    min: number;
-    max?: number;
-  };
-
-  @ApiPropertyOptional({
-    description: 'Show only talents recommended by AI',
-    example: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  recommendation?: boolean;
-
-
-  @ApiPropertyOptional({
     description: 'Maximum number of results',
     default: 100,
     example: 50
