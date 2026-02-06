@@ -24,7 +24,7 @@ import { logger } from "handlebars";
 
 @Injectable()
 export class CampaignInvitationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -718,16 +718,9 @@ export class CampaignInvitationService {
         throw new Error(`Promote with ${senderId} not found`);
       }
       if (mode === "live") {
-        let sender_username = promoter?.username;
         const response = await axios.post(
           url,
-          { sender_username, receiverId, message },
-          // {
-          //   headers: {
-          //     "Content-Type": "application/json",
-          //     "x-auth-token": token,
-          //   },
-          // },
+          { userId: promoter?.id, receiverUsername: receiverId, message },
         );
         return response.data;
       }
@@ -855,12 +848,6 @@ export class CampaignInvitationService {
           const response = await axios.post(
             url,
             { id: msg.id },
-            // {
-            //   headers: {
-            //     "Content-Type": "application/json",
-            //     "x-auth-token": token,
-            //   },
-            // },
           );
           return response.data;
         }
