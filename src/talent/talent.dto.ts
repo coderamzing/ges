@@ -29,37 +29,55 @@ export class TalentRecommendationFiltersDto {
   city?: string;
 
 
-  @ApiPropertyOptional({ description: 'Show only talents who have replied before', example: true })
+  @ApiPropertyOptional({
+    description: 'Search talents by  country',
+    example: 'Italy',
+  })
   @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  openchat?: boolean;
+  @IsString()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value
+  )
+  country?: string;
 
-  @ApiPropertyOptional({ description: 'Show only talents already messaged in this batch', example: true })
+  @ApiPropertyOptional({
+    description: 'Search talents by  hairColor',
+    example: 'Blonde',
+  })
   @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  dmSent?: boolean;
+  @IsString()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value
+  )
+  hairColor?: string;
 
 
-  @ApiPropertyOptional({ description: 'Show only talents already messaged in this batch', example: true })
+  @ApiPropertyOptional({
+    description: 'Search talents by  ethnicity',
+    example: 'Caucasian/European',
+  })
   @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  firstChoice?: boolean;
+  @IsString()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value
+  )
+  ethnicity?: string;
 
-  @ApiPropertyOptional({ description: 'Show only talents already messaged in this batch', example: true })
+
+  @ApiPropertyOptional({
+    description: 'Filter talents by statusIds',
+    example: [18, 23, 34],
+    isArray: true,
+  })
   @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  liked?: boolean;
-
-
-  @ApiPropertyOptional({ description: 'Show only blacklisted talents', example: false })
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  blacklist?: boolean;
+  @IsArray()
+  @IsInt({ each: true })
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    if (Array.isArray(value)) return value.map(Number); //supports: statusId=18,23,34 OR statusId[]=18&statusId[]=23  
+    return value.split(',').map(Number);
+  })
+  statusId?: number[];
 
   @ApiPropertyOptional({
     description: 'Select one or more talent types',
@@ -79,8 +97,7 @@ export class TalentRecommendationFiltersDto {
   })
   @IsArray()
   @IsIn(['civilian', 'hybrid', 'supermodel', 'model'], { each: true })
-  talentType?: string[];
-
+  genre?: string[];
 
 
   @ApiPropertyOptional({

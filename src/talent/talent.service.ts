@@ -30,6 +30,7 @@ export class TalentService {
     limit: number;
     totalPages: number;
   }> {
+
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
     });
@@ -152,20 +153,29 @@ export class TalentService {
       ];
     }
 
-    const city = filters?.city ? filters?.city?.trim() : event.city?.trim();
-    console.log(city, "incoming vity ");
-    if (city) {
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        {
-          city: {
-            equals: city,
+
+    baseWhere.AND ||= [];
+
+    const filterFields = ["city", "country", "hairColor", "ethnicity"] as const;
+
+    for (const field of filterFields) {
+      const value = filters?.[field];
+
+      //  apply filter ONLY if value exists and is not empty
+      if (value && typeof value === "string" && value.trim() !== "") {
+        baseWhere.AND.push({
+          [field]: {
+            equals: value.trim(),
             mode: "insensitive",
           },
-        },
-      ];
+        });
+      }
     }
+
+
+
     // search with recommendation
+    const RecomendationCity = event?.city?.trim();
     const orderBy: any[] = [];
 
     if (filters.recommendation === true) {
@@ -175,7 +185,7 @@ export class TalentService {
             { futureCity: { not: null } },
             {
               futureCity: {
-                equals: city,
+                equals: RecomendationCity,
                 mode: "insensitive",
               },
             },
@@ -222,8 +232,8 @@ export class TalentService {
             },
             {
               OR: [
-                { currentCity: { equals: city, mode: "insensitive" } },
-                { city: { equals: city, mode: "insensitive" } },
+                { currentCity: { equals: RecomendationCity, mode: "insensitive" } },
+                { city: { equals: RecomendationCity, mode: "insensitive" } },
               ],
             },
           ],
@@ -246,29 +256,19 @@ export class TalentService {
     }
 
     // search with talent type
-    if (filters.talentType?.length) {
-      baseWhere.talentType = { in: filters.talentType };
+    if (filters.genre?.length) {
+      baseWhere.talentType = { in: filters.genre };
     }
 
     // search with Open Chat , Dm Sent , First Choice , Liked
-    const statusFilters = [
-      { enabled: filters.openchat === true, id: TP_STATUS_MAP.OPEN_CHAT },
-      { enabled: filters.dmSent === true, id: TP_STATUS_MAP.DM_SENT },
-      { enabled: filters.firstChoice === true, id: TP_STATUS_MAP.FIRST_CHOICE },
-      { enabled: filters.liked === true, id: TP_STATUS_MAP.LIKED },
-      { enabled: filters.blacklist === true, id: TP_STATUS_MAP.BLACKLIST },
-    ];
-
-    const enabledStatuses = statusFilters.filter((s) => s.enabled);
-
-    if (enabledStatuses.length > 0) {
+    if (filters.statusId && filters.statusId.length > 0) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
-        ...enabledStatuses.map((status) => ({
+        ...filters.statusId.map((id) => ({
           userTpStatus: {
             some: {
               userId: promoterId,
-              statusId: status.id,
+              statusId: id,
             },
           },
         })),
@@ -371,60 +371,5 @@ export class TalentService {
       totalPages,
     };
 
-
-    //   const page = filters.page && filters.page > 0 ? filters.page : 1;
-    //   const limit = filters.limit && filters.limit > 0 ? filters.limit : 100;
-
-    //   const limitPerChunk = 5000; // safe chunk size
-    //   let offset = 0;
-    //   let allTalents: any[] = [];
-
-    //   while (true) {
-    //     const chunk = await this.prisma.talentPool.findMany({
-    //       skip: offset,
-    //       take: limitPerChunk,
-    //       where: baseWhere,
-    //       include: {
-    //         blacklists: { where: { promoterId }, take: 1 },
-    //         promoterStates: {
-    //           where: { promoterId },
-    //           take: 1,
-    //           select: { trustScore: true },
-    //         },
-    //       },
-    //     });
-
-    //     if (chunk.length === 0) break;
-
-    //     allTalents.push(...chunk);
-    //     offset += limitPerChunk;
-    //   }
-
-    //   // Map trustScore = 0 if missing and sort
-    //   const rankedTalents = allTalents
-    //     .map((tp) => ({
-    //       ...tp,
-    //       trustScore: tp.promoterStates[0]?.trustScore ?? 0,
-    //     }))
-    //     .sort((a, b) => b.trustScore - a.trustScore);
-
-    //   //  total count AFTER all filters
-    //   const totalCount = rankedTalents.length;
-
-    //   //  pagination calculation
-    //   const totalPages = Math.ceil(totalCount / limit);
-    //   const startIndex = (page - 1) * limit;
-    //   const paginatedTalents = rankedTalents.slice(
-    //     startIndex,
-    //     startIndex + limit,
-    //   );
-
-    //   return {
-    //     total: totalCount,
-    //     page,
-    //     limit,
-    //     totalPages,
-    //     data: paginatedTalents,
-    //   };
   }
 }
