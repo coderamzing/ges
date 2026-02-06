@@ -30,7 +30,7 @@ export class TalentService {
     limit: number;
     totalPages: number;
   }> {
-
+    console.log(filters, "values ")
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
     });
@@ -173,12 +173,14 @@ export class TalentService {
     }
 
 
-
     // search with recommendation
+    const statusIdForRecommendation = filters.statusId?.map(Number) || [];
+    const recommendation = statusIdForRecommendation.includes(18);
+    console.log(recommendation, "recomendation ")
     const RecomendationCity = event?.city?.trim();
     const orderBy: any[] = [];
 
-    if (filters.recommendation === true) {
+    if (recommendation) {
       baseWhere.OR = [
         {
           AND: [
@@ -261,10 +263,13 @@ export class TalentService {
     }
 
     // search with Open Chat , Dm Sent , First Choice , Liked
-    if (filters.statusId && filters.statusId.length > 0) {
+    const statusIds = (filters.statusId || [])
+      .map(Number)
+      .filter(id => ![16, 17, 18].includes(id));
+    if (statusIds && statusIds.length > 0) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
-        ...filters.statusId.map((id) => ({
+        ...statusIds.map((id) => ({
           userTpStatus: {
             some: {
               userId: promoterId,
@@ -276,13 +281,16 @@ export class TalentService {
     }
 
     //trust score with filter
-    const hasTrustScoreFilter =
-      filters.trustScoreRange !== undefined &&
-      ((filters.trustScoreRange.min !== undefined &&
-        filters.trustScoreRange.min > 0) ||
-        filters.trustScoreRange.max !== undefined);
+    let trustScore: number | undefined = undefined;
+    if (filters.statusId?.includes(16)) {
+      trustScore = 50;
+    }
 
-    if (hasTrustScoreFilter) {
+    if (filters.statusId?.includes(17)) {
+      trustScore = 100;
+    }
+    console.log(trustScore, "Trust core")
+    if (trustScore !== undefined) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
         {
@@ -290,19 +298,9 @@ export class TalentService {
             some: {
               promoterId,
               optedOut: false,
-
-              ...(hasTrustScoreFilter
-                ? {
-                  AND: [
-                    ...(filters.trustScoreRange?.min !== undefined
-                      ? [{ trustScore: { gte: filters.trustScoreRange.min } }]
-                      : []),
-                    ...(filters.trustScoreRange?.max !== undefined
-                      ? [{ trustScore: { lte: filters.trustScoreRange.max } }]
-                      : []),
-                  ],
-                }
-                : {}),
+              trustScore: {
+                gt: trustScore,
+              },
             },
           },
         },
@@ -325,10 +323,9 @@ export class TalentService {
 
 
     const page = filters.page && filters.page > 0 ? filters.page : 1;
-    const limit = filters.limit && filters.limit > 0 ? filters.limit : 100;
+    const Templimit = filters.limit && filters.limit > 0 ? filters.limit : 100;
+    const limit = recommendation ? 100 : Templimit;
     const skip = (page - 1) * limit;
-
-    // -------------------- orderBy (NO trustScore sorting now) --------------------
 
 
     // -------------------- total count --------------------
@@ -340,7 +337,8 @@ export class TalentService {
     const data = await this.prisma.talentPool.findMany({
       where: baseWhere,
       skip,
-      take: limit,
+      // take: limit,
+      take: recommendation ? 100 : limit,
       // orderBy,
       include: {
         blacklists: { where: { promoterId }, take: 1 },
