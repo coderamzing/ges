@@ -112,7 +112,7 @@ export class LocationAutomationService {
         //     throw new NotFoundException(`Thread not found: ${message.thread_id}`);
         // }
         if (!thread) {
-          console.error("⚠️ Thread not found:", message.thread_id);
+          this.logger.log(" Thread not found:", message.thread_id);
           continue; // skip this message, don't crash cron
         }
 
@@ -147,8 +147,6 @@ export class LocationAutomationService {
               return `[${msg.tm?.toISOString() || msg.created_at?.toISOString()}] ${label}: ${msg.message}`;
             })
             .join("\n\n");
-
-        console.log("fullMessage -------->", fullMessage);
 
         await this.processTalentLocation(
           message as unknown as Message,
