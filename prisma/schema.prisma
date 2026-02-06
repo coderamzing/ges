@@ -347,6 +347,8 @@ model TalentPool {
   futureCityStartAt     DateTime? @map("future_city_start_at")
   futureCityEndAt       DateTime? @map("future_city_end_at")
   currentCityEndAt      DateTime? @map("current_city_end_at")
+  futureContinent       String?   @map("future_continent")
+  futureCountry         String?   @map("future_country")
 
   // Relations
   promoterStates TalentPromoterState[]

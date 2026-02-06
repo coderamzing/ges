@@ -538,7 +538,7 @@ export class CampaignInvitationAutomationService {
                                     status: {
                                         in: [
                                             CampaignStatus.active, // follow up > 0
-                                            CampaignStatus.completed,
+                                            // CampaignStatus.completed,
                                         ],
                                     },
                                 },

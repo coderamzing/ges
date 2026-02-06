@@ -8,10 +8,14 @@ import { renderTemplate } from "utils/handlebar";
 interface LocationInterpretationResponse {
   currentCity?: string | null;
   futureCity?: string | null;
+  currentCountry?: string | null;
+  currentContinent?: string | null;
   futureCityStartAt?: string | null;
   futureCityEndAt?: string | null;
   currentCityEndAt?: string | null;
   cityHome?: string | null;
+  futureContinent?: string | null;
+  futureCountry?: string | null;
 }
 
 @Injectable()
@@ -219,6 +223,7 @@ export class LocationAutomationService {
           `Location interpretation response for talent ${talentId}:`,
           response,
         );
+
         interpretation = {
           currentCity: this.parseNullString(response.currentCity),
           futureCity: this.parseNullString(response.futureCity),
@@ -226,7 +231,12 @@ export class LocationAutomationService {
           futureCityEndAt: response.futureCityEndAt,
           currentCityEndAt: response.currentCityEndAt,
           cityHome: this.parseNullString(response.cityHome),
+          currentCountry: this.parseNullString(response.currentCountry),
+          currentContinent: this.parseNullString(response.currentContinent),
+          futureCountry: this.parseNullString(response.futureCountry),
+          futureContinent: this.parseNullString(response.futureContinent),
         };
+
       } catch (error) {
         throw new Error(
           `Error calling OpenAI for location interpretation - talent ${talentId}:`,
@@ -249,13 +259,20 @@ export class LocationAutomationService {
         data.futureCity = interpretation.futureCity;
         data.futureCityStartAt = startUTC;
         data.futureCityEndAt = endUTC ?? defaultEnd;
+        data.futureCountry = interpretation.futureCountry;
+        data.futureContinent = interpretation.futureContinent;
+        
       }
 
       // Current city and city update 
       if (interpretation.currentCity) {
         data.currentCity = interpretation.currentCity;
         data.city = interpretation.currentCity;
-
+        data.country = interpretation.currentCountry;
+        data.continent = interpretation.currentContinent;
+        data.storyDateTime = new Date();
+        
+        
         if (interpretation.currentCityEndAt) {
           data.currentCityEndAt = await this.convertToUTC(
             interpretation.currentCityEndAt

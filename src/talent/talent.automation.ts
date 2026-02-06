@@ -44,10 +44,15 @@ export class TalentAutomationService {
             data: {
               currentCity: talent.futureCity,
               city: talent.futureCity,
+              country:talent.futureCountry,
+              continent: talent.futureContinent,
+              currentCityEndAt: talent.futureCityEndAt,
+              storyDateTime: new Date(),
               futureCity: null,
               futureCityStartAt: null,
-              currentCityEndAt: talent.futureCityEndAt,
               futureCityEndAt: null,
+              futureCountry:null,
+              futureContinent:null,
             }
           });
           this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.futureCity}`);
@@ -60,6 +65,7 @@ export class TalentAutomationService {
                 currentCity: talent.cityHome?.trim() || talent.city,
                 city: talent.cityHome?.trim() || talent.city,
                 currentCityEndAt: null,
+                storyDateTime: new Date(),
               }
             });
           }
