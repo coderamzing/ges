@@ -136,13 +136,28 @@ export class CampaignInvitationAutomationService {
         batchId: number;
     }): Promise<string | null> {
         const { campaignId, templateType, talentLang, batchId } = params;
+           const template = await this.prisma.campaignTemplate.findFirst({
+            where: { 
+                campaignId,
+                type: templateType,
+                batchId,
+            },
+        });
+
+        if (!template) {
+            this.logger.warn(
+                `No templates found for campaign ${campaignId}, type ${templateType}`,
+            );
+            return null;
+        }
+
 
         const spintaxTemplates = await this.prisma.campaignSpintaxTemplate.findMany(
             {
                 where: {
                     campaignId: campaignId,
                     type: templateType,
-                    lang: { in: ["en", talentLang] },
+                    lang: { in: [template.lang, talentLang] },
                     batch: batchId,
                 },
             },
@@ -157,7 +172,7 @@ export class CampaignInvitationAutomationService {
             (t) => t.lang === talentLang,
         );
         if (!preferred.length) {
-            preferred = spintaxTemplates.filter((t) => t.lang === "en");
+            preferred = spintaxTemplates.filter((t) => t.lang === template.lang);
         }
         if (!preferred.length) {
             this.logger.warn(
