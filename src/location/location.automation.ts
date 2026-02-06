@@ -26,7 +26,7 @@ export class LocationAutomationService {
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
-  ) {}
+  ) { }
 
   /**
    * Process messages to extract location information
@@ -79,21 +79,21 @@ export class LocationAutomationService {
       for (const message of messages) {
         if (!message.thread_id || !message.sender_username) continue;
 
-         const DAYS = 7;
-         const sevenDaysAgo = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
+        const DAYS = 7;
+        const sevenDaysAgo = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
         // Get all previous messages in the thread for this talent (reverse order - oldest to newest)
         const allThreadMessages = await this.prisma.message.findMany({
           select: {
             message: true,
             created_at: true,
             sender_username: true,
-            tm:true,
+            tm: true,
           },
           where: {
             thread_id: message.thread_id,
             created_at: {
-            gte: sevenDaysAgo,
-          },
+              gte: sevenDaysAgo,
+            },
           },
           orderBy: {
             tm: "asc",
@@ -108,8 +108,12 @@ export class LocationAutomationService {
           },
         });
 
+        // if (!thread) {
+        //     throw new NotFoundException(`Thread not found: ${message.thread_id}`);
+        // }
         if (!thread) {
-            throw new NotFoundException(`Thread not found: ${message.thread_id}`);
+          console.error("⚠️ Thread not found:", message.thread_id);
+          continue; // skip this message, don't crash cron
         }
 
         if (!thread || !thread.username2) continue;
@@ -261,7 +265,7 @@ export class LocationAutomationService {
         data.futureCityEndAt = endUTC ?? defaultEnd;
         data.futureCountry = interpretation.futureCountry;
         data.futureContinent = interpretation.futureContinent;
-        
+
       }
 
       // Current city and city update 
@@ -271,8 +275,8 @@ export class LocationAutomationService {
         data.country = interpretation.currentCountry;
         data.continent = interpretation.currentContinent;
         data.storyDateTime = new Date();
-        
-        
+
+
         if (interpretation.currentCityEndAt) {
           data.currentCityEndAt = await this.convertToUTC(
             interpretation.currentCityEndAt
