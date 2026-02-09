@@ -4,6 +4,7 @@ import { TalentPool } from "@prisma/client";
 import { TalentRecommendationFiltersDto } from "./talent.dto";
 import { InvitationStatus } from "@prisma/client";
 import { TP_STATUS_MAP } from "./talent.config";
+import { BadRequestError } from "openai";
 @Injectable()
 export class TalentService {
   constructor(private prisma: PrismaService) { }
@@ -22,7 +23,30 @@ export class TalentService {
 
 
   async getDispatcherStatuses(type?: string) {
-    let value = type || process.env.DISPATCHER || 'dispatcher'
+    if (!type) {
+      throw new NotFoundException(`Must need type for filter.`);
+    }
+    // let value = type || process.env.DISPATCHER || 'dispatcher'
+    const data = await this.prisma.tpStatus.findMany({
+      where: {
+        types: {
+          contains: type,
+        },
+      },
+    });
+
+    const result = data.filter(item => {
+      if (!item.types) return false;
+      const typesArray = item.types.split(',').map(t => t.trim());
+      return typesArray.includes(type);
+    });
+
+    return result;
+  }
+
+
+  async gettalentStatuses() {
+    let value = process.env.TALENT || 'talent'
     const data = await this.prisma.tpStatus.findMany({
       where: {
         types: {
@@ -39,7 +63,6 @@ export class TalentService {
 
     return result;
   }
-
 
 
 
@@ -300,50 +323,68 @@ export class TalentService {
       baseWhere.talentType = { in: filters.genre };
     }
 
-    // search with Open Chat , Dm Sent , First Choice , Liked
+
+
+
+
+    const BLACKLIST_STATUS_ID = 11;
+
+    // status filter
     const statusIds = (filters.statusId || [])
       .map(Number)
       .filter(id => ![16, 17, 18].includes(id));
-    if (statusIds && statusIds.length > 0) {
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        ...statusIds.map((id) => ({
-          userTpStatus: {
-            some: {
-              userId: promoterId,
-              statusId: id,
-            },
-          },
-        })),
-      ];
-    }
 
-    //trust score with filter
-    let trustScore: number | undefined = undefined;
-    if (filters.statusId?.includes(16)) {
-      trustScore = 50;
-    }
+    const hasBlacklistFilter = statusIds.includes(BLACKLIST_STATUS_ID);
 
-    if (filters.statusId?.includes(17)) {
-      trustScore = 100;
-    }
-    console.log(trustScore, "Trust core")
-    if (trustScore !== undefined) {
+
+    console.log(hasBlacklistFilter, "incmoign blacklist number")
+
+    if (!hasBlacklistFilter) {
       baseWhere.AND = [
         ...(baseWhere.AND || []),
         {
-          promoterStates: {
-            some: {
-              promoterId,
-              optedOut: false,
-              trustScore: {
-                gt: trustScore,
+          NOT: {
+            userTpStatus: {
+              some: {
+                userId: promoterId,
+                statusId: BLACKLIST_STATUS_ID,
               },
             },
           },
         },
       ];
     }
+
+    const normalStatusIds = statusIds.filter(id => id !== BLACKLIST_STATUS_ID);
+
+    if (normalStatusIds.length > 0) {
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          userTpStatus: {
+            some: {
+              userId: promoterId,
+              statusId: { in: normalStatusIds },
+            },
+          },
+        },
+      ];
+    }
+
+    if (hasBlacklistFilter) {
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          userTpStatus: {
+            some: {
+              userId: promoterId,
+              statusId: BLACKLIST_STATUS_ID,
+            },
+          },
+        },
+      ];
+    }
+
 
     // -------- Exclusions by batch --------
     let excludedTalentIds: string[] = [];
@@ -361,57 +402,92 @@ export class TalentService {
 
 
     const page = filters.page && filters.page > 0 ? filters.page : 1;
-    const Templimit = filters.limit && filters.limit > 0 ? filters.limit : 100;
-    const limit = recommendation ? 100 : Templimit;
-    const skip = (page - 1) * limit;
+    const defaultLimit = filters.limit && filters.limit > 0 ? filters.limit : 100;
 
+    const statusList = filters.statusId?.map(Number) || [];
+    const shouldSortByTrustScore = statusList.some(id => [16, 17, 18].includes(id));
+
+    // dynamic limit logic
+    let limit = defaultLimit;
+
+    if (statusList.includes(16)) {
+      limit = 50;
+    } else if (statusList.includes(17) || statusList.includes(18)) {
+      limit = 100;
+    }
+
+    const skip = (page - 1) * limit;
 
     // -------------------- total count --------------------
     const total = await this.prisma.talentPool.count({
       where: baseWhere,
     });
 
-    // -------------------- fetch paginated data --------------------
-    const data = await this.prisma.talentPool.findMany({
-      where: baseWhere,
-      skip,
-      // take: limit,
-      take: recommendation ? 100 : limit,
-      // orderBy,
-      include: {
-        blacklists: { where: { promoterId }, take: 1 },
-        promoterStates: {
-          where: { promoterId },
-          take: 1,
-          select: { trustScore: true },
-        },
-        userTpStatus: {
-          where: { userId: promoterId },
-          select: {
-            id: true,
-            statusId: true,
-            statusName: true,
-            createdAt: true,
+    let data: any[] = [];
+
+    if (shouldSortByTrustScore) {
+      const allData = await this.prisma.talentPool.findMany({
+        where: baseWhere,
+        include: {
+          blacklists: { where: { promoterId }, take: 1 },
+          promoterStates: {
+            where: { promoterId },
+            take: 1,
+            select: { trustScore: true },
+          },
+          userTpStatus: {
+            where: { userId: promoterId },
+            select: {
+              id: true,
+              statusId: true,
+              statusName: true,
+              createdAt: true,
+            },
           },
         },
-      },
-    });
+      });
+
+      const sortedData = allData.sort((a, b) => {
+        const trustScoreA = a.promoterStates?.[0]?.trustScore ?? 0;
+        const trustScoreB = b.promoterStates?.[0]?.trustScore ?? 0;
+        return trustScoreB - trustScoreA;
+      });
+
+      data = sortedData.slice(skip, skip + limit);
+
+    } else {
+      data = await this.prisma.talentPool.findMany({
+        where: baseWhere,
+        skip,
+        take: limit,
+        include: {
+          blacklists: { where: { promoterId }, take: 1 },
+          promoterStates: {
+            where: { promoterId },
+            take: 1,
+            select: { trustScore: true },
+          },
+          userTpStatus: {
+            where: { userId: promoterId },
+            select: {
+              id: true,
+              statusId: true,
+              statusName: true,
+              createdAt: true,
+            },
+          },
+        },
+      });
+    }
 
     const totalPages = Math.ceil(total / limit);
 
-    const sortedData = data.sort((a, b) => {
-      const trustScoreA = a.promoterStates?.[0]?.trustScore ?? 0;
-      const trustScoreB = b.promoterStates?.[0]?.trustScore ?? 0;
-      return trustScoreB - trustScoreA;
-    });
-
     return {
-      data: sortedData,
+      data,
       total,
       page,
       limit,
       totalPages,
     };
-
   }
 }

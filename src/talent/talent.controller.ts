@@ -27,6 +27,13 @@ export class TalentController {
   }
 
 
+  @Get('talent-status')
+  async gettalentStatuses() {
+    return this.talentService.gettalentStatuses();
+  }
+
+
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a talent by ID' })
   @ApiResponse({ status: 200, description: 'Talent found' })
