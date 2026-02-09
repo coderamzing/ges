@@ -18,50 +18,67 @@ export class TalentRecommendationFiltersDto {
 
 
   @ApiPropertyOptional({
-    description: 'Search talents by  city',
-    example: 'paris',
+    description: 'Filter talents by cities',
+    example: ['Delhi', 'Mumbai'],
+    isArray: true,
   })
   @IsOptional()
-  @IsString()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value
-  )
-  city?: string;
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    if (Array.isArray(value)) return value.map(v => v.trim());
+    return value.split(',').map(v => v.trim());
+  })
+  city?: string[];
 
 
   @ApiPropertyOptional({
-    description: 'Search talents by  country',
-    example: 'Italy',
+    description: 'Filter talents by countries',
+    example: ['Italy', 'India'],
+    isArray: true,
   })
   @IsOptional()
-  @IsString()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value
-  )
-  country?: string;
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    if (Array.isArray(value)) return value.map(v => v.trim());
+    return value.split(',').map(v => v.trim());
+  })
+  country?: string[];
 
   @ApiPropertyOptional({
-    description: 'Search talents by  hairColor',
-    example: 'Blonde',
+    description: 'Filter talents by hair colors',
+    example: ['Blonde', 'Black'],
+    isArray: true,
   })
   @IsOptional()
-  @IsString()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value
-  )
-  hairColor?: string;
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    if (Array.isArray(value)) return value.map(v => v.trim());
+    return value.split(',').map(v => v.trim());
+  })
+  hairColor?: string[];
 
 
   @ApiPropertyOptional({
-    description: 'Search talents by  ethnicity',
-    example: 'Caucasian/European',
+    description: 'Filter talents by ethnicity',
+    example: ['Caucasian/European', 'Asian', 'African'],
+    isArray: true,
   })
   @IsOptional()
-  @IsString()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value
-  )
-  ethnicity?: string;
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    if (Array.isArray(value)) return value.map(v => v.trim());
+    return value.split(',').map(v => v.trim());
+  })
+  ethnicity?: string[];
+
 
 
   @ApiPropertyOptional({

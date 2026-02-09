@@ -19,6 +19,31 @@ export class TalentService {
     return talent;
   }
 
+
+
+  async getDispatcherStatuses(type?: string) {
+    let value = type || process.env.DISPATCHER || 'dispatcher'
+    const data = await this.prisma.tpStatus.findMany({
+      where: {
+        types: {
+          contains: value,
+        },
+      },
+    });
+
+    const result = data.filter(item => {
+      if (!item.types) return false;
+      const typesArray = item.types.split(',').map(t => t.trim());
+      return typesArray.includes(value);
+    });
+
+    return result;
+  }
+
+
+
+
+
   async getRecommendations(
     campaignId: number,
     batchId: number,
@@ -159,18 +184,31 @@ export class TalentService {
     const filterFields = ["city", "country", "hairColor", "ethnicity"] as const;
 
     for (const field of filterFields) {
-      const value = filters?.[field];
+      const values = filters?.[field];
 
-      //  apply filter ONLY if value exists and is not empty
-      if (value && typeof value === "string" && value.trim() !== "") {
-        baseWhere.AND.push({
-          [field]: {
-            equals: value.trim(),
-            mode: "insensitive",
-          },
-        });
-      }
+      if (!values || values.length === 0) continue;
+
+      baseWhere.AND.push({
+        [field]: {
+          in: values,
+          mode: "insensitive",
+        },
+      });
     }
+
+    // for (const field of filterFields) {
+    //   const value = filters?.[field];
+
+    //   //  apply filter ONLY if value exists and is not empty
+    //   if (value && typeof value === "string" && value.trim() !== "") {
+    //     baseWhere.AND.push({
+    //       [field]: {
+    //         equals: value.trim(),
+    //         mode: "insensitive",
+    //       },
+    //     });
+    //   }
+    // }
 
 
     // search with recommendation

@@ -18,7 +18,14 @@ import { TalentRecommendationFiltersDto } from './talent.dto';
 @ApiTags('talents')
 @Controller('talents')
 export class TalentController {
-  constructor(private readonly talentService: TalentService) {}
+  constructor(private readonly talentService: TalentService) { }
+
+
+  @Get('dispatcher-status')
+  async getDispatcherStatuses(@Query('type') type: string) {
+    return this.talentService.getDispatcherStatuses(type);
+  }
+
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a talent by ID' })
@@ -27,5 +34,10 @@ export class TalentController {
   async findOne(@Param('id') id: string): Promise<TalentPool> {
     return this.talentService.findOne(id);
   }
+
+
+
+
+
 }
 
