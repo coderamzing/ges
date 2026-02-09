@@ -354,7 +354,6 @@ export class TalentService {
         },
       ];
     }
-
     const normalStatusIds = statusIds.filter(id => id !== BLACKLIST_STATUS_ID);
 
     if (normalStatusIds.length > 0) {
@@ -384,6 +383,36 @@ export class TalentService {
         },
       ];
     }
+
+
+    //trust score with filter
+    // ================= trust score filter (FINAL WORKING) =================
+    if (filters.trustScoreRange) {
+      const { min, max } = filters.trustScoreRange;
+
+      const trustScoreCondition: any = {
+        promoterId,
+        optedOut: false,
+      };
+
+      if (min !== undefined) trustScoreCondition.trustScore = { gte: min };
+      if (max !== undefined) {
+        trustScoreCondition.trustScore = {
+          ...(trustScoreCondition.trustScore || {}),
+          lte: max,
+        };
+      }
+
+      baseWhere.AND = [
+        ...(baseWhere.AND || []),
+        {
+          promoterStates: {
+            some: trustScoreCondition,
+          },
+        },
+      ];
+    }
+
 
 
     // -------- Exclusions by batch --------
