@@ -37,6 +37,25 @@ export class CampaignStatsService {
       throw new NotFoundException(`Campaign does not belong to this promoter`);
     }
 
+    const target = (() => {
+    switch (event.mainEventType) {
+      case 'Club Only':
+        return event.clubGuests ?? 0;
+
+      case 'Dinner Only':
+        return event.dinnerGuests ?? 0;
+
+      case 'Pre-Drink+Club':
+        return (event.preDrinkGuests ?? 0) + (event.clubGuests ?? 0);
+
+      case 'Dinner+Club':
+        return (event.dinnerGuests ?? 0) + (event.clubGuests ?? 0);
+
+      default:
+        return 0;
+    }
+  })();
+
     // Build where clause for invitations based on batch filter
     const invitationWhere: any = { campaignId: id };
     if (batch !== undefined) {
@@ -186,7 +205,7 @@ export class CampaignStatsService {
 
     return {
       event: eventDto,
-      target:eventDto.guests ?? 0,
+      target,
       totalContacted,
       sent,
       delivered,
