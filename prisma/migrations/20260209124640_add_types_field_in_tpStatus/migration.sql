@@ -1,0 +1,2 @@
+ALTER TABLE "tp_status"
+ADD COLUMN "types" VARCHAR(255);
