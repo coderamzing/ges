@@ -63,7 +63,6 @@ export class OpenAIService {
     const model = this.aiMode === "openai" ? "gpt-4o-mini" : "deepseek-chat";
 
     this.logger.log(`AI model used : ${model}`);
-    console.log("AI model used : ", model)
     const completion = await this.openai.chat.completions.create({
       model, //gpt-4o-mini , gpt-4.1-mini , gpt-4.1-nano, deepseek-chat
       temperature: 0.2,
