@@ -38,27 +38,10 @@ export class TalentAutomationService {
 
       for (const talent of talents) {
         let currentCityEndAt = talent.currentCityEndAt;
-        if (talent.futureCity) {
-          await this.prisma.talentPool.update({
-            where: { id: talent.id },
-            data: {
-              currentCity: talent.futureCity,
-              city: talent.futureCity,
-              country:talent.futureCountry,
-              continent: talent.futureContinent,
-              currentCityEndAt: talent.futureCityEndAt,
-              storyDateTime: new Date(),
-              futureCity: null,
-              futureCityStartAt: null,
-              futureCityEndAt: null,
-              futureCountry:null,
-              futureContinent:null,
-            }
-          });
-          this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.futureCity}`);
-        }
+        let futureCityStartAt = talent.futureCityStartAt;
+        
         if (talent.currentCity && currentCityEndAt) {
-          if (currentCityEndAt < now) {
+          if (currentCityEndAt < now && talent.futureCity === null && talent.futureCityStartAt === null) {
             await this.prisma.talentPool.update({
               where: { id: talent.id },
               data: {
@@ -68,8 +51,29 @@ export class TalentAutomationService {
                 storyDateTime: new Date(),
               }
             });
+            this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.cityHome?.trim() || talent.city}`);
           }
-          this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.cityHome?.trim() || talent.city}`);
+        }
+        if (talent.futureCity && futureCityStartAt) {
+          if(futureCityStartAt < now){
+            await this.prisma.talentPool.update({
+              where: { id: talent.id },
+              data: {
+                currentCity: talent.futureCity,
+                city: talent.futureCity,
+                country:talent.futureCountry,
+                continent: talent.futureContinent,
+                currentCityEndAt: talent.futureCityEndAt,
+                storyDateTime: new Date(),
+                futureCity: null,
+                futureCityStartAt: null,
+                futureCityEndAt: null,
+                futureCountry:null,
+                futureContinent:null,
+              }
+            });
+            this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.futureCity}`);
+          }
         }
 
       }
