@@ -30,45 +30,45 @@ export class JwtAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractTokenFromHeader(request);
-    const springToken = this.extractXAuthTokenFromHeader(request);
+    // const springToken = this.extractXAuthTokenFromHeader(request);
 
     // if (!token || !springToken) {
     //   throw new UnauthorizedException('Bearer token is missing');
     // }
 
-    if (springToken) {
-      try {
-        const springSessionData = await (this.prisma as any).springSession.findUnique({
-          where: {
-            sessionId: springToken,
-          },
-        });
-        if (!springSessionData) {
-          throw new UnauthorizedException("springSession Data not found");
-        }
+    // if (springToken) {
+    //   try {
+    //     const springSessionData = await (this.prisma as any).springSession.findUnique({
+    //       where: {
+    //         sessionId: springToken,
+    //       },
+    //     });
+    //     if (!springSessionData) {
+    //       throw new UnauthorizedException("springSession Data not found");
+    //     }
 
-        // Attach user to request object (keeping promoter name for backward compatibility)
-        const email = springSessionData.principalName;
+    //     // Attach user to request object (keeping promoter name for backward compatibility)
+    //     const email = springSessionData.principalName;
 
-        const user = await (this.prisma as any).user.findFirst({
-          where: {
-            OR: [{ username: email }, { email: email }],
-          },
-        });
+    //     const user = await (this.prisma as any).user.findFirst({
+    //       where: {
+    //         OR: [{ username: email }, { email: email }],
+    //       },
+    //     });
 
-        if (!user) {
-          throw new UnauthorizedException("User not found");
-        }
-        console.log("user get using spring token(x-auth-token) ", user.id);
-        request.promoter = {
-          id: Number(user.id), // Convert BigInt to number for compatibility
-          email: user.username || user.email || "",
-        };
-        return true;
-      } catch {
-        //
-      }
-    }
+    //     if (!user) {
+    //       throw new UnauthorizedException("User not found");
+    //     }
+    //     console.log("user get using spring token(x-auth-token) ", user.id);
+    //     request.promoter = {
+    //       id: Number(user.id), // Convert BigInt to number for compatibility
+    //       email: user.username || user.email || "",
+    //     };
+    //     return true;
+    //   } catch {
+    //     //
+    //   }
+    // }
 
     if (token) {
       try {
@@ -112,9 +112,9 @@ export class JwtAuthGuard implements CanActivate {
     return type === "Bearer" ? token : undefined;
   }
 
-  private extractXAuthTokenFromHeader(request: Request): string | undefined {
-    const token = request.headers["x-auth-token"];
-    if (!token) return undefined;
-    return Array.isArray(token) ? token[0] : token;
-  }
+  // private extractXAuthTokenFromHeader(request: Request): string | undefined {
+  //   const token = request.headers["x-auth-token"];
+  //   if (!token) return undefined;
+  //   return Array.isArray(token) ? token[0] : token;
+  // }
 }
