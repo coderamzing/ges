@@ -27,10 +27,10 @@ export class TalentController {
   }
 
 
-  @Get('talent-status')
-  async gettalentStatuses() {
-    return this.talentService.gettalentStatuses();
-  }
+  // @Get('talent-status')
+  // async gettalentStatuses() {
+  //   return this.talentService.gettalentStatuses();
+  // }
 
 
 

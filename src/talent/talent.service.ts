@@ -45,24 +45,24 @@ export class TalentService {
   }
 
 
-  async gettalentStatuses() {
-    let value = process.env.TALENT || 'talent'
-    const data = await this.prisma.tpStatus.findMany({
-      where: {
-        types: {
-          contains: value,
-        },
-      },
-    });
+  // async gettalentStatuses() {
+  //   let value = process.env.TALENT || 'talent'
+  //   const data = await this.prisma.tpStatus.findMany({
+  //     where: {
+  //       types: {
+  //         contains: value,
+  //       },
+  //     },
+  //   });
 
-    const result = data.filter(item => {
-      if (!item.types) return false;
-      const typesArray = item.types.split(',').map(t => t.trim());
-      return typesArray.includes(value);
-    });
+  //   const result = data.filter(item => {
+  //     if (!item.types) return false;
+  //     const typesArray = item.types.split(',').map(t => t.trim());
+  //     return typesArray.includes(value);
+  //   });
 
-    return result;
-  }
+  //   return result;
+  // }
 
 
 
