@@ -119,7 +119,7 @@ export class TalentRecommendationFiltersDto {
 
 
   @ApiPropertyOptional({
-    description: 'Trust score range. Examples: "10-40", "25"',
+    description: 'Trust score range. Examples: "10-40", "-5--1", "25"',
     example: '10-40',
     type: String,
   })
@@ -131,20 +131,16 @@ export class TalentRecommendationFiltersDto {
 
     const input = String(value).trim();
 
-    // single number → min only
-    if (/^\d+$/.test(input)) {
-      return {
-        min: Number(input),
-        max: undefined,
-      };
+    // single number → min only, can be negative
+    if (/^-?\d+$/.test(input)) {
+      return { min: Number(input), max: undefined };
     }
 
-    // range: min-max
-    if (/^\d+\s*-\s*\d+$/.test(input)) {
-      const [minStr, maxStr] = input.split('-').map(v => v.trim());
-
-      const min = Number(minStr);
-      const max = Number(maxStr);
+    // range: min-max, allow negative numbers
+    const rangeMatch = input.match(/^(-?\d+)\s*-\s*(-?\d+)$/);
+    if (rangeMatch) {
+      const min = Number(rangeMatch[1]);
+      const max = Number(rangeMatch[2]);
 
       if (max <= min) {
         throw new BadRequestException(
@@ -164,6 +160,32 @@ export class TalentRecommendationFiltersDto {
     max?: number;
   };
 
+  @ApiPropertyOptional({
+    description: 'Show only talents recommended by AI',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  recommendation?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Show top 100 talents',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  top50?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Show top 100 talents',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  top100?: boolean;
 
   @ApiPropertyOptional({
     description: 'Maximum number of results',

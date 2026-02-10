@@ -95,10 +95,9 @@ export class TalentService {
     const promoterId = event.userId ? BigInt(event.userId) : null;
     if (!promoterId) throw new NotFoundException(`Event has no promoter`);
 
+
     // 48 hours rule
-
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
-
     const hiddenTalents48h = await this.prisma.campaignInvitation.findMany({
       where: {
         promoterId: promoterId,
@@ -219,25 +218,9 @@ export class TalentService {
       });
     }
 
-    // for (const field of filterFields) {
-    //   const value = filters?.[field];
-
-    //   //  apply filter ONLY if value exists and is not empty
-    //   if (value && typeof value === "string" && value.trim() !== "") {
-    //     baseWhere.AND.push({
-    //       [field]: {
-    //         equals: value.trim(),
-    //         mode: "insensitive",
-    //       },
-    //     });
-    //   }
-    // }
-
-
     // search with recommendation
-    const statusIdForRecommendation = filters.statusId?.map(Number) || [];
-    const recommendation = statusIdForRecommendation.includes(18);
-    console.log(recommendation, "recomendation ")
+
+    const recommendation = filters.recommendation;
     const RecomendationCity = event?.city?.trim();
     const orderBy: any[] = [];
 
@@ -323,21 +306,9 @@ export class TalentService {
       baseWhere.talentType = { in: filters.genre };
     }
 
-
-
-
-
-    const BLACKLIST_STATUS_ID = 11;
-
     // status filter
     const statusIds = (filters.statusId || [])
-      .map(Number)
-      .filter(id => ![16, 17, 18].includes(id));
-
-    const hasBlacklistFilter = statusIds.includes(BLACKLIST_STATUS_ID);
-
-
-    console.log(hasBlacklistFilter, "incmoign blacklist number")
+    const hasBlacklistFilter = statusIds.includes(TP_STATUS_MAP.BLACKLIST);
 
     if (!hasBlacklistFilter) {
       baseWhere.AND = [
@@ -347,14 +318,14 @@ export class TalentService {
             userTpStatus: {
               some: {
                 userId: promoterId,
-                statusId: BLACKLIST_STATUS_ID,
+                statusId: TP_STATUS_MAP.BLACKLIST,
               },
             },
           },
         },
       ];
     }
-    const normalStatusIds = statusIds.filter(id => id !== BLACKLIST_STATUS_ID);
+    const normalStatusIds = statusIds.filter(id => id !== TP_STATUS_MAP.BLACKLIST);
 
     if (normalStatusIds.length > 0) {
       baseWhere.AND = [
@@ -377,7 +348,7 @@ export class TalentService {
           userTpStatus: {
             some: {
               userId: promoterId,
-              statusId: BLACKLIST_STATUS_ID,
+              statusId: TP_STATUS_MAP.BLACKLIST,
             },
           },
         },
@@ -414,6 +385,69 @@ export class TalentService {
     }
 
 
+    // handle top 50 and top 100 logic here
+    let topLimit: number | null = null;
+
+    if (filters.top50) {
+      topLimit = 50;
+    } else if (filters.top100) {
+      topLimit = 100;
+    }
+    console.log(topLimit, "trustc score")
+
+    if (topLimit !== null) {
+      const statusTalents = await this.prisma.userTpStatus.groupBy({
+        by: ['talentPoolId'],
+        where: {
+          userId: BigInt(promoterId),
+          statusId: {
+            in: [TP_STATUS_MAP.FIRST_CHOICE, TP_STATUS_MAP.OPEN_CHAT],
+          },
+        },
+        _count: {
+          statusId: true,
+        },
+        having: {
+          statusId: {
+            _count: {
+              equals: 2, // must have both statuses
+            },
+          },
+        },
+      });
+
+      const statusTalentIds = statusTalents
+        .map(s => s.talentPoolId)
+        .filter((id): id is string => Boolean(id));
+
+      const topTalents = await this.prisma.talentPromoterState.findMany({
+        where: {
+          promoterId: BigInt(promoterId),
+          talentId: {
+            in: statusTalentIds,
+          }
+        },
+        orderBy: {
+          trustScore: 'desc',
+        },
+        take: topLimit,
+        select: {
+          talentId: true,
+        },
+      });
+
+      const finalTalentIds = topTalents.map(t => t.talentId);
+
+      baseWhere.AND ||= [];
+      baseWhere.AND.push({
+        id: {
+          in: finalTalentIds.length ? finalTalentIds : ["__none__"],
+        },
+      });
+    }
+
+
+
 
     // -------- Exclusions by batch --------
     let excludedTalentIds: string[] = [];
@@ -430,20 +464,12 @@ export class TalentService {
     }
 
 
+
     const page = filters.page && filters.page > 0 ? filters.page : 1;
-    const defaultLimit = filters.limit && filters.limit > 0 ? filters.limit : 100;
+    const Templimit = filters.limit && filters.limit > 0 ? filters.limit : 100;
 
-    const statusList = filters.statusId?.map(Number) || [];
-    const shouldSortByTrustScore = statusList.some(id => [16, 17, 18].includes(id));
-
-    // dynamic limit logic
-    let limit = defaultLimit;
-
-    if (statusList.includes(16)) {
-      limit = 50;
-    } else if (statusList.includes(17) || statusList.includes(18)) {
-      limit = 100;
-    }
+    const limit = recommendation ? 100 : topLimit !== null ? topLimit : Templimit > 0 ? Templimit : 100;
+    console.log(limit, "final limit");
 
     const skip = (page - 1) * limit;
 
@@ -452,71 +478,48 @@ export class TalentService {
       where: baseWhere,
     });
 
-    let data: any[] = [];
-
-    if (shouldSortByTrustScore) {
-      const allData = await this.prisma.talentPool.findMany({
-        where: baseWhere,
-        include: {
-          blacklists: { where: { promoterId }, take: 1 },
-          promoterStates: {
-            where: { promoterId },
-            take: 1,
-            select: { trustScore: true },
-          },
-          userTpStatus: {
-            where: { userId: promoterId },
-            select: {
-              id: true,
-              statusId: true,
-              statusName: true,
-              createdAt: true,
-            },
+    // -------------------- fetch paginated data --------------------
+    const data = await this.prisma.talentPool.findMany({
+      where: baseWhere,
+      skip,
+      // take: limit,
+      take: recommendation ? 100 : limit,
+      // orderBy,
+      include: {
+        blacklists: { where: { promoterId }, take: 1 },
+        promoterStates: {
+          where: { promoterId },
+          take: 1,
+          select: { trustScore: true },
+        },
+        userTpStatus: {
+          where: { userId: promoterId },
+          select: {
+            id: true,
+            statusId: true,
+            statusName: true,
+            createdAt: true,
           },
         },
-      });
-
-      const sortedData = allData.sort((a, b) => {
-        const trustScoreA = a.promoterStates?.[0]?.trustScore ?? 0;
-        const trustScoreB = b.promoterStates?.[0]?.trustScore ?? 0;
-        return trustScoreB - trustScoreA;
-      });
-
-      data = sortedData.slice(skip, skip + limit);
-
-    } else {
-      data = await this.prisma.talentPool.findMany({
-        where: baseWhere,
-        skip,
-        take: limit,
-        include: {
-          blacklists: { where: { promoterId }, take: 1 },
-          promoterStates: {
-            where: { promoterId },
-            take: 1,
-            select: { trustScore: true },
-          },
-          userTpStatus: {
-            where: { userId: promoterId },
-            select: {
-              id: true,
-              statusId: true,
-              statusName: true,
-              createdAt: true,
-            },
-          },
-        },
-      });
-    }
+      },
+    });
 
     const totalPages = Math.ceil(total / limit);
 
+    const sortedData = data.sort((a, b) => {
+      const trustScoreA = a.promoterStates?.[0]?.trustScore ?? 0;
+      const trustScoreB = b.promoterStates?.[0]?.trustScore ?? 0;
+      return trustScoreB - trustScoreA;
+    });
+
     return {
-      data,
+      data: sortedData,
       total,
       page,
       limit,
       totalPages,
     };
+
   }
+
 }
