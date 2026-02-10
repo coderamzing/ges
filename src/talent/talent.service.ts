@@ -385,17 +385,11 @@ export class TalentService {
     }
 
 
-    // handle top 50 and top 100 logic here
-    let topLimit: number | null = null;
-
-    if (filters.top50) {
-      topLimit = 50;
-    } else if (filters.top100) {
-      topLimit = 100;
-    }
+    // handle top N logic here
+    const topLimit = filters.top ?? null;
     console.log(topLimit, "trustc score")
     console.log(promoterId, "incoming promoter id ")
-    if (topLimit !== null) {
+    if (topLimit) {
       const statusTalents = await this.prisma.userTpStatus.groupBy({
         by: ['talentPoolId'],
         where: {
@@ -466,7 +460,16 @@ export class TalentService {
     const page = filters.page && filters.page > 0 ? filters.page : 1;
     const Templimit = filters.limit && filters.limit > 0 ? filters.limit : 100;
 
-    const limit = recommendation ? 100 : topLimit !== null ? topLimit : Templimit > 0 ? Templimit : 100;
+    // const limit = recommendation ? 100 : topLimit !== null ? topLimit : Templimit > 0 ? Templimit : 100;
+    let limit = 100; // default
+
+    if (recommendation) {
+      limit = 100;
+    } else if (topLimit && topLimit > 0) {
+      limit = topLimit;
+    } else if (Templimit && Templimit > 0) {
+      limit = Templimit;
+    }
     console.log(limit, "final limit");
 
     const skip = (page - 1) * limit;

@@ -170,22 +170,33 @@ export class TalentRecommendationFiltersDto {
   recommendation?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Show top 100 talents',
-    example: true,
+    description: 'Show top N talents (e.g. 50, 100)',
+    example: 50,
+    type: Number,
   })
   @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  top50?: boolean;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  top?: number;
 
-  @ApiPropertyOptional({
-    description: 'Show top 100 talents',
-    example: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true')
-  top100?: boolean;
+  // @ApiPropertyOptional({
+  //   description: 'Show top 100 talents',
+  //   example: true,
+  // })
+  // @IsOptional()
+  // @IsBoolean()
+  // @Transform(({ value }) => value === 'true')
+  // top50?: boolean;
+
+  // @ApiPropertyOptional({
+  //   description: 'Show top 100 talents',
+  //   example: true,
+  // })
+  // @IsOptional()
+  // @IsBoolean()
+  // @Transform(({ value }) => value === 'true')
+  // top100?: boolean;
 
   @ApiPropertyOptional({
     description: 'Maximum number of results',
