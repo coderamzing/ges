@@ -30,6 +30,7 @@ export class CampaignStatsController {
     @Param('id', ParseIntPipe) id: number,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<CampaignStatsDto> {
+    console.log("promoter--->",promoter)
     return this.campaignStatsService.getStats(id, promoter.id);
   }
 
