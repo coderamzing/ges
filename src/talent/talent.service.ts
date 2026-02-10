@@ -394,7 +394,7 @@ export class TalentService {
       topLimit = 100;
     }
     console.log(topLimit, "trustc score")
-
+    console.log(promoterId, "incoming promoter id ")
     if (topLimit !== null) {
       const statusTalents = await this.prisma.userTpStatus.groupBy({
         by: ['talentPoolId'],
