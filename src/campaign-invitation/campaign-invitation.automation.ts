@@ -826,7 +826,7 @@ export class CampaignInvitationAutomationService {
                     where: {
                         AND: [
                             { thankYouSent: false },
-                            { status: InvitationStatus.attended },
+                            // { status: InvitationStatus.attended },
                             // { thankyou: true},
                             {
                                 campaign: {

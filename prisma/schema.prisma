@@ -496,4 +496,16 @@ model TpStatus {
   @@map("tp_status")
 }
 
+model SpringSession {
+  primaryId          String   @id @db.Char(36) @map("primary_id")
+  sessionId          String   @unique @db.Char(36) @map("session_id")
+  creationTime       BigInt   @map("creation_time")
+  lastAccessTime     BigInt   @map("last_access_time")
+  maxInactiveInterval Int     @map("max_inactive_interval")
+  expiryTime         BigInt   @map("expiry_time")
+  principalName      String?  @db.VarChar(100) @map("principal_name")
 
+  @@index([expiryTime])
+  @@index([principalName])
+  @@map("spring_session")
+}

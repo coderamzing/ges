@@ -50,14 +50,14 @@ export class LocationAutomationService {
 
       // Fetch all new messages with thread_id created in the last minute
       const twoHourAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+      const fiveHoursAgo = new Date(Date.now() - 5 * 60 * 60 * 1000);
 
       const messages = await this.prisma.message.findMany({
         where: {
           ai_city_detected: null,
           thread_id: { not: null },
           created_at: {
-            gte: fourHoursAgo,
+            gte: fiveHoursAgo,
             lte: twoHourAgo,
           },
         },
@@ -106,18 +106,17 @@ export class LocationAutomationService {
 
         const lastMessageTime = lastMessage?.created_at;
 
-        // If we still don’t have a timestamp, skip safely
+        // If we still do not have a timestamp, skip safely
         if (!lastMessageTime) {
           continue;
         }
 
-        // If last message is within last 2 hours → skip
+        // If last message is within last 2 hours --> skip
         if (lastMessageTime > twoHoursAgo) {
-          // Conversation is still active, skip
           continue;
         }
 
-        // Get all previous messages in the thread for this talent (reverse order - oldest to newest)
+        // Get messages (order - newest to oldest)
         const last15MessagesDesc = await this.prisma.message.findMany({
           select: {
             message: true,
