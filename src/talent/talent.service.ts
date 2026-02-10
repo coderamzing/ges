@@ -22,27 +22,27 @@ export class TalentService {
 
 
 
-  async getDispatcherStatuses(type?: string) {
-    if (!type) {
-      throw new NotFoundException(`Must need type for filter.`);
-    }
-    // let value = type || process.env.DISPATCHER || 'dispatcher'
-    const data = await this.prisma.tpStatus.findMany({
-      where: {
-        types: {
-          contains: type,
-        },
-      },
-    });
+  // async getDispatcherStatuses(type?: string) {
+  //   if (!type) {
+  //     throw new NotFoundException(`Must need type for filter.`);
+  //   }
+  //   // let value = type || process.env.DISPATCHER || 'dispatcher'
+  //   const data = await this.prisma.tpStatus.findMany({
+  //     where: {
+  //       types: {
+  //         contains: type,
+  //       },
+  //     },
+  //   });
 
-    const result = data.filter(item => {
-      if (!item.types) return false;
-      const typesArray = item.types.split(',').map(t => t.trim());
-      return typesArray.includes(type);
-    });
+  //   const result = data.filter(item => {
+  //     if (!item.types) return false;
+  //     const typesArray = item.types.split(',').map(t => t.trim());
+  //     return typesArray.includes(type);
+  //   });
 
-    return result;
-  }
+  //   return result;
+  // }
 
 
   // async gettalentStatuses() {

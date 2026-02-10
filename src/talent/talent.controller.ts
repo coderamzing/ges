@@ -21,10 +21,10 @@ export class TalentController {
   constructor(private readonly talentService: TalentService) { }
 
 
-  @Get('dispatcher-status')
-  async getDispatcherStatuses(@Query('type') type: string) {
-    return this.talentService.getDispatcherStatuses(type);
-  }
+  // @Get('dispatcher-status')
+  // async getDispatcherStatuses(@Query('type') type: string) {
+  //   return this.talentService.getDispatcherStatuses(type);
+  // }
 
 
   // @Get('talent-status')
