@@ -65,7 +65,16 @@ export class ResponseClassificationDto {
   declined: number;
 
   @ApiProperty({ description: 'Number of seen but no reply responses' })
-  seenNoReply: number;
+  noReply: number;
+
+  @ApiProperty({ description: 'Number of seen but no reply responses' })
+  pending: number;
+
+  @ApiProperty({ description: 'Number of seen but no reply responses' })
+  confirmationRate: number;
+
+  @ApiProperty({ description: 'Number of seen but no reply responses' })
+  conversationRate: number;
 }
 
 export class CampaignStatsDto {
@@ -92,5 +101,10 @@ export class CampaignStatsDto {
 
   @ApiProperty({ description: 'Batch statistics', type: [BatchStatsDto] })
   batches: BatchStatsDto[];
+
+  @ApiProperty({
+    description: 'Talent type statistics (e.g. civilian, model, supermodel)', type: Object
+  })
+  talentTypeCount: Record<string, number>;
 }
 

@@ -25,39 +25,74 @@ export class CampaignStatsService {
     batch?: number,
   ): Promise<CampaignStatsDto> {
     // Check if campaign exists
-    const campaign = await this.campaignService.findOne(id);
+    // const campaign = await this.campaignService.findOne(id);
 
-    // Verify that the event belongs to the promoter
-    const event = await this.prisma.events.findUnique({
-      where: { id: campaign.eventId },
+    // // Verify that the event belongs to the promoter
+    // const event = await this.prisma.events.findUnique({
+    //   where: { id: campaign.eventId },
+    // });
+
+
+    // if (!event || event.userId?.toString() !== promoterId.toString()) {
+    //   throw new NotFoundException(`Campaign does not belong to this promoter`);
+    // }
+
+
+    let event;
+    let campaign;
+
+    //  Try to find event directly (id = eventId)
+    event = await this.prisma.events.findUnique({
+      where: { id },
     });
+    //  If event not found, treat id as campaignId
+    if (!event) {
+      campaign = await this.campaignService.findOne(id);
 
+      if (!campaign) {
+        throw new NotFoundException('Event or Campaign not found');
+      }
 
-    if (!event || event.userId?.toString() !== promoterId.toString()) {
-      throw new NotFoundException(`Campaign does not belong to this promoter`);
+      event = await this.prisma.events.findUnique({
+        where: { id: campaign.eventId },
+      });
     }
+
+    //  Extra safety check
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    //  promoter validation (if needed)
+    if (!event || event.userId?.toString() !== promoterId.toString()) {
+      throw new NotFoundException('Event does not belong to promoter');
+    }
+
 
     const target = (() => {
-    switch (event.mainEventType) {
-      case 'Club Only':
-        return event.clubGuests ?? 0;
+      switch (event.mainEventType) {
+        case 'Club Only':
+          return event.clubGuests ?? 0;
 
-      case 'Dinner Only':
-        return event.dinnerGuests ?? 0;
+        case 'Dinner Only':
+          return event.dinnerGuests ?? 0;
 
-      case 'Pre-Drink+Club':
-        return (event.preDrinkGuests ?? 0) + (event.clubGuests ?? 0);
+        case 'Pre-Drink+Club':
+          return (event.preDrinkGuests ?? 0) + (event.clubGuests ?? 0);
 
-      case 'Dinner+Club':
-        return (event.dinnerGuests ?? 0) + (event.clubGuests ?? 0);
+        case 'Dinner+Club':
+          return (event.dinnerGuests ?? 0) + (event.clubGuests ?? 0);
 
-      default:
-        return 0;
-    }
-  })();
+        default:
+          return 0;
+      }
+    })();
 
     // Build where clause for invitations based on batch filter
-    const invitationWhere: any = { campaignId: id };
+    // const invitationWhere: any = { campaignId: id };
+    const invitationWhere: any = event
+      ? { eventId: event.id }
+      : { campaignId: id };
     if (batch !== undefined) {
       invitationWhere.batch = batch;
     } else {
@@ -69,6 +104,31 @@ export class CampaignStatsService {
     const invitations = await this.prisma.campaignInvitation.findMany({
       where: invitationWhere,
     });
+
+
+
+    //Extract Count of talent Type
+    const talentIds = invitations.map(inv => inv.talentId);
+    const talents = await this.prisma.talentPool.findMany({
+      where: {
+        id: { in: talentIds },
+      },
+      select: {
+        id: true,
+        talentType: true,
+      },
+    });
+
+    const talentTypeMap = new Map(
+      talents.map(t => [t.id, t.talentType])
+    );
+    const talentTypeCount: Record<string, number> = {};
+
+    invitations.forEach(inv => {
+      const type = talentTypeMap.get(inv.talentId) || 'unknown';
+      talentTypeCount[type] = (talentTypeCount[type] || 0) + 1;
+    });
+
 
     // Calculate totals from CampaignInvitation only
     const totalContacted = invitations.length;
@@ -83,11 +143,17 @@ export class CampaignStatsService {
     const confirmed = invitations.filter(inv => inv.status === InvitationStatus.confirmed).length;
     const interested = invitations.filter(inv => inv.status === InvitationStatus.maybe).length;
     const declined = invitations.filter(inv => inv.status === InvitationStatus.declined).length;
+    const pending = invitations.filter(inv => inv.status === InvitationStatus.pending).length;
 
     // Seen but no reply = invitations that are seen but haven't replied
-    const seenNoReply = invitations.filter(inv =>
+    const noReply = invitations.filter(inv =>
       inv.isSeen === true && inv.hasReplied === false
     ).length;
+
+    //calculate confirmationRate and conversationRate
+    const confirmationRate = Number(((confirmed / target) * 100).toFixed(3));
+    const conversationRate = Number(((sent / target) * 100).toFixed(3))
+
 
     // Calculate batch statistics (only for filtered batches)
     const batchMap = new Map<
@@ -120,7 +186,7 @@ export class CampaignStatsService {
         }
         const batchStats = batchMap.get(batch)!;
         batchStats.invites++; // Total CampaignInvitation for that batch
-        
+
         if (inv.status === InvitationStatus.pending) {
           batchStats.pendingInvites++; // CampaignInvitation has status pending
         } else {
@@ -135,7 +201,7 @@ export class CampaignStatsService {
             }
           }
         }
-        
+
         if (inv.hasReplied === true) {
           batchStats.replied++; // CampaignInvitation hasReply == true for that batch
         }
@@ -214,9 +280,13 @@ export class CampaignStatsService {
         confirmed,
         interested,
         declined,
-        seenNoReply,
+        noReply,
+        pending,
+        confirmationRate,
+        conversationRate
       },
       batches,
+      talentTypeCount,
     };
   }
 

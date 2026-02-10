@@ -17,10 +17,10 @@ import { JwtAuthGuard, GetPromoter } from '../../guard';
 @Controller('campaigns')
 @UseGuards(JwtAuthGuard)
 export class CampaignStatsController {
-  constructor(private readonly campaignStatsService: CampaignStatsService) {}
+  constructor(private readonly campaignStatsService: CampaignStatsService) { }
 
   @Get(':id/stats')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get full campaign statistics (all batches)',
     description: 'Get overall campaign statistics aggregating batches 1 and 2.'
   })
@@ -30,7 +30,6 @@ export class CampaignStatsController {
     @Param('id', ParseIntPipe) id: number,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<CampaignStatsDto> {
-    console.log("promoter--->",promoter)
     return this.campaignStatsService.getStats(id, promoter.id);
   }
 
