@@ -492,7 +492,6 @@ model TpStatus {
   colorCode   String? @map("color_code") @db.VarChar(255)
   description String? @db.VarChar(255)
   name        String? @db.VarChar(255)
-  types       String? @db.VarChar(255)   // comma separated: "talent,dispatcher"
 
   @@map("tp_status")
 }
