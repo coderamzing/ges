@@ -13,6 +13,7 @@ import {
   TemplateType,
 } from "@prisma/client";
 import {
+  AddTalentsToEventDto,
   GetCampaignInvitationsQueryDto,
   GetInvitationsQueryDto,
 } from "./campaign-invitation.dto";
@@ -598,6 +599,70 @@ export class CampaignInvitationService {
       invitations: updatedInvitations,
     };
   }
+
+
+  async addTalentsToEvent(
+    dto: AddTalentsToEventDto,
+    promoterId: number,
+  ) {
+    const { eventId, status, talentIds, campaignId, batch } = dto;
+
+    const event = await this.prisma.events.findFirst({
+      where: {
+        id: eventId,
+        userId: BigInt(promoterId),
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found or not belongs to promoter');
+    }
+
+
+    const results = await Promise.all(
+      talentIds.map(async (talentId) => {
+        const existing = await this.prisma.campaignInvitation.findFirst({
+          where: {
+            eventId,
+            talentId,
+          },
+        });
+
+        if (existing) {
+
+          return this.prisma.campaignInvitation.update({
+            where: { id: existing.id },
+            data: {
+              status,
+            },
+          });
+        } else {
+
+          return this.prisma.campaignInvitation.create({
+            data: {
+              campaignId,
+              eventId,
+              talentId,
+              status,
+              promoterId: BigInt(promoterId),
+              batch
+            },
+          });
+        }
+      }),
+    );
+
+    return {
+      message: 'Talents processed successfully',
+      count: results.length,
+      data: results,
+    };
+  }
+
+
+
+
+
 
   /**
    * Check if a given batch can be started for a campaign.

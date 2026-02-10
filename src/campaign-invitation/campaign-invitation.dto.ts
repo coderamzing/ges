@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsEnum, IsBoolean, IsInt, IsArray, IsNotEmpty, ArrayMinSize } from 'class-validator';
+import { IsOptional, IsEnum, IsBoolean, IsInt, IsArray, IsNotEmpty, ArrayMinSize, IsNumber, IsString, ArrayNotEmpty } from 'class-validator';
 import { InvitationStatus } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 
@@ -16,6 +16,52 @@ export class DeleteInvitationResponseDto {
   @ApiProperty({ example: 'Invitation 42 deleted successfully' })
   message: string;
 }
+
+
+export class AddTalentsToEventDto {
+  @ApiProperty({
+    example: 101,
+    description: 'Event ID',
+  })
+  @Type(() => Number)
+  @IsNumber()
+  eventId: number;
+
+  @ApiProperty({
+    example: 202,
+    description: 'Campaign ID',
+  })
+  @Type(() => Number)
+  @IsNumber()
+  campaignId: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Batch ID',
+  })
+  @Type(() => Number)
+  @IsNumber()
+  batch: number;
+
+  @ApiProperty({
+    enum: InvitationStatus,
+    example: InvitationStatus.confirmed,
+    description: 'Invitation status',
+  })
+  @IsEnum(InvitationStatus)
+  status: InvitationStatus;
+
+  @ApiProperty({
+    type: [String],
+    example: ['talent-id-1', 'talent-id-2'],
+    description: 'List of talent IDs',
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  talentIds: string[];
+}
+
 
 export class GetInvitationsQueryDto {
   // @ApiPropertyOptional({

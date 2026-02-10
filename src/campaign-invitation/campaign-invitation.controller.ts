@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOkResponse, ApiNotFoundResponse, ApiHeader, ApiBody } from '@nestjs/swagger';
 import { CampaignInvitationService } from './campaign-invitation.service';
-import { DeleteInvitationResponseDto, GetCampaignInvitationsQueryDto, GetInvitationsQueryDto, MarkInvitationsAsAttendedDto, MarkInvitationsForFollowupDto, UpdateInvitationStatusDto } from './campaign-invitation.dto';
+import { AddTalentsToEventDto, DeleteInvitationResponseDto, GetCampaignInvitationsQueryDto, GetInvitationsQueryDto, MarkInvitationsAsAttendedDto, MarkInvitationsForFollowupDto, UpdateInvitationStatusDto } from './campaign-invitation.dto';
 import { CampaignInvitation, TalentPool, TalentPromoterState } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 import { TalentService } from '../talent/talent.service';
@@ -123,6 +123,25 @@ export class CampaignInvitationController {
       promoter.id,
     );
   }
+
+
+  @Post('invite-talents')
+  @ApiOperation({ summary: 'Add talents to event invitations' })
+  @ApiResponse({
+    status: 201,
+    description: 'Talents added/updated successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Event not found or promoter mismatch',
+  })
+  async addTalentsToEvent(
+    @Body() dto: AddTalentsToEventDto,
+    @GetPromoter() promoter: { id: number; email: string },
+  ) {
+    return this.campaignInvitationService.addTalentsToEvent(dto, promoter.id);
+  }
+
 
   @Patch('mark-for-followup')
   @ApiOperation({
