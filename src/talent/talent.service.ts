@@ -415,7 +415,7 @@ export class TalentService {
           },
         },
       });
-
+      console.log(statusTalents, "incoming talents ")
       const statusTalentIds = statusTalents
         .map(s => s.talentPoolId)
         .filter((id): id is string => Boolean(id));
@@ -437,7 +437,7 @@ export class TalentService {
       });
 
       const finalTalentIds = topTalents.map(t => t.talentId);
-
+      console.log(finalTalentIds, "incominf finale ids")
       baseWhere.AND ||= [];
       baseWhere.AND.push({
         id: {
@@ -445,8 +445,6 @@ export class TalentService {
         },
       });
     }
-
-
 
 
     // -------- Exclusions by batch --------
