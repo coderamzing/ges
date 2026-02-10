@@ -27,21 +27,21 @@ export class AddTalentsToEventDto {
   @IsNumber()
   eventId: number;
 
-  @ApiProperty({
-    example: 202,
-    description: 'Campaign ID',
-  })
-  @Type(() => Number)
-  @IsNumber()
-  campaignId: number;
+  // @ApiProperty({
+  //   example: 202,
+  //   description: 'Campaign ID',
+  // })
+  // @Type(() => Number)
+  // @IsNumber()
+  // campaignId: number;
 
-  @ApiProperty({
-    example: 1,
-    description: 'Batch ID',
-  })
-  @Type(() => Number)
-  @IsNumber()
-  batch: number;
+  // @ApiProperty({
+  //   example: 1,
+  //   description: 'Batch ID',
+  // })
+  // @Type(() => Number)
+  // @IsNumber()
+  // batch: number;
 
   @ApiProperty({
     enum: InvitationStatus,

@@ -22,10 +22,16 @@ import axios, { get } from "axios";
 import { randomUUID } from "crypto";
 import { SendMessageResponse } from "./campaign-invitation.types";
 import { logger } from "handlebars";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { DEFAULT_TEMPLATES } from "../campaign-template/campaign-template.config";
+import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from "../campaign-template/campaign-template.service";
 
 @Injectable()
 export class CampaignInvitationService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -600,12 +606,8 @@ export class CampaignInvitationService {
     };
   }
 
-
-  async addTalentsToEvent(
-    dto: AddTalentsToEventDto,
-    promoterId: number,
-  ) {
-    const { eventId, status, talentIds, campaignId, batch } = dto;
+  async addTalentsToEvent(dto: AddTalentsToEventDto, promoterId: number) {
+    const { eventId, status, talentIds } = dto;
 
     const event = await this.prisma.events.findFirst({
       where: {
@@ -615,9 +617,59 @@ export class CampaignInvitationService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found or not belongs to promoter');
+      throw new NotFoundException("Event not found or not belongs to promoter");
     }
 
+    if (event.userId?.toString() !== promoterId.toString()) {
+      throw new NotFoundException(
+        `Event with ID ${dto.eventId} does not belong to this promoter`,
+      );
+    }
+
+    let campaign = await this.prisma.campaign.findFirst({
+      where: {
+        eventId: event.id,
+      },
+    });
+
+    if (!campaign) {
+      const created = await this.prisma.$transaction(async (tx) => {
+        const createdCampaign = await tx.campaign.create({
+          data: {
+            eventId: event.id,
+            name: event.name ?? "Untitled Campaign",
+            status: CampaignStatus.active,
+            lang: "en",
+          },
+        });
+
+        const templates = await Promise.all(
+          DEFAULT_TEMPLATES.map((template) =>
+            tx.campaignTemplate.create({
+              data: {
+                campaignId: createdCampaign.id,
+                lang: template.lang,
+                type: template.type,
+                name: template.name,
+                content: template.content,
+                isActive: template.isActive,
+                batchId: template.batchId,
+              },
+            }),
+          ),
+        );
+
+        return { campaign: createdCampaign, templates };
+      });
+
+      // Emit events AFTER transaction
+      created.templates.forEach((template) => {
+        this.eventEmitter.emit(CAMPAIGN_TEMPLATE_SAVED_EVENT, template.id);
+      });
+
+      campaign = created.campaign;
+    }
+    
 
     const results = await Promise.all(
       talentIds.map(async (talentId) => {
@@ -629,7 +681,6 @@ export class CampaignInvitationService {
         });
 
         if (existing) {
-
           return this.prisma.campaignInvitation.update({
             where: { id: existing.id },
             data: {
@@ -637,15 +688,14 @@ export class CampaignInvitationService {
             },
           });
         } else {
-
           return this.prisma.campaignInvitation.create({
             data: {
-              campaignId,
+              campaignId: campaign.id,
               eventId,
               talentId,
               status,
               promoterId: BigInt(promoterId),
-              batch
+              batch : 1,
             },
           });
         }
@@ -653,16 +703,11 @@ export class CampaignInvitationService {
     );
 
     return {
-      message: 'Talents processed successfully',
+      message: "Talents processed successfully",
       count: results.length,
       data: results,
     };
   }
-
-
-
-
-
 
   /**
    * Check if a given batch can be started for a campaign.
@@ -783,10 +828,11 @@ export class CampaignInvitationService {
         throw new Error(`Promote with ${senderId} not found`);
       }
       if (mode === "live") {
-        const response = await axios.post(
-          url,
-          { userId: promoter?.id, receiverUsername: receiverId, message },
-        );
+        const response = await axios.post(url, {
+          userId: promoter?.id,
+          receiverUsername: receiverId,
+          message,
+        });
         return response.data;
       }
       if (mode === "dev") {
@@ -910,10 +956,7 @@ export class CampaignInvitationService {
       const url = process.env.CHATBOT_UNSEND_MESSAGE || "";
       if (mode === "live") {
         for (const msg of findUnsendLastMessages) {
-          const response = await axios.post(
-            url,
-            { id: msg.id },
-          );
+          const response = await axios.post(url, { id: msg.id });
           return response.data;
         }
       }
