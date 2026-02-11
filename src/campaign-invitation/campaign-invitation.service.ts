@@ -354,7 +354,26 @@ export class CampaignInvitationService {
       );
     }
 
-    let limit = event?.guests || 10;
+    const target = (() => {
+      switch (event.mainEventType) {
+        case 'Club Only':
+          return event.clubGuests ?? 0;
+
+        case 'Dinner Only':
+          return event.dinnerGuests ?? 0;
+
+        case 'Pre-Drink+Club':
+          return (event.preDrinkGuests ?? 0) + (event.clubGuests ?? 0);
+
+        case 'Dinner+Club':
+          return (event.dinnerGuests ?? 0) + (event.clubGuests ?? 0);
+
+        default:
+          return 0;
+      }
+    })();
+
+    let limit = target;
     if (countCheck >= limit && batchId === 1) {
       await this.prisma.campaign.updateMany({
         where: {

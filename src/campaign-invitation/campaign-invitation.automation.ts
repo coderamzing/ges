@@ -826,7 +826,7 @@ export class CampaignInvitationAutomationService {
                     where: {
                         AND: [
                             { thankYouSent: false },
-                            // { status: InvitationStatus.attended },
+                            { status: InvitationStatus.attended },
                             // { thankyou: true},
                             {
                                 campaign: {
@@ -921,7 +921,8 @@ export class CampaignInvitationAutomationService {
         }
 
         if (!talent) {
-            throw new Error(`Talent with ID ${invitation.talentId} not found`);
+            this.logger.log(`Talent with ID ${invitation.talentId} not found`);
+            return;
         }
 
         if (!event) {
