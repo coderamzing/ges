@@ -26,7 +26,7 @@ export class LocationAutomationService {
   constructor(
     private prisma: PrismaService,
     private openAIService: OpenAIService,
-  ) {}
+  ) { }
 
   /**
    * Process messages to extract location information
@@ -305,6 +305,8 @@ export class LocationAutomationService {
         data.country = interpretation.currentCountry;
         data.continent = interpretation.currentContinent;
         data.storyDateTime = new Date();
+        data.locationUpdatedAt = new Date();
+        data.locationSource = "message"
 
         if (interpretation.currentCityEndAt) {
           data.currentCityEndAt = await this.convertToUTC(

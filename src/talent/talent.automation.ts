@@ -39,37 +39,43 @@ export class TalentAutomationService {
       for (const talent of talents) {
         let currentCityEndAt = talent.currentCityEndAt;
         let futureCityStartAt = talent.futureCityStartAt;
-        
+
         if (talent.currentCity && currentCityEndAt) {
           if (currentCityEndAt < now && talent.futureCity === null && talent.futureCityStartAt === null) {
             await this.prisma.talentPool.update({
               where: { id: talent.id },
               data: {
+                lastCity: talent.currentCity,
+                lastCityUpdateDate: new Date(),
                 currentCity: talent.cityHome?.trim() || talent.city,
                 city: talent.cityHome?.trim() || talent.city,
                 currentCityEndAt: null,
                 storyDateTime: new Date(),
+                locationUpdatedAt: new Date()
               }
             });
             this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.cityHome?.trim() || talent.city}`);
           }
         }
         if (talent.futureCity && futureCityStartAt) {
-          if(futureCityStartAt < now){
+          if (futureCityStartAt < now) {
             await this.prisma.talentPool.update({
               where: { id: talent.id },
               data: {
+                lastCity: talent.currentCity,
+                lastCityUpdateDate: new Date(),
                 currentCity: talent.futureCity,
                 city: talent.futureCity,
-                country:talent.futureCountry,
+                country: talent.futureCountry,
                 continent: talent.futureContinent,
                 currentCityEndAt: talent.futureCityEndAt,
                 storyDateTime: new Date(),
                 futureCity: null,
                 futureCityStartAt: null,
                 futureCityEndAt: null,
-                futureCountry:null,
-                futureContinent:null,
+                futureCountry: null,
+                futureContinent: null,
+                locationUpdatedAt: new Date()
               }
             });
             this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.futureCity}`);
