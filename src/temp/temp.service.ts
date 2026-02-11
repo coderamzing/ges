@@ -244,9 +244,18 @@ export class TempService {
                 timestamp: ts,
             };
         });
+        let talent:any
+        if(thread.username2){
+            talent = await this.prisma.talentPool.findUnique({
+                where: {
+                    id: thread.username2,
+                },
+            });
+        }
 
         const fullMessage =
             `Today's Date: ${new Date().toDateString()}\n\n` +
+            `Talent City: ${talent?.currentCity || talent?.city || ""}\n\n` +
             `Conversation:\n\n` +
             rawMessages
                 .map((m) => {

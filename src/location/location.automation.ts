@@ -164,7 +164,7 @@ export class LocationAutomationService {
         const fullMessage =
           `Today's Date: ${new Date().toDateString()}\n\n` +
           // (talent.name ? `Talent Name: ${talent?.name}\n\n` : "") +
-          // `Talent City: ${talent?.currentCity || ""}\n\n` +
+          `Talent City: ${talent?.currentCity || talent?.city || ""}\n\n` +
           `Conversation:\n\n` +
           allThreadMessages
             .map((msg) => {
@@ -182,6 +182,8 @@ export class LocationAutomationService {
               return `[${msg.tm?.toISOString() || msg.created_at?.toISOString()}] ${label}: ${msg.message}`;
             })
             .join("\n\n");
+
+            console.log("fullMessage", fullMessage)
         await this.processTalentLocation(
           message as unknown as Message,
           talent.id,
