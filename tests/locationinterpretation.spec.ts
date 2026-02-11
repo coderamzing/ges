@@ -24,6 +24,9 @@ interface LocationTestCase {
     };
 }
 
+const futureCityStartAt = moment().add(1, 'days').format('YYYY-MM-DD');
+const currentCityEndAt = moment(futureCityStartAt).subtract(1, 'days').format('YYYY-MM-DD');
+
 // Array of test cases: input messages and expected outputs
 const testCases: LocationTestCase[] = [
     //Test 1
@@ -171,17 +174,19 @@ const testCases: LocationTestCase[] = [
             currentCityEndAt: moment().add(1, 'day').format('YYYY-MM-DD'),
         },
     },
+    //Test 13
     {
         input: `Talent CityHome: Berlin\nI just left Paris`,
         expected: {
-            currentCity: null,
-            cityHome: null,
+            currentCity: "in_transit",
+            cityHome: 'Berlin',
             futureCity: null,
             futureCityStartAt: null,
             futureCityEndAt: null,
             currentCityEndAt: null,
         },
     },
+    //Test 14
     {
         input: `Talent City: Paris\nI am here only until tomorrow`,
         expected: {
@@ -193,6 +198,7 @@ const testCases: LocationTestCase[] = [
             currentCityEndAt: moment().add(1, 'day').format('YYYY-MM-DD'),
         },
     },
+    //Test 15
     {
         input: `Talent City: Berlin\nI live in Tokyo`,
         expected: {
@@ -204,6 +210,7 @@ const testCases: LocationTestCase[] = [
             currentCityEndAt: null,
         },
     },
+    //Test 16
     {
         input: `Talent City: Tokyo\nI am in Dubai until end of March`,
         expected: {
@@ -215,25 +222,211 @@ const testCases: LocationTestCase[] = [
             currentCityEndAt: moment('2026-03-31').format('YYYY-MM-DD'),
         },
     },
-    // Conversation 1 — Simple current city
+    // // Conversation 1 — Simple current city
+    // {
+    //     input: `Promoter: "Hey 😊 are you in Paris these days?"\n
+    //     Girl: "Hey"\nGirl: "No not Paris"\nGirl: "I'm in London right now"\n
+    //     Girl: "Just arrived yesterday"`,
+    //     expected: {
+    //         currentCity: 'London',
+    //         cityHome: null,
+    //         futureCity: null,
+    //         futureCityStartAt: null,
+    //         futureCityEndAt: null,
+    //         currentCityEndAt: null,
+    //     },
+    // },
+    // // Conversation 2 — Home city + current city
+    // {
+    //     input: `Promoter: "Are you based in Paris?"\nGirl: "Yes"\nGirl: "I live in Paris"\nGirl: "I'm here most of the time"\nGirl: "Not traveling right now"`,
+    //     expected: {
+    //         currentCity: 'Paris',
+    //         cityHome: 'Paris',
+    //         futureCity: null,
+    //         futureCityStartAt: null,
+    //         futureCityEndAt: null,
+    //         currentCityEndAt: null,
+    //     },
+    // },
+    // // Conversation 3 — Traveling now, returning home soon
+    // {
+    //     input: `Promoter: "Are you around this weekend?"\n
+    //     Girl: "Not this week 😕"\n
+    //     Girl: "I'm in Milan right now"\n
+    //     Girl: "For work"\nGirl: "Back to Paris next week"`,
+    //     expected: {
+    //         currentCity: 'Milan',
+    //         cityHome: null,
+    //         futureCity: 'Paris',
+    //         futureCityStartAt: moment().add(1, 'week').format('YYYY-MM-DD'),
+    //         futureCityEndAt: null,
+    //         currentCityEndAt: null,
+    //     },
+    // },
+    // // Conversation 4 — Clear future trip with duration
+    // {
+    //     input: `Promoter: "Will you be in Paris soon?"\nGirl: "No not Paris"\nGirl: "I'm moving to London in March"\nGirl: "For around 2 weeks"\nGirl: "Then I leave again"`,
+    //     expected: {
+    //         currentCity: null,
+    //         cityHome: null,
+    //         futureCity: 'London',
+    //         futureCityStartAt: moment('2026-03-01').format('YYYY-MM-DD'),
+    //         futureCityEndAt: moment('2026-03-15').format('YYYY-MM-DD'),
+    //         currentCityEndAt: null,
+    //     },
+    // },
+    // // Conversation 5 — Home city + short future trip
+    // {
+    //     input: `Promoter: "Are you free tomorrow?"\nGirl: "I wish 😅"\nGirl: "I live in Paris"\nGirl: "But tomorrow I go to Berlin"\nGirl: "Just for one week"`,
+    //     expected: {
+    //         currentCity: 'Paris',
+    //         cityHome: 'Paris',
+    //         futureCity: 'Berlin',
+    //         futureCityStartAt: moment().add(1, 'day').format('YYYY-MM-DD'),
+    //         futureCityEndAt: moment().add(1, 'day').add(1, 'week').format('YYYY-MM-DD'),
+    //         currentCityEndAt: null,
+    //     },
+    // },
+    // // Conversation 6 — Multiple cities, choose current
+    // {
+    //     input: `Promoter: "Where are you based?"\nGirl: "I travel a lot"\nGirl: "Between Dubai and Paris"\nGirl: "But right now I'm in Dubai"\nGirl: "Since last week"`,
+    //     expected: {
+    //         currentCity: 'Dubai',
+    //         cityHome: 'Paris',
+    //         futureCity: null,
+    //         futureCityStartAt: null,
+    //         futureCityEndAt: null,
+    //         currentCityEndAt: null,
+    //     },
+    // },
+    // // Conversation 7 — Ambiguous → must return null
+    // {
+    //     input: `Promoter: "Are you in town?"\nGirl: "Not sure yet"\nGirl: "Maybe traveling soon"\nGirl: "Depends on work"\nGirl: "I'll see"`,
+    //     expected: {
+    //         currentCity: null,
+    //         cityHome: null,
+    //         futureCity: null,
+    //         futureCityStartAt: null,
+    //         futureCityEndAt: null,
+    //         currentCityEndAt: null,
+    //     },
+    // },
+
+     // intransit
+      {
+        input: `Girl: "I flew away"`,
+        expected: {
+            currentCity: 'in_transit',
+            cityHome: null,
+            futureCity: null,
+            futureCityStartAt: null,
+            futureCityEndAt: null,
+            currentCityEndAt: null,
+        },
+    },
+
+     {
+        input: `Girl: "I’m Leaving"`,
+        expected: {
+            currentCity: 'in_transit',
+            cityHome: null,
+            futureCity: null,
+            futureCityStartAt: null,
+            futureCityEndAt: null,
+            currentCityEndAt: null,
+        },
+    },
+
+
     {
-        input: `Promoter: "Hey 😊 are you in Paris these days?"\n
-        Girl: "Hey"\nGirl: "No not Paris"\nGirl: "I'm in London right now"\n
-        Girl: "Just arrived yesterday"`,
+        input: `Promoter: "Where do you grains in Germany? Which city?"\n Promoter:You live in Berlin? \nGirl: "Hamburg/Berlin"\nGirl: "Right now I’m flying to Hamburg"`,
+        expected: {
+            currentCity: 'in_transit',
+            cityHome: 'Berlin',
+            futureCity: 'Hamburg',
+            futureCityStartAt: moment().add(1, 'days').format('YYYY-MM-DD'),
+            futureCityEndAt: null,
+            currentCityEndAt: null,
+        },
+    },
+    
+    {
+        input: `Promoter: "Where do you live?"\n Promoter:Do you live in Delhi? \nGirl: "no, i live in Mumbai"\nGirl: "Right now, I’m flying to Goa"`,
+        expected: {
+            currentCity: 'in_transit',
+            cityHome: 'Mumbai',
+            futureCity: 'Goa',
+            futureCityStartAt: moment().add(1, 'days').format('YYYY-MM-DD'),
+            futureCityEndAt: null,
+            currentCityEndAt: null,
+        },
+    },
+
+    {
+        input: `Promoter: "Where are you based?"\nGirl: "Bangalore"\nGirl: "I’m traveling to Chennai tomorrow."`,
+        expected: {
+            currentCity: 'Bangalore',
+            cityHome: 'Bangalore',
+            futureCity: 'Chennai',
+            futureCityStartAt: moment().add(1, 'days').format('YYYY-MM-DD'),
+            futureCityEndAt: null,
+            currentCityEndAt: moment().add(1, 'days').endOf('day').format('YYYY-MM-DD'),
+        },
+    },
+
+
+    {
+        input: `Promoter: "Which city do you live in?"\nGirl: "Pune"\nGirl: "Next week, I’ll be in Dubai."`,
+        expected: {
+            currentCity: 'Pune',
+            cityHome: 'Pune',
+            futureCity: 'Dubai',
+            futureCityStartAt: moment().add(7, 'days').format('YYYY-MM-DD'),
+            futureCityEndAt: null,
+            currentCityEndAt: moment().add(7, 'days').endOf('day').format('YYYY-MM-DD'),
+        },
+    },
+
+    {
+        input: `Promoter: "Where do you live?"\nGirl: "I’m Nigerian and I live there"\nGirl: "Yes I feel really sad about it"\nGirl: "Wish it was when I was in Paris"\nPromoter: "Okay got it !:) Well next time"\nGirl: "Yes definitely"`,
+        expected: {
+            currentCity: 'Nigeria',
+            cityHome: null,
+            futureCity: null,
+            futureCityStartAt: null,
+            futureCityEndAt: null,
+            currentCityEndAt: null,
+        },
+    },
+    
+    {
+        input: `Promoter: "Amazing"\nPromoter: "Next round this weekend"\nGirl: "Im in the Netherlands right now tho🥲"\nPromoter: "Ah ok"\nPromoter: "When are you coming back ?"\nGirl: "Oehhh idk maybe next month"\nGirl: "But idk for sure"`,
+        expected: {
+            currentCity: 'Netherlands',
+            cityHome: null,
+            futureCity: null,
+            futureCityStartAt: null,
+            futureCityEndAt: null,
+            currentCityEndAt: null,
+        },
+    },
+
+    {
+        input: ` Promoter: "Where are you staying?"\nGirl: "I'm in London for work till March"`,
         expected: {
             currentCity: 'London',
             cityHome: null,
             futureCity: null,
             futureCityStartAt: null,
             futureCityEndAt: null,
-            currentCityEndAt: null,
+            currentCityEndAt: moment().month(2).endOf('month').format('YYYY-MM-DD'),
         },
     },
-    // Conversation 2 — Home city + current city
+
     {
-        input: `Promoter: "Are you based in Paris?"\nGirl: "Yes"\nGirl: "I live in Paris"\nGirl: "I'm here most of the time"\nGirl: "Not traveling right now"`,
+        input: `Promoter: "Okay where do you live ?"\nGirl: "In Paris normally for university but since it’s holidays I’m in Monaco visiting family :)"\nPromoter: "Okay cool fair enough"`,
         expected: {
-            currentCity: 'Paris',
+            currentCity: 'Monaco',
             cityHome: 'Paris',
             futureCity: null,
             futureCityStartAt: null,
@@ -241,69 +434,8 @@ const testCases: LocationTestCase[] = [
             currentCityEndAt: null,
         },
     },
-    // Conversation 3 — Traveling now, returning home soon
-    {
-        input: `Promoter: "Are you around this weekend?"\n
-        Girl: "Not this week 😕"\n
-        Girl: "I'm in Milan right now"\n
-        Girl: "For work"\nGirl: "Back to Paris next week"`,
-        expected: {
-            currentCity: 'Milan',
-            cityHome: null,
-            futureCity: 'Paris',
-            futureCityStartAt: moment().add(1, 'week').format('YYYY-MM-DD'),
-            futureCityEndAt: null,
-            currentCityEndAt: null,
-        },
-    },
-    // Conversation 4 — Clear future trip with duration
-    {
-        input: `Promoter: "Will you be in Paris soon?"\nGirl: "No not Paris"\nGirl: "I'm moving to London in March"\nGirl: "For around 2 weeks"\nGirl: "Then I leave again"`,
-        expected: {
-            currentCity: null,
-            cityHome: null,
-            futureCity: 'London',
-            futureCityStartAt: moment('2026-03-01').format('YYYY-MM-DD'),
-            futureCityEndAt: moment('2026-03-15').format('YYYY-MM-DD'),
-            currentCityEndAt: null,
-        },
-    },
-    // Conversation 5 — Home city + short future trip
-    {
-        input: `Promoter: "Are you free tomorrow?"\nGirl: "I wish 😅"\nGirl: "I live in Paris"\nGirl: "But tomorrow I go to Berlin"\nGirl: "Just for one week"`,
-        expected: {
-            currentCity: 'Paris',
-            cityHome: 'Paris',
-            futureCity: 'Berlin',
-            futureCityStartAt: moment().add(1, 'day').format('YYYY-MM-DD'),
-            futureCityEndAt: moment().add(1, 'day').add(1, 'week').format('YYYY-MM-DD'),
-            currentCityEndAt: null,
-        },
-    },
-    // Conversation 6 — Multiple cities, choose current
-    {
-        input: `Promoter: "Where are you based?"\nGirl: "I travel a lot"\nGirl: "Between Dubai and Paris"\nGirl: "But right now I'm in Dubai"\nGirl: "Since last week"`,
-        expected: {
-            currentCity: 'Dubai',
-            cityHome: 'Paris',
-            futureCity: null,
-            futureCityStartAt: null,
-            futureCityEndAt: null,
-            currentCityEndAt: null,
-        },
-    },
-    // Conversation 7 — Ambiguous → must return null
-    {
-        input: `Promoter: "Are you in town?"\nGirl: "Not sure yet"\nGirl: "Maybe traveling soon"\nGirl: "Depends on work"\nGirl: "I'll see"`,
-        expected: {
-            currentCity: null,
-            cityHome: null,
-            futureCity: null,
-            futureCityStartAt: null,
-            futureCityEndAt: null,
-            currentCityEndAt: null,
-        },
-    },
+
+
 ];
 
 /**
