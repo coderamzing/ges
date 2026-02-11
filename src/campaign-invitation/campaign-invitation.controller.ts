@@ -185,17 +185,15 @@ export class CampaignInvitationController {
     );
   }
 
-  @Delete('campaign/:campaignId/:invitationId')
+  @Delete('campaign/:invitationId')
   @ApiOperation({ summary: 'Remove a talent from campaign invitations' })
   @ApiOkResponse({ type: DeleteInvitationResponseDto, description: 'Invitation removed successfully' })
   @ApiNotFoundResponse({ description: 'Campaign or invitation not found or does not belong to promoter' })
   async removeInvitation(
-    @Param('campaignId', ParseIntPipe) campaignId: number,
     @Param('invitationId', ParseIntPipe) invitationId: number,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<DeleteInvitationResponseDto> {
     return this.campaignInvitationService.removeInvitation(
-      campaignId,
       invitationId,
       promoter.id,
     );

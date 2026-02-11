@@ -31,7 +31,7 @@ export class CampaignInvitationService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -429,36 +429,22 @@ export class CampaignInvitationService {
   // }
 
   async removeInvitation(
-    campaignId: number,
     invitationId: number,
     promoterId: number,
   ): Promise<{ message: string }> {
-    await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
 
     const invitation = await this.prisma.campaignInvitation.findUnique({
       where: { id: invitationId },
     });
-
     if (!invitation) {
       throw new NotFoundException(
         `Invitation with ID ${invitationId} not found`,
       );
     }
 
-    if (invitation.campaignId !== campaignId) {
-      throw new NotFoundException(
-        `Invitation does not belong to this campaign`,
-      );
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.campaignMessage.deleteMany({
-        where: { invitationId },
-      });
-
-      await tx.campaignInvitation.delete({
-        where: { id: invitationId },
-      });
+    await this.ensureCampaignBelongsToPromoter(invitation.campaignId, promoterId);
+    await this.prisma.campaignInvitation.delete({
+      where: { id: invitationId },
     });
 
     return {
@@ -688,7 +674,7 @@ export class CampaignInvitationService {
 
       campaign = created.campaign;
     }
-    
+
 
     const results = await Promise.all(
       talentIds.map(async (talentId) => {
@@ -714,7 +700,7 @@ export class CampaignInvitationService {
               talentId,
               status,
               promoterId: BigInt(promoterId),
-              batch : 1,
+              batch: 1,
             },
           });
         }
