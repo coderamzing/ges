@@ -116,6 +116,8 @@ export class LocationAutomationService {
           continue;
         }
 
+        const DAYS = 3;
+        const daysAgo = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
         // Get messages (order - newest to oldest)
         const last15MessagesDesc = await this.prisma.message.findMany({
           select: {
@@ -126,6 +128,9 @@ export class LocationAutomationService {
           },
           where: {
             thread_id: message.thread_id,
+            created_at:{
+              gte : daysAgo
+            }
           },
           orderBy: {
             tm: "desc",
@@ -346,7 +351,7 @@ export class LocationAutomationService {
       await this.prisma.message.update({
         where: { id: message.id },
         data: {
-          ai_city_detected: "true",
+          ai_city_detected: new Date().toISOString(),
         },
       });
 
