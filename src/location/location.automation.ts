@@ -314,7 +314,10 @@ export class LocationAutomationService {
         data.continent = interpretation.currentContinent;
         data.storyDateTime = new Date();
         data.locationUpdatedAt = new Date();
-        data.locationSource = "message"
+        data.locationSource = "MGS"
+        data.foundCityMethod = "MSG"
+        data.storyPicture = null
+        data.location = null
 
         if (interpretation.currentCityEndAt) {
           data.currentCityEndAt = await this.convertToUTC(

@@ -51,7 +51,10 @@ export class TalentAutomationService {
                 city: talent.cityHome?.trim() || talent.city,
                 currentCityEndAt: null,
                 storyDateTime: new Date(),
-                locationUpdatedAt: new Date()
+                locationUpdatedAt: new Date(),
+                foundCityMethod: "MSG",
+                storyPicture: null,
+                location: null,
               }
             });
             this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.cityHome?.trim() || talent.city}`);
@@ -75,7 +78,10 @@ export class TalentAutomationService {
                 futureCityEndAt: null,
                 futureCountry: null,
                 futureContinent: null,
-                locationUpdatedAt: new Date()
+                locationUpdatedAt: new Date(),
+                foundCityMethod: "MSG",
+                storyPicture: null,
+                location: null,
               }
             });
             this.logger.log(`Updated talent ${talent.id}: current_city set to ${talent.futureCity}`);
