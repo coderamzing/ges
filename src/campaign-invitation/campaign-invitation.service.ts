@@ -89,10 +89,25 @@ export class CampaignInvitationService {
   }
 
   async getInvitationsByCampaign(
-    campaignId: number,
+    eventId: number,
     promoterId: number,
     filters?: GetCampaignInvitationsQueryDto,
   ): Promise<CampaignInvitation[]> {
+
+    let event = await this.prisma.events.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      throw new NotFoundException(`Event not found with id: ${eventId}`);
+    }
+
+    let campaign = await this.prisma.campaign.findFirst({
+      where: {
+        eventId: eventId
+      }
+    })
+    let campaignId = Number(campaign?.id)
     await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
 
     const where: any = {

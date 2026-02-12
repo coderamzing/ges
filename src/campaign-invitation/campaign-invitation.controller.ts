@@ -31,26 +31,26 @@ export class CampaignInvitationController {
     private readonly talentService: TalentService,
   ) { }
 
-  @Get('campaign/:campaignId')
+  @Get('campaign/:eventId')
   @ApiOperation({
-    summary: 'Get invitations list for a campaign by ID',
-    description: 'Returns invitations for a campaign. Can filter by status and/or hasReplied (for those who have not replied)',
+    summary: 'Get invitations list for an Event',
+    description: 'Returns invitations for a Event. Can filter by status and/or hasReplied (for those who have not replied)',
   })
   @ApiResponse({
     status: 200,
-    description: 'List of campaign invitations',
+    description: 'List of Event invitations',
   })
   @ApiResponse({
     status: 404,
     description: 'Campaign not found or does not belong to promoter',
   })
   async getInvitationsByCampaign(
-    @Param('campaignId', ParseIntPipe) campaignId: number,
+    @Param('eventId', ParseIntPipe) eventId: number,
     @Query() query: GetCampaignInvitationsQueryDto,
     @GetPromoter() promoter: { id: number; email: string },
   ): Promise<CampaignInvitation[]> {
     return this.campaignInvitationService.getInvitationsByCampaign(
-      campaignId,
+      eventId,
       promoter.id,
       query,
     );
