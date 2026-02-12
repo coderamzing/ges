@@ -183,7 +183,7 @@ export class LocationAutomationService {
             })
             .join("\n\n");
 
-            console.log("fullMessage", fullMessage)
+        console.log("fullMessage", fullMessage)
         await this.processTalentLocation(
           message as unknown as Message,
           talent.id,
@@ -245,6 +245,7 @@ export class LocationAutomationService {
       if (!talentId) {
         throw new Error(`No talentId provided for message ${message.id}`);
       }
+      let talent = await this.prisma.talentPool.findUnique({ where: { id: talentId } })
 
       // Prepare the prompt
       const prompt = renderTemplate(this.prompt.defs, {
@@ -291,7 +292,10 @@ export class LocationAutomationService {
           ? await this.convertToUTC(interpretation.futureCityEndAt)
           : null;
 
-        const defaultEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const defaultEnd = new Date(
+          (startUTC ? startUTC.getTime() : Date.now()) +
+          7 * 24 * 60 * 60 * 1000
+        );
 
         data.futureCity = interpretation.futureCity;
         data.futureCityStartAt = startUTC;
@@ -302,7 +306,9 @@ export class LocationAutomationService {
 
       // Current city and city update
       if (interpretation.currentCity) {
-        data.currentCity = interpretation.currentCity;
+        data.lastCity = talent?.currentCity;
+        data.lastCityUpdateDate = talent?.currentCity ? new Date() : null,
+          data.currentCity = interpretation.currentCity;
         data.city = interpretation.currentCity;
         data.country = interpretation.currentCountry;
         data.continent = interpretation.currentContinent;

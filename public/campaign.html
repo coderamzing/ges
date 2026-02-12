@@ -205,6 +205,7 @@
         const token = localStorage.getItem('token');
         const urlParams = new URLSearchParams(window.location.search);
         const campaignId = parseInt(urlParams.get('id'), 10);
+        const eventId = parseInt(urlParams.get('eventId'), 10);
 
         if (!token) {
             window.location.href = 'index.html';
@@ -299,7 +300,7 @@
         async function loadInvitations() {
             try {
                 const invitations = await $.ajax({
-                    url: `${API_BASE}/campaign-invitations/campaign/${campaignId}`,
+                    url: `${API_BASE}/campaign-invitations/campaign/${eventId}`,
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 

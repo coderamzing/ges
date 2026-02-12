@@ -25,7 +25,11 @@ export class TempService {
      */
     async interpretLocationFromMessages(messages: string): Promise<{
         currentCity: string | null;
+        currentCountry: string | null;
+        currentContinent: string | null;
         futureCity: string | null;
+        futureCountry: string | null;
+        futureContinent: string | null;
         futureCityStartAt: string | null;
         futureCityEndAt: string | null;
         currentCityEndAt: string | null;
@@ -49,13 +53,31 @@ export class TempService {
 
         return {
             currentCity: this.parseNullString(response?.currentCity),
+            currentCountry: this.parseNullString(response?.currentCountry),
+            currentContinent: this.parseNullString(response?.currentContinent),
+            currentCityEndAt: response?.currentCityEndAt ?? null,
             futureCity: this.parseNullString(response?.futureCity),
+            futureCountry: this.parseNullString(response?.futureCountry),
+            futureContinent: this.parseNullString(response?.futureContinent),
             futureCityStartAt: response?.futureCityStartAt ?? null,
             futureCityEndAt: response?.futureCityEndAt ?? null,
-            currentCityEndAt: response?.currentCityEndAt ?? null,
             cityHome: this.parseNullString(response?.cityHome),
         };
     }
+
+    //     [Nest] 79927  - 12/02/2026, 12:47:03 pm     LOG [LocationAutomationService] Object(10) {
+    //   currentCity: 'Paris',
+    //   currentCountry: 'France',
+    //   currentContinent: 'Europe',
+    //   futureCity: 'Delhi',
+    //   cityHome: null,
+    //   currentCityEndAt: '2026-02-14',
+    //   futureCityStartAt: '2026-02-14',
+    //   futureCityEndAt: null,
+    //   futureContinent: 'Asia',
+    //   futureCountry: 'India'
+    // }
+
 
     /**
      * Temp helper: find the latest thread for (promoter, talentId) and return its messages + a prebuilt fullMessage.
@@ -244,8 +266,8 @@ export class TempService {
                 timestamp: ts,
             };
         });
-        let talent:any
-        if(thread.username2){
+        let talent: any
+        if (thread.username2) {
             talent = await this.prisma.talentPool.findUnique({
                 where: {
                     id: thread.username2,

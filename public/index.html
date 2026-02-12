@@ -293,7 +293,7 @@
                 html += `
                     <div class="list-group-item campaign-item">
                         <div class="campaign-item-header">
-                            <div onclick="window.location.href='campaign.html?id=${campaign.id}'" style="flex: 1; cursor: pointer;">
+                            <div onclick="window.location.href='campaign.html?id=${campaign.id}&eventId=${campaign.eventId}'" style="flex: 1; cursor: pointer;">
                                 <h5>${escapeHtml(campaign.name)}</h5>
                                 <small class="text-muted">
                                     Status: <span class="badge bg-${currentStatusColor}">${campaign.status}</span> | Lang: ${campaign.lang}
