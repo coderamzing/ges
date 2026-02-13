@@ -6,11 +6,30 @@ export class OpenAIService {
   private readonly logger = new Logger(OpenAIService.name);
   private openai: any;
   private isAvailable = false;
-  private aiMode: "openai" | "deepseek";
+  private aiMode: "openai" | "deepseek" | "gemini";
 
   constructor(private configService: ConfigService) {
     this.aiMode = (this.configService.get("AI_MODE") || "openai") as any;
     this.initializeOpenAI();
+  }
+
+  private getModelByAIMode(): string {
+    switch (this.aiMode) {
+      case "openai":
+        return "gpt-4o-mini";
+
+      case "deepseek":
+        return "deepseek-chat";
+
+      case "gemini":
+        return "google/gemini-2.5-flash-lite";
+
+      default:
+        this.logger.warn(
+          `Unknown AI_MODE "${this.aiMode}", falling back to gpt-4o-mini`,
+        );
+        return "gpt-4o-mini";
+    }
   }
 
   private initializeOpenAI() {
@@ -48,6 +67,22 @@ export class OpenAIService {
         });
         this.isAvailable = true;
         this.logger.log("Deepseek service initialized successfully");
+      } else if (this.aiMode === "gemini") {
+        const openaiModule = require("openai");
+        const apiKey = this.configService.get<string>("GEMINI_API_KEY");
+        if (!apiKey) {
+          this.logger.warn(
+            "Gemini API key not found. Gemini service will be disabled.",
+          );
+          return;
+        }
+     
+        this.openai = new openaiModule({
+          apiKey,
+          baseURL: "https://openrouter.ai/api/v1",
+        });
+        this.isAvailable = true;
+        this.logger.log("Gemini service initialized successfully");
       }
     } catch (error: any) {
       this.logger.warn(`Failed to initialize AI service: ${error.message}`);
@@ -60,21 +95,28 @@ export class OpenAIService {
       throw new Error(`${this.aiMode} service is not available.`);
     }
 
-    const model = this.aiMode === "openai" ? "gpt-4o-mini" : "deepseek-chat";
+    try {
+      const model = this.getModelByAIMode();
 
-    this.logger.log(`AI model used : ${model}`);
-    const completion = await this.openai.chat.completions.create({
-      model, //gpt-4o-mini , gpt-4.1-mini , gpt-4.1-nano, deepseek-chat
-      temperature: 0.2,
-      messages: [
-        { role: "system", content: sysPrompt },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-    });
-
-    const content = completion.choices[0].message.content;
-    return JSON.parse(content);
+      this.logger.log(`AI model used : ${model}`);
+      const completion = await this.openai.chat.completions.create({
+        model, 
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: sysPrompt },
+          { role: "user", content: prompt },
+        ],
+        response_format: { type: "json_object" },
+      });
+      const content = completion.choices[0].message.content;
+      return JSON.parse(content);
+    } catch (error) {
+      this.logger.error(`Gemini API Error: ${error.message}`);
+      if (error.response) {
+        this.logger.error(`Details: ${JSON.stringify(error.response.data)}`);
+      }
+      throw error;
+    }
   }
 
   isServiceAvailable(): boolean {
