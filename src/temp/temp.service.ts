@@ -283,7 +283,8 @@ export class TempService {
                 .map((m) => {
                     let label = 'Unknown';
                     if (thread.username2 && m.sender_username === thread.username2) label = 'Talent';
-                    else if (thread.username1 && m.sender_username === thread.username1) label = 'Promoter';
+                    else label = 'Promoter';
+                    // else if (thread.username1 && m.sender_username === thread.username1) label = 'Promoter';
 
                     const ts = m.tm || m.created_at;
                     const iso = ts ? new Date(ts as any).toISOString() : '';
