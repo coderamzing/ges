@@ -188,7 +188,6 @@ export class LocationAutomationService {
             })
             .join("\n\n");
 
-        console.log("fullMessage", fullMessage)
         await this.processTalentLocation(
           message as unknown as Message,
           talent.id,
