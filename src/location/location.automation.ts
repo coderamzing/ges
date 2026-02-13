@@ -128,8 +128,8 @@ export class LocationAutomationService {
           },
           where: {
             thread_id: message.thread_id,
-            created_at:{
-              gte : daysAgo
+            created_at: {
+              gte: daysAgo
             }
           },
           orderBy: {
@@ -173,21 +173,14 @@ export class LocationAutomationService {
           `Conversation:\n\n` +
           allThreadMessages
             .map((msg) => {
-              let label = "Unknown";
-
-              if (talentUsername && msg.sender_username === talentUsername) {
-                label = "Talent";
-              } else if (
-                promoterUsername &&
-                msg.sender_username === promoterUsername
-              ) {
-                label = "Promoter";
-              }
-
+              const label =
+                talentUsername && msg.sender_username === talentUsername
+                  ? "Talent"
+                  : "Promoter";
               return `[${msg.tm?.toISOString() || msg.created_at?.toISOString()}] ${label}: ${msg.message}`;
             })
             .join("\n\n");
-
+        console.log("fullMessage :", fullMessage)
         await this.processTalentLocation(
           message as unknown as Message,
           talent.id,
