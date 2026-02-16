@@ -31,7 +31,7 @@ export class CampaignInvitationService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -88,31 +88,58 @@ export class CampaignInvitationService {
     }
   }
 
-  async getInvitationsByCampaign(
-    eventId: number,
+  private async getInvitations(
+    id: number,
     promoterId: number,
-    filters?: GetCampaignInvitationsQueryDto,
-  ): Promise<CampaignInvitation[]> {
+    filters?: GetInvitationsQueryDto,
+    batchId?: number,
+  ) {
+    let event;
+    let campaign;
 
-    let event = await this.prisma.events.findUnique({
-      where: { id: eventId },
+    // Resolve Event & Campaign
+
+    event = await this.prisma.events.findUnique({
+      where: { id },
     });
 
-    if (!event) {
-      throw new NotFoundException(`Event not found with id: ${eventId}`);
+    if (event) {
+      // id is eventId
+      campaign = await this.prisma.campaign.findFirst({
+        where: { eventId: event.id },
+      });
+    } else {
+      // id is campaignId
+      campaign = await this.prisma.campaign.findUnique({
+        where: { id },
+      });
+
+      if (campaign) {
+        event = await this.prisma.events.findUnique({
+          where: { id: campaign.eventId },
+        });
+      }
     }
 
-    let campaign = await this.prisma.campaign.findFirst({
-      where: {
-        eventId: eventId
-      }
-    })
-    let campaignId = Number(campaign?.id)
-    await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
+    if (!event || !campaign) {
+      throw new NotFoundException("Event or Campaign not found");
+    }
+
+    //  Promoter ownership check
+
+    if (event.userId?.toString() !== promoterId.toString()) {
+      throw new NotFoundException("Campaign does not belong to promoter");
+    }
+
+    // Build Prisma where clause
 
     const where: any = {
-      campaignId,
+      campaignId: campaign.id,
     };
+
+    if (batchId !== undefined) {
+      where.batch = batchId;
+    }
 
     if (filters?.status?.length) {
       where.status = { in: filters.status };
@@ -134,92 +161,65 @@ export class CampaignInvitationService {
       where.hasReplied = filters.hasReplied;
     }
 
-    return this.prisma.campaignInvitation.findMany({
+    //  Fetch invitations
+
+    const invitations = await this.prisma.campaignInvitation.findMany({
       where,
       orderBy: {
         invitationAt: filters?.order ?? "desc",
       },
     });
+
+    // Enrich invitations
+
+    return Promise.all(
+      invitations.map(async (inv) => {
+        const talent = await this.prisma.talentPool.findUnique({
+          where: { id: inv.talentId },
+        });
+
+        const promoterState = await this.prisma.talentPromoterState.findUnique({
+          where: {
+            talentId_promoterId: {
+              talentId: inv.talentId,
+              promoterId,
+            },
+          },
+          select: {
+            trustScore: true,
+            optedOut: true,
+            lastContacted: true,
+            lastReply: true,
+          },
+        });
+
+        return {
+          ...inv,
+          profilePicture: talent?.profilePicture,
+          talent,
+          promoterState,
+        };
+      }),
+    );
+  }
+
+  async getInvitationsByCampaign(
+    id: number,
+    promoterId: number,
+    filters?: GetCampaignInvitationsQueryDto,
+  ) {
+    return this.getInvitations(id, promoterId, filters);
   }
 
   async getInvitationsByCampaignAndBatch(
-    campaignId: number,
+    id: number,
     batchId: number,
     promoterId: number,
     filters?: GetInvitationsQueryDto,
   ) {
-    await this.ensureCampaignBelongsToPromoter(campaignId, promoterId);
-
-    const where: any = {
-      campaignId,
-      batch: batchId,
-    };
-
-    if (filters) {
-      if (filters?.status?.length) {
-        where.status = { in: filters.status };
-      }
-      if (filters.isSeen !== undefined) where.isSeen = filters.isSeen;
-      if (filters.followupSent !== undefined)
-        where.followupSent = filters.followupSent;
-      if (filters.thankYouSent !== undefined)
-        where.thankYouSent = filters.thankYouSent;
-      if (filters.hasReplied !== undefined)
-        where.hasReplied = filters.hasReplied;
-    }
-
-    const orderBy = {
-      invitationAt: filters?.order ?? "desc",
-    };
-
-    const invitations = await this.prisma.campaignInvitation.findMany({
-      where,
-      orderBy,
-    });
-
-    // Fetch related talent data in parallel
-    const enrichedInvitations = await Promise.all(
-      invitations.map(async (inv) => {
-        const talentProfile = await this.prisma.talentPool.findUnique({
-          where: { id: inv.talentId },
-          select: {
-            id: true,
-            name: true,
-            profilePicture: true,
-            city: true,
-            country: true,
-            location: true,
-            instagramLink: true,
-          },
-        });
-
-        const promoterRating = await this.prisma.talentPromoterState.findUnique(
-          {
-            where: {
-              talentId_promoterId: {
-                talentId: inv.talentId,
-                promoterId: promoterId,
-              },
-            },
-            select: {
-              trustScore: true,
-              optedOut: true,
-              lastContacted: true,
-              lastReply: true,
-            },
-          },
-        );
-
-        return {
-          ...inv,
-          talent: talentProfile,
-          promoterState: promoterRating,
-        };
-      }),
-    );
-
-    return enrichedInvitations;
+    return this.getInvitations(id, promoterId, filters, batchId);
   }
+
 
   /**
    * Get invitations for a campaign, optionally filtered by batch.
@@ -371,16 +371,16 @@ export class CampaignInvitationService {
 
     const target = (() => {
       switch (event.mainEventType) {
-        case 'Club Only':
+        case "Club Only":
           return event.clubGuests ?? 0;
 
-        case 'Dinner Only':
+        case "Dinner Only":
           return event.dinnerGuests ?? 0;
 
-        case 'Pre-Drink+Club':
+        case "Pre-Drink+Club":
           return (event.preDrinkGuests ?? 0) + (event.clubGuests ?? 0);
 
-        case 'Dinner+Club':
+        case "Dinner+Club":
           return (event.dinnerGuests ?? 0) + (event.clubGuests ?? 0);
 
         default:
@@ -447,7 +447,6 @@ export class CampaignInvitationService {
     invitationId: number,
     promoterId: number,
   ): Promise<{ message: string }> {
-
     const invitation = await this.prisma.campaignInvitation.findUnique({
       where: { id: invitationId },
     });
@@ -457,7 +456,10 @@ export class CampaignInvitationService {
       );
     }
 
-    await this.ensureCampaignBelongsToPromoter(invitation.campaignId, promoterId);
+    await this.ensureCampaignBelongsToPromoter(
+      invitation.campaignId,
+      promoterId,
+    );
     await this.prisma.campaignInvitation.delete({
       where: { id: invitationId },
     });
@@ -689,7 +691,6 @@ export class CampaignInvitationService {
 
       campaign = created.campaign;
     }
-
 
     const results = await Promise.all(
       talentIds.map(async (talentId) => {

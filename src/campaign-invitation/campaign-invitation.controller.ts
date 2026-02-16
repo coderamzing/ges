@@ -31,30 +31,6 @@ export class CampaignInvitationController {
     private readonly talentService: TalentService,
   ) { }
 
-  @Get('campaign/:eventId')
-  @ApiOperation({
-    summary: 'Get invitations list for an Event',
-    description: 'Returns invitations for a Event. Can filter by status and/or hasReplied (for those who have not replied)',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'List of Event invitations',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Campaign not found or does not belong to promoter',
-  })
-  async getInvitationsByCampaign(
-    @Param('eventId', ParseIntPipe) eventId: number,
-    @Query() query: GetCampaignInvitationsQueryDto,
-    @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<CampaignInvitation[]> {
-    return this.campaignInvitationService.getInvitationsByCampaign(
-      eventId,
-      promoter.id,
-      query,
-    );
-  }
 
   @Patch('mark-attended')
   @ApiOperation({
@@ -224,6 +200,31 @@ export class CampaignInvitationController {
   }
 
 
+  @Get('campaign/:eventId')
+  @ApiOperation({
+    summary: 'Get invitations list for an Event',
+    description: 'Returns invitations for a Event. Can filter by status and/or hasReplied (for those who have not replied)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of Event invitations',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Campaign not found or does not belong to promoter',
+  })
+  async getInvitationsByCampaign(
+    @Param('eventId', ParseIntPipe) eventId: number,
+    @Query() query: GetCampaignInvitationsQueryDto,
+    @GetPromoter() promoter: { id: number; email: string },
+  ): Promise<CampaignInvitation[]> {
+    return this.campaignInvitationService.getInvitationsByCampaign(
+      eventId,
+      promoter.id,
+      query,
+    );
+  }
+
 
   @Get('campaign/:campaignId/batch/:batchId')
   @ApiOperation({
@@ -307,7 +308,6 @@ export class CampaignInvitationController {
       promoter.id,
     );
   }
-
 
 
 
