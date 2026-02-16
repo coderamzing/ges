@@ -389,59 +389,43 @@ export class TalentService {
     const topLimit = filters.top ?? null;
     console.log(topLimit, "trustc score")
     console.log(promoterId, "incoming promoter id ")
-    if (topLimit) {
+
+
+
+
+    if (topLimit && topLimit > 0) {
       const statusTalents = await this.prisma.userTpStatus.groupBy({
         by: ['talentPoolId'],
         where: {
-          userId: BigInt(promoterId),
+          userId: promoterId,
           statusId: {
-            in: [TP_STATUS_MAP.FIRST_CHOICE, TP_STATUS_MAP.OPEN_CHAT],
+            in: [
+              TP_STATUS_MAP.FIRST_CHOICE,
+              TP_STATUS_MAP.OPEN_CHAT
+            ],
           },
         },
-        _count: {
-          statusId: true,
-        },
+        _count: { statusId: true },
         having: {
-          statusId: {
-            _count: {
-              equals: 2, // must have both statuses
-            },
-          },
+          statusId: { _count: { equals: 2 } },
         },
       });
-      console.log(statusTalents, "incoming talents ")
+
       const statusTalentIds = statusTalents
         .map(s => s.talentPoolId)
         .filter((id): id is string => Boolean(id));
 
-      const topTalents = await this.prisma.talentPromoterState.findMany({
-        where: {
-          promoterId: BigInt(promoterId),
-          talentId: {
-            in: statusTalentIds,
-          }
-        },
-        orderBy: {
-          trustScore: 'desc',
-        },
-        take: topLimit,
-        select: {
-          talentId: true,
-        },
-      });
-
-      const finalTalentIds = topTalents.map(t => t.talentId);
-      console.log(finalTalentIds, "incominf finale ids")
       baseWhere.AND ||= [];
+
       baseWhere.AND.push({
         id: {
-          in: finalTalentIds.length ? finalTalentIds : ["__none__"],
+          in: statusTalentIds.length
+            ? statusTalentIds
+            : ["__none__"],
         },
       });
     }
 
-
-    // -------- Exclusions by batch --------
     let excludedTalentIds: string[] = [];
     const invited = await this.prisma.campaignInvitation.findMany({
       where: { campaignId },
@@ -507,14 +491,43 @@ export class TalentService {
 
     const totalPages = Math.ceil(total / limit);
 
-    const sortedData = data.sort((a, b) => {
-      const trustScoreA = a.promoterStates?.[0]?.trustScore ?? 0;
-      const trustScoreB = b.promoterStates?.[0]?.trustScore ?? 0;
-      return trustScoreB - trustScoreA;
+    const profilePriority: Record<string, number> = {
+      supermodel: 1,
+      model: 2,
+      hybrid: 3,
+    };
+
+    //  Group by talentType
+    const grouped: Record<string, typeof data> = {};
+
+    for (const talent of data) {
+      const type = talent.talentType ?? "unknown";
+      if (!grouped[type]) grouped[type] = [];
+      grouped[type].push(talent);
+    }
+
+    // Sort each group internally by trustScore DESC
+    Object.values(grouped).forEach(group => {
+      group.sort((a, b) => {
+        const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
+        const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
+        return trustB - trustA;
+      });
     });
 
+    // Order groups by profile priority
+    const sortedData = Object.keys(grouped)
+      .sort((a, b) => {
+        const priorityA = profilePriority[a] ?? 99;
+        const priorityB = profilePriority[b] ?? 99;
+        return priorityA - priorityB;
+      })
+      .flatMap(type => grouped[type]);
+
+    const finalData = sortedData.slice(0, limit);
+
     return {
-      data: sortedData,
+      data: finalData,
       total,
       page,
       limit,
