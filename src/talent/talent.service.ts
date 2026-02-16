@@ -383,26 +383,38 @@ export class TalentService {
         },
       ];
     }
+    // logic to groupBY by talent Type
+    const defaultPriority: Record<string, number> = {
+      supermodel: 1,
+      model: 2,
+      hybrid: 3,
+      civilian: 4,
+
+    };
+
+    let profilePriority: Record<string, number>;
+
+    if (filters.genre?.length) {
+      profilePriority = Object.fromEntries(
+        Object.entries(defaultPriority)
+          .filter(([type]) => filters.genre!.includes(type))
+      );
+    } else {
+      profilePriority = defaultPriority;
+    }
 
 
     // handle top N logic here
     const topLimit = filters.top ?? null;
     console.log(topLimit, "trustc score")
     console.log(promoterId, "incoming promoter id ")
-
-
-
-
     if (topLimit && topLimit > 0) {
       const statusTalents = await this.prisma.userTpStatus.groupBy({
         by: ['talentPoolId'],
         where: {
           userId: promoterId,
           statusId: {
-            in: [
-              TP_STATUS_MAP.FIRST_CHOICE,
-              TP_STATUS_MAP.OPEN_CHAT
-            ],
+            in: [TP_STATUS_MAP.FIRST_CHOICE, TP_STATUS_MAP.OPEN_CHAT],
           },
         },
         _count: { statusId: true },
@@ -415,15 +427,48 @@ export class TalentService {
         .map(s => s.talentPoolId)
         .filter((id): id is string => Boolean(id));
 
-      baseWhere.AND ||= [];
+      if (!statusTalentIds.length) {
+        baseWhere.AND ||= [];
+        baseWhere.AND.push({ id: { in: ["__none__"] } });
+      } else {
 
-      baseWhere.AND.push({
-        id: {
-          in: statusTalentIds.length
-            ? statusTalentIds
-            : ["__none__"],
-        },
-      });
+
+        const allowedTypes = Object.keys(profilePriority);
+        console.log(allowedTypes, "incoming keys ")
+        const talents = await this.prisma.talentPool.findMany({
+          where: {
+            id: { in: statusTalentIds },
+            talentType: { in: allowedTypes },
+          },
+          include: {
+            promoterStates: {
+              where: { promoterId },
+              select: { trustScore: true },
+              take: 1,
+            },
+          },
+        });
+
+        //  Global sort (same logic as your final sort)
+        const sorted = talents.sort((a, b) => {
+          const priorityA = profilePriority[a.talentType!];
+          const priorityB = profilePriority[b.talentType!];
+
+          return priorityA - priorityB;
+        });
+
+        //  Take ONLY topLimit total
+        const finalTalentIds = sorted
+          .slice(0, topLimit)
+          .map(t => t.id);
+
+        baseWhere.AND ||= [];
+        baseWhere.AND.push({
+          id: {
+            in: finalTalentIds.length ? finalTalentIds : ["__none__"],
+          },
+        });
+      }
     }
 
     let excludedTalentIds: string[] = [];
@@ -490,44 +535,52 @@ export class TalentService {
     });
 
     const totalPages = Math.ceil(total / limit);
+    // Get allowed types only
+    let sortedData: TalentPool[];
 
-    const profilePriority: Record<string, number> = {
-      supermodel: 1,
-      model: 2,
-      hybrid: 3,
-    };
+    if (topLimit && topLimit > 0) {
+      //  TOP FLOW → group + trustScore + priority
 
-    //  Group by talentType
-    const grouped: Record<string, typeof data> = {};
+      const allowedTypes = Object.keys(profilePriority);
 
-    for (const talent of data) {
-      const type = talent.talentType ?? "unknown";
-      if (!grouped[type]) grouped[type] = [];
-      grouped[type].push(talent);
-    }
+      const filteredData = data.filter(
+        talent =>
+          talent.talentType &&
+          allowedTypes.includes(talent.talentType)
+      );
 
-    // Sort each group internally by trustScore DESC
-    Object.values(grouped).forEach(group => {
-      group.sort((a, b) => {
+      const grouped: Record<string, typeof filteredData> = {};
+
+      for (const talent of filteredData) {
+        const type = talent.talentType!;
+        if (!grouped[type]) grouped[type] = [];
+        grouped[type].push(talent);
+      }
+
+      // sort inside each group by trustScore DESC
+      Object.values(grouped).forEach(group => {
+        group.sort((a, b) => {
+          const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
+          const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
+          return trustB - trustA;
+        });
+      });
+
+      // order groups by priority
+      sortedData = allowedTypes.flatMap(type => grouped[type] ?? []);
+
+    } else {
+      // NORMAL FLOW → global trustScore sort only
+
+      sortedData = [...data].sort((a, b) => {
         const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
         const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
         return trustB - trustA;
       });
-    });
-
-    // Order groups by profile priority
-    const sortedData = Object.keys(grouped)
-      .sort((a, b) => {
-        const priorityA = profilePriority[a] ?? 99;
-        const priorityB = profilePriority[b] ?? 99;
-        return priorityA - priorityB;
-      })
-      .flatMap(type => grouped[type]);
-
-    const finalData = sortedData.slice(0, limit);
+    }
 
     return {
-      data: finalData,
+      data: sortedData,
       total,
       page,
       limit,
