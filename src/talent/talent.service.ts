@@ -383,13 +383,32 @@ export class TalentService {
         },
       ];
     }
+    // logic to groupBY by talent Type
+    const defaultPriority: Record<string, number> = {
+      supermodel: 1,
+      model: 2,
+      hybrid: 3,
+      civilian: 4,
+
+    };
+
+    let profilePriority: Record<string, number>;
+
+    if (filters.genre?.length) {
+      profilePriority = Object.fromEntries(
+        Object.entries(defaultPriority)
+          .filter(([type]) => filters.genre!.includes(type))
+      );
+    } else {
+      profilePriority = defaultPriority;
+    }
 
 
     // handle top N logic here
     const topLimit = filters.top ?? null;
     console.log(topLimit, "trustc score")
     console.log(promoterId, "incoming promoter id ")
-    if (topLimit) {
+    if (topLimit && topLimit > 0) {
       const statusTalents = await this.prisma.userTpStatus.groupBy({
         by: ['talentPoolId'],
         where: {
@@ -404,34 +423,30 @@ export class TalentService {
         having: {
           statusId: {
             _count: {
-              equals: 2, // must have both statuses
+              equals: 2,
             },
           },
         },
       });
-      console.log(statusTalents, "incoming talents ")
+
       const statusTalentIds = statusTalents
         .map(s => s.talentPoolId)
         .filter((id): id is string => Boolean(id));
 
-      const topTalents = await this.prisma.talentPromoterState.findMany({
+      const topTalents = await this.prisma.talentPool.findMany({
         where: {
-          promoterId: BigInt(promoterId),
-          talentId: {
-            in: statusTalentIds,
-          }
-        },
-        orderBy: {
-          trustScore: 'desc',
+          id: {
+            in: statusTalentIds.length ? statusTalentIds : ["__none__"],
+          },
         },
         take: topLimit,
         select: {
-          talentId: true,
+          id: true,
         },
       });
 
-      const finalTalentIds = topTalents.map(t => t.talentId);
-      console.log(finalTalentIds, "incominf finale ids")
+      const finalTalentIds = topTalents.map(t => t.id);
+
       baseWhere.AND ||= [];
       baseWhere.AND.push({
         id: {
@@ -440,8 +455,6 @@ export class TalentService {
       });
     }
 
-
-    // -------- Exclusions by batch --------
     let excludedTalentIds: string[] = [];
     const invited = await this.prisma.campaignInvitation.findMany({
       where: { campaignId },
@@ -483,9 +496,8 @@ export class TalentService {
     const data = await this.prisma.talentPool.findMany({
       where: baseWhere,
       skip,
-      // take: limit,
-      take: recommendation ? 100 : limit,
-      // orderBy,
+      take: limit,
+      // take: recommendation ? 100 : limit,
       include: {
         blacklists: { where: { promoterId }, take: 1 },
         promoterStates: {
@@ -507,11 +519,44 @@ export class TalentService {
 
     const totalPages = Math.ceil(total / limit);
 
-    const sortedData = data.sort((a, b) => {
-      const trustScoreA = a.promoterStates?.[0]?.trustScore ?? 0;
-      const trustScoreB = b.promoterStates?.[0]?.trustScore ?? 0;
-      return trustScoreB - trustScoreA;
-    });
+    let sortedData: TalentPool[];
+
+    if (topLimit && topLimit > 0) {
+      //  TOP FLOW → group + trustScore + priority
+      const allowedTypes = Object.keys(profilePriority);
+
+      const filteredData = data.filter(
+        talent =>
+          talent.talentType &&
+          allowedTypes.includes(talent.talentType)
+      );
+      const grouped: Record<string, typeof filteredData> = {};
+
+      for (const talent of filteredData) {
+        const type = talent.talentType!;
+        if (!grouped[type]) grouped[type] = [];
+        grouped[type].push(talent);
+      }
+      // sort inside each group by trustScore DESC
+      Object.values(grouped).forEach(group => {
+        group.sort((a, b) => {
+          const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
+          const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
+          return trustB - trustA;
+        });
+      });
+      // order groups by priority
+      sortedData = allowedTypes.flatMap(type => grouped[type] ?? []);
+
+    } else {
+      // NORMAL FLOW → global trustScore sort only
+      sortedData = [...data].sort((a, b) => {
+        const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
+        const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
+        return trustB - trustA;
+      });
+    }
+
 
     return {
       data: sortedData,
