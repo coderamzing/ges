@@ -223,6 +223,8 @@ export class TalentService {
     const recommendation = filters.recommendation;
     const RecomendationCity = event?.city?.trim();
     const orderBy: any[] = [];
+    const responseAccumulator = new Map<string, number[]>();
+
 
     if (recommendation) {
       baseWhere.OR = [
@@ -299,6 +301,78 @@ export class TalentService {
           },
         },
       );
+
+      const invitationsWithMessages =
+        await this.prisma.campaignInvitation.findMany({
+          where: {
+            promoterId,
+            thread_id: { not: null },
+          },
+          select: {
+            talentId: true,
+            thread_id: true,
+            messages: {
+              where: {
+                tm: { not: null },
+              },
+              select: {
+                sender: true,
+                tm: true,
+                sender_username: true,
+              },
+              orderBy: {
+                tm: "asc",
+              },
+            },
+          },
+        });
+    
+      const threadIds = invitationsWithMessages
+        .map((i) => i.thread_id)
+        .filter((id): id is string => id !== null);
+    
+      const threads = await this.prisma.thread.findMany({
+        where: {
+          id: { in: threadIds },
+        },
+        select: {
+          id: true,
+          username1: true,
+          username2: true,
+        },
+      });
+    
+      const threadMap = new Map(threads.map((t) => [t.id, t]));
+      for (const inv of invitationsWithMessages) {
+        if (!inv.thread_id) continue;
+    
+        const thread = threadMap.get(inv.thread_id);
+        if (!thread) continue;
+    
+        const { username1: promoterUsername, username2: talentUsername } =
+          thread;
+    
+        const messages = inv.messages;
+    
+        for (let i = 0; i < messages.length - 1; i++) {
+          const current = messages[i];
+          const next = messages[i + 1];
+          if (
+            current.sender_username === promoterUsername &&
+            next.sender_username === talentUsername
+          ) {
+    
+            const diffSeconds =
+              (next.tm!.getTime() - current.tm!.getTime()) / 1000;
+    
+            if (!responseAccumulator.has(inv.talentId)) {
+              responseAccumulator.set(inv.talentId, []);
+            }
+    
+            responseAccumulator.get(inv.talentId)!.push(diffSeconds);
+          }
+        }
+    }
     }
 
     // search with talent type
@@ -520,6 +594,31 @@ export class TalentService {
     const totalPages = Math.ceil(total / limit);
 
     let sortedData: TalentPool[];
+    const responseTimeMap = new Map<string, number>();
+    const attendanceMap = new Map<string, number>();
+
+      const attendedCountsRaw = await this.prisma.campaignInvitation.groupBy({
+        by: ["talentId"],
+        where: {
+          status: InvitationStatus.attended,
+        },
+        _count: {
+          id: true,
+        },
+      });
+      
+      for (const row of attendedCountsRaw) {
+        attendanceMap.set(row.talentId, row._count.id);
+      }
+
+      const firstChoiceMap = new Map<string, boolean>();
+
+      for (const talent of data) {
+        const isFirstChoice = talent.userTpStatus?.some(
+          s => s.statusId === TP_STATUS_MAP.FIRST_CHOICE
+        );
+        firstChoiceMap.set(talent.id, Boolean(isFirstChoice));
+      }
 
     if (topLimit && topLimit > 0) {
       //  TOP FLOW → group + trustScore + priority
@@ -553,7 +652,28 @@ export class TalentService {
       sortedData = [...data].sort((a, b) => {
         const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
         const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
-        return trustB - trustA;
+        // return trustB - trustA;
+        if (trustA !== trustB) return trustB - trustA;
+
+         if (recommendation) {
+          const timeA = responseTimeMap.get(a.id);
+          const timeB = responseTimeMap.get(b.id);
+
+          if (timeA !== undefined || timeB !== undefined) {
+            if (timeA === undefined) return 1;
+            if (timeB === undefined) return -1;
+            if (timeA !== timeB) return timeA - timeB;
+          }
+
+          const attendA = attendanceMap.get(a.id) ?? 0;
+          const attendB = attendanceMap.get(b.id) ?? 0;
+          if (attendA !== attendB) return attendB - attendA;
+
+          const firstA = firstChoiceMap.get(a.id) ? 1 : 0;
+          const firstB = firstChoiceMap.get(b.id) ? 1 : 0;
+          if (firstA !== firstB) return firstB - firstA;
+        }
+        return 0;
       });
     }
 
