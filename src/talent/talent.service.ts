@@ -7,7 +7,7 @@ import { TP_STATUS_MAP } from "./talent.config";
 import { BadRequestError } from "openai";
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -19,8 +19,6 @@ export class TalentService {
 
     return talent;
   }
-
-
 
   // async getDispatcherStatuses(type?: string) {
   //   if (!type) {
@@ -44,7 +42,6 @@ export class TalentService {
   //   return result;
   // }
 
-
   // async gettalentStatuses() {
   //   let value = process.env.TALENT || 'talent'
   //   const data = await this.prisma.tpStatus.findMany({
@@ -64,9 +61,6 @@ export class TalentService {
   //   return result;
   // }
 
-
-
-
   async getRecommendations(
     campaignId: number,
     batchId: number,
@@ -78,7 +72,7 @@ export class TalentService {
     limit: number;
     totalPages: number;
   }> {
-    console.log(filters, "values ")
+    console.log(filters, "values ");
     const campaign = await this.prisma.campaign.findUnique({
       where: { id: campaignId },
     });
@@ -94,7 +88,6 @@ export class TalentService {
 
     const promoterId = event.userId ? BigInt(event.userId) : null;
     if (!promoterId) throw new NotFoundException(`Event has no promoter`);
-
 
     // 48 hours rule
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
@@ -200,7 +193,6 @@ export class TalentService {
       ];
     }
 
-
     baseWhere.AND ||= [];
 
     const filterFields = ["city", "country", "hairColor", "ethnicity"] as const;
@@ -224,7 +216,6 @@ export class TalentService {
     const RecomendationCity = event?.city?.trim();
     const orderBy: any[] = [];
     const responseAccumulator = new Map<string, number[]>();
-
 
     if (recommendation) {
       baseWhere.OR = [
@@ -280,7 +271,12 @@ export class TalentService {
             },
             {
               OR: [
-                { currentCity: { equals: RecomendationCity, mode: "insensitive" } },
+                {
+                  currentCity: {
+                    equals: RecomendationCity,
+                    mode: "insensitive",
+                  },
+                },
                 { city: { equals: RecomendationCity, mode: "insensitive" } },
               ],
             },
@@ -326,11 +322,11 @@ export class TalentService {
             },
           },
         });
-    
+
       const threadIds = invitationsWithMessages
         .map((i) => i.thread_id)
         .filter((id): id is string => id !== null);
-    
+
       const threads = await this.prisma.thread.findMany({
         where: {
           id: { in: threadIds },
@@ -341,19 +337,19 @@ export class TalentService {
           username2: true,
         },
       });
-    
+
       const threadMap = new Map(threads.map((t) => [t.id, t]));
       for (const inv of invitationsWithMessages) {
         if (!inv.thread_id) continue;
-    
+
         const thread = threadMap.get(inv.thread_id);
         if (!thread) continue;
-    
+
         const { username1: promoterUsername, username2: talentUsername } =
           thread;
-    
+
         const messages = inv.messages;
-    
+
         for (let i = 0; i < messages.length - 1; i++) {
           const current = messages[i];
           const next = messages[i + 1];
@@ -361,18 +357,17 @@ export class TalentService {
             current.sender_username === promoterUsername &&
             next.sender_username === talentUsername
           ) {
-    
             const diffSeconds =
               (next.tm!.getTime() - current.tm!.getTime()) / 1000;
-    
+
             if (!responseAccumulator.has(inv.talentId)) {
               responseAccumulator.set(inv.talentId, []);
             }
-    
+
             responseAccumulator.get(inv.talentId)!.push(diffSeconds);
           }
         }
-    }
+      }
     }
 
     // search with talent type
@@ -381,7 +376,7 @@ export class TalentService {
     }
 
     // status filter
-    const statusIds = (filters.statusId || [])
+    const statusIds = filters.statusId || [];
     const hasBlacklistFilter = statusIds.includes(TP_STATUS_MAP.BLACKLIST);
 
     if (!hasBlacklistFilter) {
@@ -399,7 +394,9 @@ export class TalentService {
         },
       ];
     }
-    const normalStatusIds = statusIds.filter(id => id !== TP_STATUS_MAP.BLACKLIST);
+    const normalStatusIds = statusIds.filter(
+      (id) => id !== TP_STATUS_MAP.BLACKLIST,
+    );
 
     if (normalStatusIds.length > 0) {
       baseWhere.AND = [
@@ -428,7 +425,6 @@ export class TalentService {
         },
       ];
     }
-
 
     //trust score with filter
     // ================= trust score filter (FINAL WORKING) =================
@@ -463,28 +459,27 @@ export class TalentService {
       model: 2,
       hybrid: 3,
       civilian: 4,
-
     };
 
     let profilePriority: Record<string, number>;
 
     if (filters.genre?.length) {
       profilePriority = Object.fromEntries(
-        Object.entries(defaultPriority)
-          .filter(([type]) => filters.genre!.includes(type))
+        Object.entries(defaultPriority).filter(([type]) =>
+          filters.genre!.includes(type),
+        ),
       );
     } else {
       profilePriority = defaultPriority;
     }
 
-
     // handle top N logic here
     const topLimit = filters.top ?? null;
-    console.log(topLimit, "trustc score")
-    console.log(promoterId, "incoming promoter id ")
+    console.log(topLimit, "trustc score");
+    console.log(promoterId, "incoming promoter id ");
     if (topLimit && topLimit > 0) {
       const statusTalents = await this.prisma.userTpStatus.groupBy({
-        by: ['talentPoolId'],
+        by: ["talentPoolId"],
         where: {
           userId: BigInt(promoterId),
           statusId: {
@@ -504,7 +499,7 @@ export class TalentService {
       });
 
       const statusTalentIds = statusTalents
-        .map(s => s.talentPoolId)
+        .map((s) => s.talentPoolId)
         .filter((id): id is string => Boolean(id));
 
       const topTalents = await this.prisma.talentPool.findMany({
@@ -519,7 +514,7 @@ export class TalentService {
         },
       });
 
-      const finalTalentIds = topTalents.map(t => t.id);
+      const finalTalentIds = topTalents.map((t) => t.id);
 
       baseWhere.AND ||= [];
       baseWhere.AND.push({
@@ -541,8 +536,6 @@ export class TalentService {
         { id: { notIn: excludedTalentIds } },
       ];
     }
-
-
 
     const page = filters.page && filters.page > 0 ? filters.page : 1;
     const Templimit = filters.limit && filters.limit > 0 ? filters.limit : 100;
@@ -569,8 +562,8 @@ export class TalentService {
     // -------------------- fetch paginated data --------------------
     const data = await this.prisma.talentPool.findMany({
       where: baseWhere,
-      skip,
-      take: limit,
+      // skip,
+      // take: limit,
       // take: recommendation ? 100 : limit,
       include: {
         blacklists: { where: { promoterId }, take: 1 },
@@ -597,37 +590,36 @@ export class TalentService {
     const responseTimeMap = new Map<string, number>();
     const attendanceMap = new Map<string, number>();
 
-      const attendedCountsRaw = await this.prisma.campaignInvitation.groupBy({
-        by: ["talentId"],
-        where: {
-          status: InvitationStatus.attended,
-        },
-        _count: {
-          id: true,
-        },
-      });
-      
-      for (const row of attendedCountsRaw) {
-        attendanceMap.set(row.talentId, row._count.id);
-      }
+    const attendedCountsRaw = await this.prisma.campaignInvitation.groupBy({
+      by: ["talentId"],
+      where: {
+        status: InvitationStatus.attended,
+      },
+      _count: {
+        id: true,
+      },
+    });
 
-      const firstChoiceMap = new Map<string, boolean>();
+    for (const row of attendedCountsRaw) {
+      attendanceMap.set(row.talentId, row._count.id);
+    }
 
-      for (const talent of data) {
-        const isFirstChoice = talent.userTpStatus?.some(
-          s => s.statusId === TP_STATUS_MAP.FIRST_CHOICE
-        );
-        firstChoiceMap.set(talent.id, Boolean(isFirstChoice));
-      }
+    const firstChoiceMap = new Map<string, boolean>();
+
+    for (const talent of data) {
+      const isFirstChoice = talent.userTpStatus?.some(
+        (s) => s.statusId === TP_STATUS_MAP.FIRST_CHOICE,
+      );
+      firstChoiceMap.set(talent.id, Boolean(isFirstChoice));
+    }
 
     if (topLimit && topLimit > 0) {
       //  TOP FLOW → group + trustScore + priority
       const allowedTypes = Object.keys(profilePriority);
 
       const filteredData = data.filter(
-        talent =>
-          talent.talentType &&
-          allowedTypes.includes(talent.talentType)
+        (talent) =>
+          talent.talentType && allowedTypes.includes(talent.talentType),
       );
       const grouped: Record<string, typeof filteredData> = {};
 
@@ -637,7 +629,7 @@ export class TalentService {
         grouped[type].push(talent);
       }
       // sort inside each group by trustScore DESC
-      Object.values(grouped).forEach(group => {
+      Object.values(grouped).forEach((group) => {
         group.sort((a, b) => {
           const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
           const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
@@ -645,8 +637,7 @@ export class TalentService {
         });
       });
       // order groups by priority
-      sortedData = allowedTypes.flatMap(type => grouped[type] ?? []);
-
+      sortedData = allowedTypes.flatMap((type) => grouped[type] ?? []);
     } else {
       // NORMAL FLOW → global trustScore sort only
       sortedData = [...data].sort((a, b) => {
@@ -655,7 +646,7 @@ export class TalentService {
         // return trustB - trustA;
         if (trustA !== trustB) return trustB - trustA;
 
-         if (recommendation) {
+        if (recommendation) {
           const timeA = responseTimeMap.get(a.id);
           const timeB = responseTimeMap.get(b.id);
 
@@ -677,15 +668,17 @@ export class TalentService {
       });
     }
 
+    const start = (page - 1) * limit;
+    const end = start + limit;
+
+    const paginatedData = sortedData.slice(start, end);
 
     return {
-      data: sortedData,
+      data: paginatedData,
       total,
       page,
       limit,
       totalPages,
     };
-
   }
-
 }
