@@ -4,6 +4,7 @@ import {
   BadRequestException,
   HttpException,
   HttpStatus,
+  Logger
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import {
@@ -28,10 +29,64 @@ import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from "../campaign-template/campaign-tem
 
 @Injectable()
 export class CampaignInvitationService {
+  private readonly logger = new Logger(CampaignInvitationService.name);
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
+
+  private async campaignTargetReached(campaignId: number, eventId: number) {
+    const currentBatchCount = await this.prisma.campaignInvitation.count({
+      where: {
+        campaignId,
+        status: {
+          in: [InvitationStatus.confirmed],
+        },
+      },
+    });
+    const event = await this.prisma.events.findFirst({
+      where: {
+        id: eventId,
+      },
+    });
+
+
+
+    const target = (() => {
+      switch (event?.mainEventType) {
+        case 'Club Only':
+          return event.clubGuests ?? 0;
+
+        case 'Dinner Only':
+          return event.dinnerGuests ?? 0;
+
+        case 'Pre-Drink+Club':
+          return (event.preDrinkGuests ?? 0) + (event.clubGuests ?? 0);
+
+        case 'Dinner+Club':
+          return (event.dinnerGuests ?? 0) + (event.clubGuests ?? 0);
+
+        default:
+          return 0;
+      }
+    })();
+
+    // const guests = event?.guests ?? 10;
+    const guests = target;
+
+    if (currentBatchCount >= guests) {
+      await this.prisma.campaign.update({
+        where: { id: campaignId },
+        data: { end_at: new Date(), status: CampaignStatus.completed },
+      });
+      this.logger.log(`Campaign ${campaignId} end_at updated at ${new Date()}`);
+    } else {
+      this.logger.log(
+        `Campaign ${campaignId}  has ${currentBatchCount} invitations.`,
+      );
+    }
+  }
+
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -721,6 +776,11 @@ export class CampaignInvitationService {
           });
         }
       }),
+    );
+
+    await this.campaignTargetReached(
+      campaign.id,
+      eventId,
     );
 
     return {

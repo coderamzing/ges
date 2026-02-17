@@ -141,18 +141,23 @@ export class CampaignStatsService {
 
     // Calculate response classification
     const confirmed = invitations.filter(inv => inv.status === InvitationStatus.confirmed).length;
-    const interested = invitations.filter(inv => inv.status === InvitationStatus.maybe).length;
+    const interested = invitations.filter(inv => inv.status === InvitationStatus.maybe || inv.status === InvitationStatus.pending).length;
+
     const declined = invitations.filter(inv => inv.status === InvitationStatus.declined).length;
     const pending = invitations.filter(inv => inv.status === InvitationStatus.pending).length;
 
+
     // Seen but no reply = invitations that are seen but haven't replied
     const noReply = invitations.filter(inv =>
-      inv.isSeen === true && inv.hasReplied === false
+      // inv.isSeen === true && inv.hasReplied === false
+      inv.hasReplied === false
     ).length;
 
     //calculate confirmationRate and conversationRate
     const confirmationRate = Number(((confirmed / target) * 100).toFixed(3));
-    const conversationRate = Number(((sent / target) * 100).toFixed(3))
+
+
+    const conversationRate = Number(((confirmed / sent) * 100).toFixed(3))
 
 
     // Calculate batch statistics (only for filtered batches)
