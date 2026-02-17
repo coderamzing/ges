@@ -352,17 +352,19 @@ export class CampaignInvitationAutomationService {
         // }
 
         // // Then check if enough time has passed since last send for this promoter
-        // const mode = process.env.MESSAGE_MODE || "dev";
-        // const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
+        const mode = process.env.MESSAGE_MODE || "dev";
+        const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
 
-        // this.logger.log(`[Message Scheduler] Mode: ${mode}`);
-        //  this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
-        // if (!(await this.shouldSendMessage(promoterId,delayMinutes))) {
-        //   this.logger.debug(
-        //     `Skipping invitation ${invitation.id} for promoter ${promoterId}, waiting for random gap`,
-        //   );
-        //   continue; // Try next invitation
-        // }
+        if(mode === 'live'){
+           this.logger.log(`[Message Scheduler] Mode: ${mode}`);
+            this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
+           if (!(await this.shouldSendMessage(promoterId,delayMinutes))) {
+             this.logger.debug(
+               `Skipping invitation ${invitation.id} for promoter ${promoterId}, waiting for random gap`,
+              );
+              continue; // Try next invitation
+            }
+          }
 
         // Both conditions met - send the message
         try {

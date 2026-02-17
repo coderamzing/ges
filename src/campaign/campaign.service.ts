@@ -180,29 +180,29 @@ export class CampaignService {
 
         if (updateCampaignStatusDto.status === 'active') {
 
-            const invitationCount = await this.prisma.campaignInvitation.count({
-                where: {
-                    campaignId: id,
-                    promoterId: BigInt(promoterId),
-                    batch: 1,
-                },
-            });
-            let guests = event.guests ?? 10;
-
-            if (invitationCount < guests) {
-                throw new BadRequestException(
-                    `You must send at least ${guests} invitations in batch 1 before activating the campaign. Currently sent: ${invitationCount}`
-                );
-            }
             if (!campaign.start_at) {
                 return this.prisma.campaign.update({
                     where: { id },
                     data: {
-                        status: 'active',
+                        status: CampaignStatus.active,
                         start_at: new Date(),
                     },
                 });
             }
+            // const invitationCount = await this.prisma.campaignInvitation.count({
+            //     where: {
+            //         campaignId: id,
+            //         promoterId: BigInt(promoterId),
+            //         batch: 1,
+            //     },
+            // });
+            // let guests = event.guests ?? 10;
+
+            // if (invitationCount < guests) {
+            //     throw new BadRequestException(
+            //         `You must send at least ${guests} invitations in batch 1 before activating the campaign. Currently sent: ${invitationCount}`
+            //     );
+            // }
         }
 
         return this.prisma.campaign.update({
