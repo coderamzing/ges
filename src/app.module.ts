@@ -24,7 +24,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { OpenAIModule } from './openai/openai.module';
 import { TempModule } from './temp/temp.module';
 import { AiPromptModule } from './aiprompt/aiprompt.module';
-import { LocationModule } from './location/location.module';
+// import { LocationModule } from './location/location.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -55,7 +55,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     TalentScoreModule,
     TempModule,
     AiPromptModule,
-    LocationModule],
+    // LocationModule
+  ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })
