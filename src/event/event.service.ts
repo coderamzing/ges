@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventDto } from './event.dto';
 import { UpdateEventDto } from './event.dto';
 import { Events } from '@prisma/client';
+// import { UpdateMainEventTypeDto } from 'src/campaign-stats/campaign-stats.dto';
 
 @Injectable()
 export class EventService {
@@ -99,5 +100,23 @@ export class EventService {
       where: { id: BigInt(id) },
     });
   }
+
+//   async updateMainEventType(
+//   id: number,
+//   dto: UpdateMainEventTypeDto,
+//   promoterId: number,
+// ): Promise<Events> {
+//   // Ensure event exists & belongs to promoter
+//   await this.findOne(id, promoterId);
+
+//   return this.prisma.events.update({
+//     where: { id: BigInt(id) },
+//     data: {
+//       mainEventType: dto.mainEventType,
+//       updateAt: new Date(),
+//     },
+//   });
+// }
+
 }
 

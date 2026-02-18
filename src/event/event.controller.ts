@@ -18,6 +18,7 @@ import { UpdateEventDto } from './event.dto';
 import { Events } from '@prisma/client';
 import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
 import { GetPromoter } from '../../guard/get-promoter.decorator';
+// import { UpdateMainEventTypeDto } from 'src/campaign-stats/campaign-stats.dto';
 
 @ApiTags('events')
 @ApiBearerAuth()
@@ -89,5 +90,19 @@ export class EventController {
   ): Promise<void> {
     await this.eventService.remove(id, promoter.id);
   }
+
+  // @Patch(':id/main-event-type')
+  // @ApiOperation({ summary: 'Update main event type' })
+  // @ApiResponse({ status: 200, description: 'Main event type updated successfully' })
+  // @ApiResponse({ status: 404, description: 'Event not found' })
+  // @ApiResponse({ status: 403, description: 'Forbidden - not your event' })
+  // async updateMainEventType(
+  //   @Param('id', ParseIntPipe) id: number,
+  //   @Body() dto: UpdateMainEventTypeDto,
+  //   @GetPromoter() promoter: { id: number },
+  // ): Promise<Events> {
+  //   return this.eventService.updateMainEventType(id, dto, promoter.id);
+  // }
+
 }
 

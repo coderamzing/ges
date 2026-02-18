@@ -372,7 +372,7 @@ export class TalentService {
 
     // search with talent type
     if (filters.genre?.length) {
-      baseWhere.talentType = { in: filters.genre };
+      baseWhere.genre = { in: filters.genre };
     }
 
     // status filter
@@ -619,12 +619,12 @@ export class TalentService {
 
       const filteredData = data.filter(
         (talent) =>
-          talent.talentType && allowedTypes.includes(talent.talentType),
+          talent.genre && allowedTypes.includes(talent.genre),
       );
       const grouped: Record<string, typeof filteredData> = {};
 
       for (const talent of filteredData) {
-        const type = talent.talentType!;
+        const type = talent.genre!;
         if (!grouped[type]) grouped[type] = [];
         grouped[type].push(talent);
       }

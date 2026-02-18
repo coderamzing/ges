@@ -98,9 +98,9 @@ export class TalentRecommendationFiltersDto {
 
   @ApiPropertyOptional({
     description: 'Select one or more talent types',
-    example: ['civilian', 'model'],
+    example: ['Civilians', 'Models'],
     isArray: true,
-    enum: ['civilian', 'hybrid', 'supermodel', 'model'],
+    enum: ['Civilians', 'Hybrids', 'Supermodels', 'Models'],
   })
   @IsOptional()
   @Transform(({ value }) => {
@@ -113,7 +113,7 @@ export class TalentRecommendationFiltersDto {
     return value;
   })
   @IsArray()
-  @IsIn(['civilian', 'hybrid', 'supermodel', 'model'], { each: true })
+  @IsIn(['Civilians', 'Hybrids', 'Supermodels', 'Models'], { each: true })
   genre?: string[];
 
 
