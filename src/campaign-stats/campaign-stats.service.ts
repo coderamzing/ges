@@ -115,12 +115,12 @@ export class CampaignStatsService {
       },
       select: {
         id: true,
-        talentType: true,
+        genre: true,
       },
     });
 
     const talentTypeMap = new Map(
-      talents.map(t => [t.id, t.talentType])
+      talents.map(t => [t.id, t.genre])
     );
     const talentTypeCount: Record<string, number> = {};
 
