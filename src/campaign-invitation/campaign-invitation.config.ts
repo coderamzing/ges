@@ -11,7 +11,7 @@ export const InvitationStatus = {
   MOVED: "moved",
   BLACKLIST: "blacklist",
   SOFT_DECLINE: "soft-decline",
-  MANUALLY_CONFIRM: "manually-confirm",
+  MANUALLY_CONFIRM: "manually-confirmed",
   MANUALLY_PENDING: "manually-pending",
   MANUALLY_DECLINED: "manually-declined",
 } as const;
