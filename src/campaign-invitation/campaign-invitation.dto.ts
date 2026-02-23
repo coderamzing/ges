@@ -74,7 +74,7 @@ export class GetInvitationsQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by one or multiple invitation statuses',
-    enum: InvitationStatus,
+    type: String,
     isArray: true,
     example: ['sent', 'attended'],
   })
@@ -84,8 +84,8 @@ export class GetInvitationsQueryDto {
     if (typeof value === 'string') return value.split(',');
     return value;
   })
-  @IsEnum(InvitationStatus, { each: true })
-  status?: InvitationStatus[];
+  @IsString({ each: true })
+  status?: string[];
 
 
   @ApiPropertyOptional({
@@ -150,7 +150,7 @@ export class GetInvitationsQueryDto {
 export class GetCampaignInvitationsQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by one or multiple invitation statuses',
-    enum: InvitationStatus,
+    type: String,
     isArray: true,
     example: ['sent', 'attended'],
   })
@@ -160,8 +160,8 @@ export class GetCampaignInvitationsQueryDto {
     if (typeof value === 'string') return value.split(',');
     return value;
   })
-  @IsEnum(InvitationStatus, { each: true })
-  status?: InvitationStatus[];
+  @IsString({ each: true })
+  status?: string[];
 
   @ApiPropertyOptional({
     description: 'Filter by seen status',

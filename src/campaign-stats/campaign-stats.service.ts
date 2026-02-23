@@ -105,8 +105,10 @@ export class CampaignStatsService {
       // where: invitationWhere,
       where: {
         ...invitationWhere,
-        status: {
-          not: 'manually',
+        NOT: {
+          status: {
+            startsWith: 'manually',
+          },
         },
       },
     });
@@ -116,26 +118,26 @@ export class CampaignStatsService {
 
 
     //Extract Count of talent Type
-    const talentIds = invitations.map(inv => inv.talentId);
-    const talents = await this.prisma.talentPool.findMany({
-      where: {
-        id: { in: talentIds },
-      },
-      select: {
-        id: true,
-        genre: true,
-      },
-    });
+    // const talentIds = invitations.map(inv => inv.talentId);
+    // const talents = await this.prisma.talentPool.findMany({
+    //   where: {
+    //     id: { in: talentIds },
+    //   },
+    //   select: {
+    //     id: true,
+    //     genre: true,
+    //   },
+    // });
 
-    const talentTypeMap = new Map(
-      talents.map(t => [t.id, t.genre])
-    );
-    const talentTypeCount: Record<string, number> = {};
+    // const talentTypeMap = new Map(
+    //   talents.map(t => [t.id, t.genre])
+    // );
+    // const talentTypeCount: Record<string, number> = {};
 
-    invitations.forEach(inv => {
-      const type = talentTypeMap.get(inv.talentId) || 'unknown';
-      talentTypeCount[type] = (talentTypeCount[type] || 0) + 1;
-    });
+    // invitations.forEach(inv => {
+    //   const type = talentTypeMap.get(inv.talentId) || 'unknown';
+    //   talentTypeCount[type] = (talentTypeCount[type] || 0) + 1;
+    // });
 
 
     // Calculate totals from CampaignInvitation only
@@ -187,12 +189,16 @@ export class CampaignStatsService {
     const talentTypeMapAll = new Map(
       talentsAll.map(t => [t.id, t.genre])
     );
+    const talentTypeCount: Record<string, number> = {};
     allInvitations.forEach(invAll => {
-      const type = talentTypeMap.get(invAll.talentId) || 'unknown';
+      const type = talentTypeMapAll.get(invAll.talentId) || 'unknown';
       talentTypeCount[type] = (talentTypeCount[type] || 0) + 1;
     });
-    const manuallAddGuest = allInvitations.filter(invAll => invAll.status === 'manually').length
-    console.log(manuallAddGuest, "manulaa guest")
+    const manuallConfirmed = allInvitations.filter(invAll => invAll.status === 'manually-confirm').length
+    const manuallPending = allInvitations.filter(invAll => invAll.status === 'manually-pending').length
+    const manuallDeclined = allInvitations.filter(invAll => invAll.status === 'manually-declined').length
+
+
     // Calculate batch statistics (only for filtered batches)
     const batchMap = new Map<
       number,
@@ -324,7 +330,9 @@ export class CampaignStatsService {
         pending,
         confirmationRate,
         conversationRate,
-        manuallAddGuest
+        manuallConfirmed,
+        manuallPending,
+        manuallDeclined
       },
       batches,
       talentTypeCount,
