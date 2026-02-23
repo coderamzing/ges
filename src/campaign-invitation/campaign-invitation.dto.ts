@@ -44,12 +44,11 @@ export class AddTalentsToEventDto {
   // batch: number;
 
   @ApiProperty({
-    enum: InvitationStatus,
-    example: InvitationStatus.confirmed,
+    example: 'confirmed',
     description: 'Invitation status',
   })
-  @IsEnum(InvitationStatus)
-  status: InvitationStatus;
+  @IsString()
+  status: string;
 
   @ApiProperty({
     type: [String],

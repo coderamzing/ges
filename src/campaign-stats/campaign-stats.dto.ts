@@ -83,6 +83,9 @@ export class ResponseClassificationDto {
 
   @ApiProperty({ description: 'Number of seen but no reply responses' })
   conversationRate: number;
+
+  @ApiProperty({ description: 'Number of seen but no reply responses' })
+  manuallAddGuest: number;
 }
 
 export class CampaignStatsDto {

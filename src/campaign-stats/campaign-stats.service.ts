@@ -102,8 +102,16 @@ export class CampaignStatsService {
 
     // Get invitations for this campaign (filtered by batch if provided)
     const invitations = await this.prisma.campaignInvitation.findMany({
-      where: invitationWhere,
+      // where: invitationWhere,
+      where: {
+        ...invitationWhere,
+        status: {
+          not: 'manually',
+        },
+      },
     });
+
+
 
 
 
@@ -133,24 +141,27 @@ export class CampaignStatsService {
     // Calculate totals from CampaignInvitation only
     const totalContacted = invitations.length;
     // Sent = invitations with status != pending
-    const sent = invitations.filter(inv => inv.status !== InvitationStatus.pending).length;
+    // const sent = invitations.filter(inv => inv.status !== InvitationStatus.pending).length;
+    const sent = invitations.filter(inv => inv.status === 'sent').length;
     // Delivered = invitations with status != pending (same as sent)
     const delivered = sent;
     // Replied = invitations where hasReplied is true
     const replied = invitations.filter(inv => inv.hasReplied === true).length;
 
     // Calculate response classification
-    const confirmed = invitations.filter(inv => inv.status === InvitationStatus.confirmed).length;
-    const interested = invitations.filter(inv => inv.status === InvitationStatus.maybe || inv.status === InvitationStatus.pending).length;
+    const confirmed = invitations.filter(inv => inv.status === 'confirmed').length;
+    // const batchConfirmed = invitations.filter(inv => inv.status === InvitationStatus.confirmed && inv.invitationAt === null).length;
+    // console.log(batchConfirmed, "by btach confimred")
 
-    const declined = invitations.filter(inv => inv.status === InvitationStatus.declined).length;
-    const pending = invitations.filter(inv => inv.status === InvitationStatus.pending).length;
-
+    const interested = invitations.filter(inv => inv.status === 'maybe').length;
+    const declined = invitations.filter(inv => inv.status === 'declined').length;
+    const pending = invitations.filter(inv => inv.status === 'pending').length;
+    console.log(pending, "pending")
 
     // Seen but no reply = invitations that are seen but haven't replied
     const noReply = invitations.filter(inv =>
-      // inv.isSeen === true && inv.hasReplied === false
-      inv.hasReplied === false
+      inv.isSeen === true && inv.hasReplied === false
+      // inv.hasReplied === false
     ).length;
 
     //calculate confirmationRate and conversationRate
@@ -158,8 +169,30 @@ export class CampaignStatsService {
 
 
     const conversationRate = Number(((confirmed / sent) * 100).toFixed(3))
+    // fetch all type record
+    const allInvitations = await this.prisma.campaignInvitation.findMany({
+      where: invitationWhere,
+    });
+    const talentIdsAll = allInvitations.map(inv => inv.talentId);
+    const talentsAll = await this.prisma.talentPool.findMany({
+      where: {
+        id: { in: talentIdsAll },
+      },
+      select: {
+        id: true,
+        genre: true,
+      },
+    });
 
-
+    const talentTypeMapAll = new Map(
+      talentsAll.map(t => [t.id, t.genre])
+    );
+    allInvitations.forEach(invAll => {
+      const type = talentTypeMap.get(invAll.talentId) || 'unknown';
+      talentTypeCount[type] = (talentTypeCount[type] || 0) + 1;
+    });
+    const manuallAddGuest = allInvitations.filter(invAll => invAll.status === 'manually').length
+    console.log(manuallAddGuest, "manulaa guest")
     // Calculate batch statistics (only for filtered batches)
     const batchMap = new Map<
       number,
@@ -192,7 +225,7 @@ export class CampaignStatsService {
         const batchStats = batchMap.get(batch)!;
         batchStats.invites++; // Total CampaignInvitation for that batch
 
-        if (inv.status === InvitationStatus.pending) {
+        if (inv.status === 'pending') {
           batchStats.pendingInvites++; // CampaignInvitation has status pending
         } else {
           batchStats.sent++; // CampaignInvitation has status not == pending
@@ -256,6 +289,8 @@ export class CampaignStatsService {
           delivered: stats.delivered,
           replied: stats.replied,
           sentAt: stats.firstSentAt,
+          pending: pending,
+          confirmed: confirmed,
           totalTimeSpentSeconds,
           estimatedRemainingSeconds,
           estimatedCompletionAt,
@@ -288,7 +323,8 @@ export class CampaignStatsService {
         noReply,
         pending,
         confirmationRate,
-        conversationRate
+        conversationRate,
+        manuallAddGuest
       },
       batches,
       talentTypeCount,
