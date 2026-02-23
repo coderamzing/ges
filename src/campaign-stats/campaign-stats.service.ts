@@ -2,8 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CampaignService } from '../campaign/campaign.service';
 import { CampaignStatsDto, BatchStatsDto } from './campaign-stats.dto';
-import { InvitationStatus } from '@prisma/client';
 import { EventDto } from 'src/event/event.dto';
+import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
+
 
 @Injectable()
 export class CampaignStatsService {
@@ -143,21 +144,21 @@ export class CampaignStatsService {
     // Calculate totals from CampaignInvitation only
     const totalContacted = invitations.length;
     // Sent = invitations with status != pending
-    // const sent = invitations.filter(inv => inv.status !== InvitationStatus.pending).length;
-    const sent = invitations.filter(inv => inv.status === 'sent').length;
+    const sent = invitations.filter(inv => inv.status !== InvitationStatus.PENDING).length;
+    // const sent = invitations.filter(inv => inv.status === 'sent').length;
     // Delivered = invitations with status != pending (same as sent)
     const delivered = sent;
     // Replied = invitations where hasReplied is true
     const replied = invitations.filter(inv => inv.hasReplied === true).length;
 
     // Calculate response classification
-    const confirmed = invitations.filter(inv => inv.status === 'confirmed').length;
+    const confirmed = invitations.filter(inv => inv.status === InvitationStatus.CONFIRMED).length;
     // const batchConfirmed = invitations.filter(inv => inv.status === InvitationStatus.confirmed && inv.invitationAt === null).length;
     // console.log(batchConfirmed, "by btach confimred")
 
-    const interested = invitations.filter(inv => inv.status === 'maybe').length;
-    const declined = invitations.filter(inv => inv.status === 'declined').length;
-    const pending = invitations.filter(inv => inv.status === 'pending').length;
+    const interested = invitations.filter(inv => inv.status === InvitationStatus.MAYBE).length;
+    const declined = invitations.filter(inv => inv.status === InvitationStatus.DECLINED).length;
+    const pending = invitations.filter(inv => inv.status === InvitationStatus.PENDING).length;
     console.log(pending, "pending")
 
     // Seen but no reply = invitations that are seen but haven't replied
@@ -194,12 +195,9 @@ export class CampaignStatsService {
       const type = talentTypeMapAll.get(invAll.talentId) || 'unknown';
       talentTypeCount[type] = (talentTypeCount[type] || 0) + 1;
     });
-    const manuallConfirmed = allInvitations.filter(invAll => invAll.status === 'manually-confirm').length
-    const manuallPending = allInvitations.filter(invAll => invAll.status === 'manually-pending').length
-    const manuallDeclined = allInvitations.filter(invAll => invAll.status === 'manually-declined').length
-
-    // totot sent invitations
-    const totalSentinvitation = allInvitations.filter(invAll => invAll.status === 'sent').length
+    const manuallConfirmed = allInvitations.filter(invAll => invAll.status === InvitationStatus.MANUALLY_CONFIRM).length
+    const manuallPending = allInvitations.filter(invAll => invAll.status === InvitationStatus.MANUALLY_PENDING).length
+    const manuallDeclined = allInvitations.filter(invAll => invAll.status === InvitationStatus.MANUALLY_DECLINED).length
 
 
 
@@ -237,10 +235,10 @@ export class CampaignStatsService {
         const batchStats = batchMap.get(batch)!;
         batchStats.invites++; // Total CampaignInvitation for that batch
 
-        if (inv.status === 'pending') {
+        if (inv.status === InvitationStatus.PENDING) {
           batchStats.pendingInvites++; // CampaignInvitation has status pending
         } else {
-          if (inv.status === 'sent') {
+          if (inv.status === InvitationStatus.SENT) {
             batchStats.sent++; // CampaignInvitation has status not == pending
             batchStats.delivered++; // CampaignInvitation has status not == pending
           }
@@ -327,7 +325,7 @@ export class CampaignStatsService {
       event: eventDto,
       target,
       totalContacted,
-      sent: totalSentinvitation,
+      sent,
       delivered,
       replied,
       responseClassification: {

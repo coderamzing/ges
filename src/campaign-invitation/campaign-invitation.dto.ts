@@ -1,14 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsEnum, IsBoolean, IsInt, IsArray, IsNotEmpty, ArrayMinSize, IsNumber, IsString, ArrayNotEmpty } from 'class-validator';
-import { InvitationStatus } from '@prisma/client';
+// import { InvitationStatus } from '@prisma/client';
+import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
 import { Transform, Type } from 'class-transformer';
 
 
 
 
 export class UpdateInvitationStatusDto {
-  @IsEnum(InvitationStatus)
-  status: InvitationStatus;
+  // @IsEnum(InvitationStatusType)
+  status: InvitationStatusType;
 }
 
 

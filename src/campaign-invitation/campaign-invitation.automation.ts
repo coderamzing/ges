@@ -5,7 +5,7 @@ import { CampaignMessagesService } from "../campaign-messages/campaign-messages.
 import { CampaignInvitationService } from "./campaign-invitation.service";
 import { updateUserTpStatus } from "src/talent/talent.utils";
 import {
-  InvitationStatus,
+  // InvitationStatus,
   TemplateType,
   Prisma,
   CampaignStatus,
@@ -13,6 +13,7 @@ import {
 import { renderTemplate } from "utils/handlebar";
 import { SendMessageResponse } from "./campaign-invitation.types";
 import { TP_STATUS_MAP } from "../talent/talent.config";
+import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
 
 @Injectable()
 export class CampaignInvitationAutomationService {
@@ -293,7 +294,7 @@ export class CampaignInvitationAutomationService {
       const pendingInvitations = await this.prisma.campaignInvitation.findMany({
         where: {
           AND: [
-            { status: InvitationStatus.pending },
+            { status: InvitationStatus.PENDING },
             {
               campaign: {
                 status: { in: [CampaignStatus.active, CampaignStatus.draft] },
@@ -516,7 +517,7 @@ export class CampaignInvitationAutomationService {
     const UpdatedInviteMessage = await this.prisma.campaignInvitation.update({
       where: { id: invitation.id },
       data: {
-        status: InvitationStatus.sent,
+        status: InvitationStatus.SENT,
         invitationAt: new Date(),
       },
     });
@@ -566,10 +567,10 @@ export class CampaignInvitationAutomationService {
               {
                 status: {
                   notIn: [
-                    InvitationStatus.attended,
-                    InvitationStatus.confirmed,
-                    InvitationStatus.declined,
-                    InvitationStatus.optout,
+                    InvitationStatus.ATTENDED,
+                    InvitationStatus.CONFIRMED,
+                    InvitationStatus.DECLINED,
+                    InvitationStatus.OPTOUT,
                   ],
                 },
               },
@@ -854,7 +855,7 @@ export class CampaignInvitationAutomationService {
           where: {
             AND: [
               { thankYouSent: false },
-              { status: InvitationStatus.attended },
+              { status: InvitationStatus.ATTENDED },
               // { thankyou: true},
               {
                 campaign: {

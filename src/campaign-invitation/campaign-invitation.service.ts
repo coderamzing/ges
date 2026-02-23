@@ -10,7 +10,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import {
   CampaignInvitation,
   CampaignStatus,
-  InvitationStatus,
+  // InvitationStatus,
   TemplateType,
 } from "@prisma/client";
 import {
@@ -26,6 +26,8 @@ import { logger } from "handlebars";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { DEFAULT_TEMPLATES } from "../campaign-template/campaign-template.config";
 import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from "../campaign-template/campaign-template.service";
+import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
+
 
 @Injectable()
 export class CampaignInvitationService {
@@ -40,7 +42,7 @@ export class CampaignInvitationService {
       where: {
         campaignId,
         status: {
-          in: [InvitationStatus.confirmed],
+          in: [InvitationStatus.CONFIRMED],
         },
       },
     });
@@ -403,7 +405,7 @@ export class CampaignInvitationService {
         promoterId: Number(promoterId),
         talentId,
         batch: batchId,
-        status: InvitationStatus.pending,
+        status: InvitationStatus.PENDING,
       })),
     });
 
@@ -528,7 +530,7 @@ export class CampaignInvitationService {
     campaignId: number,
     invitationId: number,
     promoterId: number,
-    status: InvitationStatus,
+    status: InvitationStatusType,
   ) {
     const invitation = await this.prisma.campaignInvitation.findFirst({
       where: {
@@ -597,7 +599,7 @@ export class CampaignInvitationService {
         campaignId: campaignId,
       },
       data: {
-        status: InvitationStatus.attended,
+        status: InvitationStatus.ATTENDED,
         // thankyou: true
       },
     });

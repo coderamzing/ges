@@ -2,7 +2,8 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { TalentPool } from "@prisma/client";
 import { TalentRecommendationFiltersDto } from "./talent.dto";
-import { InvitationStatus } from "@prisma/client";
+// import { InvitationStatus } from "@prisma/client";
+import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
 import { TP_STATUS_MAP } from "./talent.config";
 import { BadRequestError } from "openai";
 @Injectable()
@@ -593,7 +594,7 @@ export class TalentService {
     const attendedCountsRaw = await this.prisma.campaignInvitation.groupBy({
       by: ["talentId"],
       where: {
-        status: InvitationStatus.attended,
+        status: InvitationStatus.ATTENDED,
       },
       _count: {
         id: true,

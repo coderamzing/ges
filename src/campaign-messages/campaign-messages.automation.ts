@@ -4,7 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { OpenAIService } from "../openai/openai.service";
 import { Campaign, Events, Prisma } from "@prisma/client";
 import {
-  InvitationStatus,
+  // InvitationStatus,
   Message,
   CampaignStatus,
   CampaignInvitation,
@@ -13,13 +13,15 @@ import { renderTemplate } from "utils/handlebar";
 import { TalentBlacklistService } from "src/talend-blacklist/talent-blacklist.service";
 import { TP_STATUS_MAP } from "src/talent/talent.config";
 import { updateUserTpStatus } from "src/talent/talent.utils";
+import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
 
 interface MessageInterpretationResponse {
-  status: InvitationStatus;
+  status: InvitationStatusType;
   score: number;
   score_reason: string;
   blacklist: string | null;
   reason: string;
+  messageLanguage: string;
 }
 
 type CampaignInvitationHydrated = CampaignInvitation & {
@@ -41,7 +43,7 @@ export class CampaignMessagesAutomationService {
       where: {
         campaignId,
         status: {
-          in: [InvitationStatus.confirmed],
+          in: [InvitationStatus.CONFIRMED],
         },
       },
     });
@@ -100,7 +102,7 @@ export class CampaignMessagesAutomationService {
    * Runs every minute via cron
    */
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_30_MINUTES)
   async processLastMinuteMessages(): Promise<void> {
     try {
       //here we will get the interpretation prompt and system prompt
@@ -115,28 +117,27 @@ export class CampaignMessagesAutomationService {
         return;
       }
 
-      const messages = await this.prisma.message.findMany({
-        where: {
-          ai_processed: false,
-          thread_id: { not: null },
-        },
-        orderBy: {
-          created_at: "asc",
-        },
-      });
+      // const messages = await this.prisma.message.findMany({
+      //   where: {
+      //     thread_id: { not: null },
+      //   },
+      //   orderBy: {
+      //     created_at: "asc",
+      //   },
+      // });
 
-      if (!messages.length) {
-        return;
-      }
+      // if (!messages.length) {
+      //   return;
+      // }
 
-      const threadIds = messages
-        .map((m) => m.thread_id)
-        .filter((id): id is string => !!id);
+      // const threadIds = messages
+      //   .map((m) => m.thread_id)
+      //   .filter((id): id is string => !!id);
 
       const invitations = await this.prisma.campaignInvitation.findMany({
-        where: {
-          thread_id: { in: threadIds },
-        },
+        // where: {
+        //   thread_id: { in: threadIds },
+        // },
         include: {
           campaign: true,
           // event: true,
@@ -146,6 +147,34 @@ export class CampaignMessagesAutomationService {
       const invitationMap = new Map(
         invitations.map((inv) => [inv.thread_id, inv]),
       );
+
+      const threadIds = invitations
+      .map(inv => inv.thread_id)
+      .filter((id): id is string => Boolean(id));
+
+       const talentIds = invitations
+      .map(inv => inv.talentId)
+      .filter((id): id is string => Boolean(id));
+
+
+      // console.log("threadIds----",threadIds)
+
+      const lastMessages = await this.prisma.message.findMany({
+        where :{
+          thread_id: {
+            in: threadIds
+          },
+          sender_username:{
+            in:talentIds
+          }
+        },
+          orderBy: {
+            tm: "desc",
+          },
+          take : 5,
+      })
+
+      const messages = lastMessages.reverse();
 
       const result: MessageWithInvitationAndEvent[] = [];
 
@@ -163,7 +192,7 @@ export class CampaignMessagesAutomationService {
 
         if (
           !invitation.campaign ||
-          invitation.campaign.status === CampaignStatus.completed
+          invitation.campaign.status === CampaignStatus.completed 
         ) {
           continue;
         }
@@ -250,7 +279,7 @@ export class CampaignMessagesAutomationService {
             }),
           } as any,
           orderBy: {
-            created_at: "asc",
+            tm: "asc",
           },
         });
 
@@ -261,10 +290,13 @@ export class CampaignMessagesAutomationService {
         });
 
         const fullMessage =
+          (`Time Now: ${new Date().toISOString()}\n\n`) +
           (event?.city ? `Event City: ${event?.city}\n\n` : "") +
           (event?.dt ? `Event Date: ${event?.dt}\n\n` : "") +
           (talent?.cityHome ? `Talent In City: ${talent?.cityHome}\n\n` : "") +
           threads.map((msg) => `${msg.created_at} ${msg.message}`).join("\n\n");
+
+          console.log("fullMessage",fullMessage)
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {
@@ -345,6 +377,7 @@ export class CampaignMessagesAutomationService {
           score_reason: response.score_reason || "neutral_reply",
           blacklist: null,
           reason: response.reason,
+          messageLanguage: response.language,
         };
       } catch (error) {
         throw new Error(
@@ -365,12 +398,14 @@ export class CampaignMessagesAutomationService {
         },
       });
 
+
+
       await this.campaignTargetReached(
         update.campaignId,
         Number(update.eventId),
       );
 
-      if (interpretation.status == InvitationStatus.blacklist) {
+      if (interpretation.status == InvitationStatus.BLACKLIST) {
         await updateUserTpStatus({
           userId: BigInt(promoterId),
           talentPoolId: talentId,
@@ -485,6 +520,17 @@ export class CampaignMessagesAutomationService {
       this.logger.log(
         `Processed messages for campaign ${campaignId}, talent ${talentId}. Status: ${interpretation.status}, Score: ${interpretation.score}`,
       );
+
+      if(interpretation.messageLanguage){
+         await this.prisma.talentPool.update({
+            where: {
+              id: talentId,   
+            },
+            data: {
+              language: interpretation.messageLanguage,
+            },
+  });
+      }
     } catch (error) {
       this.logger.error(`Error processing message ${message.id}:`, error);
       throw error;
@@ -510,21 +556,24 @@ export class CampaignMessagesAutomationService {
   /**
    * Map string status to InvitationStatus enum
    */
-  private mapStatusToEnum(status: string): InvitationStatus {
-    const statusMap: Record<string, InvitationStatus> = {
-      pending: InvitationStatus.pending,
-      sent: InvitationStatus.sent,
-      confirmed: InvitationStatus.confirmed,
-      declined: InvitationStatus.declined,
-      maybe: InvitationStatus.maybe,
-      ignored: InvitationStatus.ignored,
-      attended: InvitationStatus.attended,
-      interested: InvitationStatus.interested,
-      optout: InvitationStatus.optout,
-      moved: InvitationStatus.moved,
-      blacklist: InvitationStatus.blacklist,
+  private mapStatusToEnum(status: string): InvitationStatusType {
+    const statusMap: Record<string, InvitationStatusType> = {
+    pending: InvitationStatus.PENDING,
+    sent: InvitationStatus.SENT,
+    confirmed: InvitationStatus.CONFIRMED,
+    declined: InvitationStatus.DECLINED,
+    maybe: InvitationStatus.MAYBE,
+    ignored: InvitationStatus.IGNORED,
+    attended: InvitationStatus.ATTENDED,
+    interested: InvitationStatus.INTERESTED,
+    optout: InvitationStatus.OPTOUT,
+    moved: InvitationStatus.MOVED,
+    blacklist: InvitationStatus.BLACKLIST,
+    "soft-decline": InvitationStatus.SOFT_DECLINE,
+   
+
     };
 
-    return statusMap[status.toLowerCase()] || InvitationStatus.pending;
+    return statusMap[status.toLowerCase()] || InvitationStatus.PENDING;
   }
 }

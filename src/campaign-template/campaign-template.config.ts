@@ -88,9 +88,18 @@ Rules:
 - Create the variations in the langs
 - Dont add any new placeholders
 - Dont add much extra text
-- here {name} is the placeholder dont change it with dummy name and must presetn in each variation
+- here {name} is the placeholder dont change it with dummy name and must present in each variation
 - varations must not spintax blocks
 - Eache lang must have {{variationsCount}} variations
+- Keep the message 95% identical to the original.
+- First 3 variations start with: "Hey", "Hi", "Hello" 
+- followed by the EXACT same message.
+- Remaining 9 variations: change only 1-2 words maximum 
+- per variation. The rest stays identical.
+- NEVER change the meaning, tone, or structure.
+- NEVER add new information or remove information.
+- NEVER change emojis, names, venue names, dates, or times.
+- Keep the same sentence length and style.
 
 Return ONLY a JSON object with this exact format:
 {

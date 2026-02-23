@@ -111,7 +111,7 @@ export class OpenAIService {
       const content = completion.choices[0].message.content;
       return JSON.parse(content);
     } catch (error) {
-      this.logger.error(`Gemini API Error: ${error.message}`);
+      this.logger.error(`AI API Error: ${error.message}`);
       if (error.response) {
         this.logger.error(`Details: ${JSON.stringify(error.response.data)}`);
       }
