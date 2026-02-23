@@ -198,6 +198,12 @@ export class CampaignStatsService {
     const manuallPending = allInvitations.filter(invAll => invAll.status === 'manually-pending').length
     const manuallDeclined = allInvitations.filter(invAll => invAll.status === 'manually-declined').length
 
+    // totot sent invitations
+    const totalSentinvitation = allInvitations.filter(invAll => invAll.status === 'sent').length
+
+
+
+
 
     // Calculate batch statistics (only for filtered batches)
     const batchMap = new Map<
@@ -234,8 +240,10 @@ export class CampaignStatsService {
         if (inv.status === 'pending') {
           batchStats.pendingInvites++; // CampaignInvitation has status pending
         } else {
-          batchStats.sent++; // CampaignInvitation has status not == pending
-          batchStats.delivered++; // CampaignInvitation has status not == pending
+          if (inv.status === 'sent') {
+            batchStats.sent++; // CampaignInvitation has status not == pending
+            batchStats.delivered++; // CampaignInvitation has status not == pending
+          }
           if (inv.invitationAt) {
             if (!batchStats.firstSentAt || inv.invitationAt < batchStats.firstSentAt) {
               batchStats.firstSentAt = inv.invitationAt;
@@ -319,7 +327,7 @@ export class CampaignStatsService {
       event: eventDto,
       target,
       totalContacted,
-      sent,
+      sent: totalSentinvitation,
       delivered,
       replied,
       responseClassification: {
