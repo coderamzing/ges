@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CampaignService } from '../campaign/campaign.service';
 import { CampaignStatsDto, BatchStatsDto } from './campaign-stats.dto';
 import { EventDto } from 'src/event/event.dto';
-import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
+import { InvitationStatus, type InvitationStatusType } from "src/campaign-invitation/campaign-invitation.config"
 
 
 @Injectable()
@@ -25,19 +25,6 @@ export class CampaignStatsService {
     promoterId: number,
     batch?: number,
   ): Promise<CampaignStatsDto> {
-    // Check if campaign exists
-    // const campaign = await this.campaignService.findOne(id);
-
-    // // Verify that the event belongs to the promoter
-    // const event = await this.prisma.events.findUnique({
-    //   where: { id: campaign.eventId },
-    // });
-
-
-    // if (!event || event.userId?.toString() !== promoterId.toString()) {
-    //   throw new NotFoundException(`Campaign does not belong to this promoter`);
-    // }
-
 
     let event;
     let campaign;
@@ -115,63 +102,32 @@ export class CampaignStatsService {
     });
 
 
-
-
-
-    //Extract Count of talent Type
-    // const talentIds = invitations.map(inv => inv.talentId);
-    // const talents = await this.prisma.talentPool.findMany({
-    //   where: {
-    //     id: { in: talentIds },
-    //   },
-    //   select: {
-    //     id: true,
-    //     genre: true,
-    //   },
-    // });
-
-    // const talentTypeMap = new Map(
-    //   talents.map(t => [t.id, t.genre])
-    // );
-    // const talentTypeCount: Record<string, number> = {};
-
-    // invitations.forEach(inv => {
-    //   const type = talentTypeMap.get(inv.talentId) || 'unknown';
-    //   talentTypeCount[type] = (talentTypeCount[type] || 0) + 1;
-    // });
-
-
     // Calculate totals from CampaignInvitation only
     const totalContacted = invitations.length;
+
     // Sent = invitations with status != pending
     const sent = invitations.filter(inv => inv.status !== InvitationStatus.PENDING).length;
-    // const sent = invitations.filter(inv => inv.status === 'sent').length;
+
     // Delivered = invitations with status != pending (same as sent)
     const delivered = sent;
+
     // Replied = invitations where hasReplied is true
     const replied = invitations.filter(inv => inv.hasReplied === true).length;
 
     // Calculate response classification
     const confirmed = invitations.filter(inv => inv.status === InvitationStatus.CONFIRMED).length;
-    // const batchConfirmed = invitations.filter(inv => inv.status === InvitationStatus.confirmed && inv.invitationAt === null).length;
-    // console.log(batchConfirmed, "by btach confimred")
-
     const interested = invitations.filter(inv => inv.status === InvitationStatus.MAYBE).length;
     const declined = invitations.filter(inv => inv.status === InvitationStatus.DECLINED).length;
     const pending = invitations.filter(inv => inv.status === InvitationStatus.PENDING).length;
+
     console.log(pending, "pending")
 
     // Seen but no reply = invitations that are seen but haven't replied
-    const noReply = invitations.filter(inv =>
-      inv.isSeen === true && inv.hasReplied === false
-      // inv.hasReplied === false
-    ).length;
+    // const noReply = invitations.filter(inv =>
+    //   inv.isSeen === true && inv.hasReplied === false
+    //   // inv.hasReplied === false
+    // ).length;
 
-    //calculate confirmationRate and conversationRate
-    const confirmationRate = Number(((confirmed / target) * 100).toFixed(3));
-
-
-    const conversationRate = Number(((confirmed / sent) * 100).toFixed(3))
     // fetch all type record
     const allInvitations = await this.prisma.campaignInvitation.findMany({
       where: invitationWhere,
@@ -187,20 +143,32 @@ export class CampaignStatsService {
       },
     });
 
+
+    const filteredInvitations = allInvitations.filter(
+      inv =>
+        inv.status === InvitationStatus.CONFIRMED ||
+        inv.status === InvitationStatus.MANUALLY_CONFIRM
+    );
     const talentTypeMapAll = new Map(
       talentsAll.map(t => [t.id, t.genre])
     );
     const talentTypeCount: Record<string, number> = {};
-    allInvitations.forEach(invAll => {
-      const type = talentTypeMapAll.get(invAll.talentId) || 'unknown';
+    filteredInvitations.forEach(inv => {
+      const type = talentTypeMapAll.get(inv.talentId) || 'unknown';
       talentTypeCount[type] = (talentTypeCount[type] || 0) + 1;
     });
+
     const manuallConfirmed = allInvitations.filter(invAll => invAll.status === InvitationStatus.MANUALLY_CONFIRM).length
     const manuallPending = allInvitations.filter(invAll => invAll.status === InvitationStatus.MANUALLY_PENDING).length
     const manuallDeclined = allInvitations.filter(invAll => invAll.status === InvitationStatus.MANUALLY_DECLINED).length
 
+    const totalConfirm = manuallConfirmed + confirmed
+    const totalPending = manuallPending + pending + sent + interested
+    const totalDeclined = manuallDeclined + declined
 
-
+    const noReply = allInvitations.filter(invAll => invAll.status === InvitationStatus.NOREPLY).length
+    const confirmationRate = Number(((totalConfirm / target) * 100).toFixed(3));
+    const conversationRate = Number(((confirmed / sent) * 100).toFixed(3))
 
 
     // Calculate batch statistics (only for filtered batches)
@@ -238,10 +206,10 @@ export class CampaignStatsService {
         if (inv.status === InvitationStatus.PENDING) {
           batchStats.pendingInvites++; // CampaignInvitation has status pending
         } else {
-          if (inv.status === InvitationStatus.SENT) {
-            batchStats.sent++; // CampaignInvitation has status not == pending
-            batchStats.delivered++; // CampaignInvitation has status not == pending
-          }
+          // if (inv.status === InvitationStatus.SENT) {
+          batchStats.sent++; // CampaignInvitation has status not == pending
+          batchStats.delivered++; // CampaignInvitation has status not == pending
+          // }
           if (inv.invitationAt) {
             if (!batchStats.firstSentAt || inv.invitationAt < batchStats.firstSentAt) {
               batchStats.firstSentAt = inv.invitationAt;
@@ -336,9 +304,9 @@ export class CampaignStatsService {
         pending,
         confirmationRate,
         conversationRate,
-        manuallConfirmed,
-        manuallPending,
-        manuallDeclined
+        totalConfirm,
+        totalPending,
+        totalDeclined
       },
       batches,
       talentTypeCount,
