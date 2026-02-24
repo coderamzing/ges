@@ -362,11 +362,9 @@ export class CampaignInvitationController {
   async updateInvitationEventType(
     @Param("invitationId", ParseIntPipe) invitationId: number,
     @Body() dto: UpdateInvitationEventTypeDto,
-    @GetPromoter() promoter: { id: number; email: string },
   ) {
     return this.campaignInvitationService.updateInvitationEventType(
       invitationId,
-      promoter.id,
       dto.eventType,
     );
   }

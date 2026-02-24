@@ -1152,13 +1152,11 @@ export class CampaignInvitationService {
 
   async updateInvitationEventType(
     invitationId: number,
-    promoterId: number,
     eventType: MainEventType,
   ) {
     const invitation = await this.prisma.campaignInvitation.findFirst({
       where: {
         id: invitationId,
-        promoterId: BigInt(promoterId),
       },
     });
 
