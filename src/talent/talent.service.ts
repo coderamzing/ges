@@ -479,27 +479,37 @@ export class TalentService {
     console.log(topLimit, "trustc score");
     console.log(promoterId, "incoming promoter id ");
     if (topLimit && topLimit > 0) {
+      // const statusTalents = await this.prisma.userTpStatus.groupBy({
+      //   by: ["talentPoolId"],
+      //   where: {
+      //     userId: BigInt(promoterId),
+      //     statusId: {
+      //       in: [
+      //         // TP_STATUS_MAP.FIRST_CHOICE, 
+      //         TP_STATUS_MAP.OPEN_CHAT
+      //       ],
+      //     },
+      //   },
+      //   _count: {
+      //     statusId: true,
+      //   },
+      //   having: {
+      //     statusId: {
+      //       _count: {
+      //         equals: 1,
+      //         // equals: 2,
+      //       },
+      //     },
+      //   },
+      // });
       const statusTalents = await this.prisma.userTpStatus.groupBy({
         by: ["talentPoolId"],
         where: {
           userId: BigInt(promoterId),
-          statusId: {
-            in: [
-              // TP_STATUS_MAP.FIRST_CHOICE, 
-              TP_STATUS_MAP.OPEN_CHAT
-            ],
-          },
+          statusId: TP_STATUS_MAP.OPEN_CHAT,
         },
         _count: {
           statusId: true,
-        },
-        having: {
-          statusId: {
-            _count: {
-              equals: 1,
-              // equals: 2,
-            },
-          },
         },
       });
 
