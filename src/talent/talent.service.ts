@@ -456,10 +456,10 @@ export class TalentService {
     }
     // logic to groupBY by talent Type
     const defaultPriority: Record<string, number> = {
-      supermodel: 1,
-      model: 2,
-      hybrid: 3,
-      civilian: 4,
+      Supermodels: 1,
+      Models: 2,
+      Hybrids: 3,
+      Civilians: 4,
     };
 
     let profilePriority: Record<string, number>;
@@ -473,46 +473,46 @@ export class TalentService {
     } else {
       profilePriority = defaultPriority;
     }
-
+    console.log(profilePriority, "profile prioeot")
     // handle top N logic here
     const topLimit = filters.top ?? null;
     console.log(topLimit, "trustc score");
     console.log(promoterId, "incoming promoter id ");
     if (topLimit && topLimit > 0) {
-      // const statusTalents = await this.prisma.userTpStatus.groupBy({
-      //   by: ["talentPoolId"],
-      //   where: {
-      //     userId: BigInt(promoterId),
-      //     statusId: {
-      //       in: [
-      //         // TP_STATUS_MAP.FIRST_CHOICE, 
-      //         TP_STATUS_MAP.OPEN_CHAT
-      //       ],
-      //     },
-      //   },
-      //   _count: {
-      //     statusId: true,
-      //   },
-      //   having: {
-      //     statusId: {
-      //       _count: {
-      //         equals: 1,
-      //         // equals: 2,
-      //       },
-      //     },
-      //   },
-      // });
       const statusTalents = await this.prisma.userTpStatus.groupBy({
         by: ["talentPoolId"],
         where: {
           userId: BigInt(promoterId),
-          statusId: TP_STATUS_MAP.OPEN_CHAT,
+          statusId: {
+            in: [
+              // TP_STATUS_MAP.FIRST_CHOICE, 
+              TP_STATUS_MAP.OPEN_CHAT
+            ],
+          },
         },
         _count: {
           statusId: true,
         },
+        having: {
+          statusId: {
+            _count: {
+              equals: 1,
+              // equals: 2,
+            },
+          },
+        },
       });
-
+      // const statusTalents = await this.prisma.userTpStatus.groupBy({
+      //   by: ["talentPoolId"],
+      //   where: {
+      //     userId: BigInt(promoterId),
+      //     statusId: TP_STATUS_MAP.OPEN_CHAT,
+      //   },
+      //   _count: {
+      //     statusId: true,
+      //   },
+      // });
+      console.log(statusTalents, "incoming talent")
       const statusTalentIds = statusTalents
         .map((s) => s.talentPoolId)
         .filter((id): id is string => Boolean(id));
@@ -528,7 +528,7 @@ export class TalentService {
           id: true,
         },
       });
-
+      console.log(topTalents, "top talent ")
       const finalTalentIds = topTalents.map((t) => t.id);
 
       baseWhere.AND ||= [];
@@ -538,7 +538,7 @@ export class TalentService {
         },
       });
     }
-
+    console.log(baseWhere, "conditon")
     let excludedTalentIds: string[] = [];
     const invited = await this.prisma.campaignInvitation.findMany({
       where: { campaignId },
@@ -598,7 +598,7 @@ export class TalentService {
         },
       },
     });
-
+    console.log(data, "final data")
     const totalPages = Math.ceil(total / limit);
 
     let sortedData: TalentPool[];
@@ -627,15 +627,18 @@ export class TalentService {
       );
       firstChoiceMap.set(talent.id, Boolean(isFirstChoice));
     }
+    console.log(firstChoiceMap, "firstc Chaouce")
+
 
     if (topLimit && topLimit > 0) {
       //  TOP FLOW → group + trustScore + priority
       const allowedTypes = Object.keys(profilePriority);
-
+      console.log(allowedTypes, "allowed type ")
       const filteredData = data.filter(
         (talent) =>
           talent.genre && allowedTypes.includes(talent.genre),
       );
+      console.log(filteredData, "filter data")
       const grouped: Record<string, typeof filteredData> = {};
 
       for (const talent of filteredData) {
@@ -675,9 +678,9 @@ export class TalentService {
           const attendB = attendanceMap.get(b.id) ?? 0;
           if (attendA !== attendB) return attendB - attendA;
 
-          const firstA = firstChoiceMap.get(a.id) ? 1 : 0;
-          const firstB = firstChoiceMap.get(b.id) ? 1 : 0;
-          if (firstA !== firstB) return firstB - firstA;
+          // const firstA = firstChoiceMap.get(a.id) ? 1 : 0;
+          // const firstB = firstChoiceMap.get(b.id) ? 1 : 0;
+          // if (firstA !== firstB) return firstB - firstA;
         }
         return 0;
       });
@@ -685,7 +688,7 @@ export class TalentService {
 
     const start = (page - 1) * limit;
     const end = start + limit;
-
+    console.log(sortedData, "sorted data")
     const paginatedData = sortedData.slice(start, end);
 
     return {
