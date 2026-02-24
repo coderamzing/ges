@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOkResponse, ApiNotFoundResponse, ApiHeader, ApiBody } from '@nestjs/swagger';
 import { CampaignInvitationService } from './campaign-invitation.service';
-import { AddTalentsToEventDto, DeleteInvitationResponseDto, GetCampaignInvitationsQueryDto, GetInvitationsQueryDto, MarkInvitationsAsAttendedDto, MarkInvitationsForFollowupDto, UpdateInvitationEventTypeDto, UpdateInvitationStatusDto } from './campaign-invitation.dto';
+import { AddTalentsToEventDto, DeleteInvitationResponseDto, GetCampaignInvitationsQueryDto, GetInvitationsQueryDto, MarkInvitationNoShowDto, MarkInvitationsAsAttendedDto, MarkInvitationsForFollowupDto, UpdateInvitationEventTypeDto, UpdateInvitationStatusDto } from './campaign-invitation.dto';
 import { CampaignInvitation, TalentPool, TalentPromoterState } from '@prisma/client';
 import { JwtAuthGuard, GetPromoter } from '../../guard';
 import { TalentService } from '../talent/talent.service';
@@ -106,12 +106,12 @@ export class CampaignInvitationController {
     description: 'Bad request - validation failed',
   })
   async markInvitationsAsNoShow(
-    @Body() markAttendedDto: MarkInvitationsAsAttendedDto,
+    @Body() markNoShowDto: MarkInvitationNoShowDto,
     @GetPromoter() promoter: { id: number; email: string },
-  ): Promise<{ count: number; invitations: CampaignInvitation[] }> {
+  ): Promise<{ Message: string, data: any }> {
     return this.campaignInvitationService.markInvitationsAsNoShow(
-      markAttendedDto.campaignId,
-      markAttendedDto.invitationIds,
+      markNoShowDto.eventId,
+      markNoShowDto.id,
       promoter.id,
     );
   }
@@ -351,25 +351,25 @@ export class CampaignInvitationController {
     );
   }
 
-@Patch("event-type/:invitationId")
-@ApiOperation({ summary: "Update invitation event type" })
-@ApiResponse({ status: 200, description: "Invitation event type updated" })
-@ApiResponse({
-  status: 404,
-  description:
-    "Invitation not found or does not belong to promoter",
-})
-async updateInvitationEventType(
-  @Param("invitationId", ParseIntPipe) invitationId: number,
-  @Body() dto: UpdateInvitationEventTypeDto,
-  @GetPromoter() promoter: { id: number; email: string },
-) {
-  return this.campaignInvitationService.updateInvitationEventType(
-    invitationId,
-    promoter.id,
-    dto.eventType, 
-  );
-}
+  @Patch("event-type/:invitationId")
+  @ApiOperation({ summary: "Update invitation event type" })
+  @ApiResponse({ status: 200, description: "Invitation event type updated" })
+  @ApiResponse({
+    status: 404,
+    description:
+      "Invitation not found or does not belong to promoter",
+  })
+  async updateInvitationEventType(
+    @Param("invitationId", ParseIntPipe) invitationId: number,
+    @Body() dto: UpdateInvitationEventTypeDto,
+    @GetPromoter() promoter: { id: number; email: string },
+  ) {
+    return this.campaignInvitationService.updateInvitationEventType(
+      invitationId,
+      promoter.id,
+      dto.eventType,
+    );
+  }
 
 
 

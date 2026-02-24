@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsEnum, IsBoolean, IsInt, IsArray, IsNotEmpty, ArrayMinSize, IsNumber, IsString, ArrayNotEmpty, IsIn } from 'class-validator';
 // import { InvitationStatus } from '@prisma/client';
-import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
+import { InvitationStatus, type InvitationStatusType } from "src/campaign-invitation/campaign-invitation.config"
 import { Transform, Type } from 'class-transformer';
 import { MainEventType } from 'src/campaign-stats/campaign-stats.dto';
 
@@ -232,6 +232,15 @@ export class MarkInvitationsAsAttendedDto {
   invitationIds: number[];
 }
 
+export class MarkInvitationNoShowDto {
+  @IsInt()
+  id: number;
+
+  @IsInt()
+  eventId: number;
+}
+
+
 export class MarkInvitationsForFollowupDto {
   @ApiProperty({
     description: 'ID of the campaign',
@@ -254,7 +263,7 @@ export class MarkInvitationsForFollowupDto {
 }
 
 export class UpdateInvitationEventTypeDto {
- @ApiProperty({
+  @ApiProperty({
     enum: MainEventType,
     example: MainEventType.DINNER_CLUB,
   })
