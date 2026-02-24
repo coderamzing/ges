@@ -124,7 +124,7 @@ export class CampaignStatsService {
 
     // Seen but no reply = invitations that are seen but haven't replied
     // const noReply = invitations.filter(inv =>
-    //   inv.isSeen === true && inv.hasReplied === false
+    //   inv.isSeen === true && inv.status === InvitationStatus.NOREPLY
     //   // inv.hasReplied === false
     // ).length;
 
@@ -166,7 +166,7 @@ export class CampaignStatsService {
     const totalPending = manuallPending + pending + sent + interested
     const totalDeclined = manuallDeclined + declined
 
-    const noReply = allInvitations.filter(invAll => invAll.status === InvitationStatus.NOREPLY).length
+    const noReply = allInvitations.filter(invAll => invAll.status === InvitationStatus.NOREPLY || invAll.status === InvitationStatus.MANUALLY_NOREPLY).length
     const confirmationRate = Number(((totalConfirm / target) * 100).toFixed(3));
     const conversationRate = Number(((confirmed / sent) * 100).toFixed(3))
 

@@ -1,4 +1,5 @@
 export const InvitationStatus = {
+  INIT: "init",
   PENDING: "pending",
   SENT: "sent",
   CONFIRMED: "confirmed",
@@ -14,6 +15,7 @@ export const InvitationStatus = {
   MANUALLY_CONFIRM: "manually-confirmed",
   MANUALLY_PENDING: "manually-pending",
   MANUALLY_DECLINED: "manually-declined",
+  MANUALLY_NOREPLY: "manually-noreply",
   NOREPLY: "no-reply"
 } as const;
 
