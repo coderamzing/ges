@@ -135,29 +135,28 @@ export class CampaignMessagesAutomationService {
       //   .filter((id): id is string => !!id);
 
       const invitations = await this.prisma.campaignInvitation.findMany({
-        // where: {
-        //   thread_id: { in: threadIds },
-        // },
+        where: {
+          status: {
+            notIn:[InvitationStatus.DECLINED, InvitationStatus.INIT]
+          }
+        },
         include: {
           campaign: true,
-          // event: true,
         },
       });
 
-      const invitationMap = new Map(
-        invitations.map((inv) => [inv.thread_id, inv]),
-      );
 
-      const threadIds = invitations
-      .map(inv => inv.thread_id)
-      .filter((id): id is string => Boolean(id));
+        const invitationMap = new Map(
+          invitations.map((inv) => [inv.thread_id, inv]),
+        );
 
-       const talentIds = invitations
-      .map(inv => inv.talentId)
-      .filter((id): id is string => Boolean(id));
+        const threadIds = invitations
+        .map(inv => inv.thread_id)
+        .filter((id): id is string => Boolean(id));
 
-
-      // console.log("threadIds----",threadIds)
+        const talentIds = invitations
+        .map(inv => inv.talentId)
+        .filter((id): id is string => Boolean(id));
 
       const lastMessages = await this.prisma.message.findMany({
         where :{
@@ -166,15 +165,23 @@ export class CampaignMessagesAutomationService {
           },
           sender_username:{
             in:talentIds
-          }
+          },
         },
           orderBy: {
-            tm: "desc",
+            tm: "asc",
           },
-          take : 5,
+          
       })
 
-      const messages = lastMessages.reverse();
+      const filteredMessages = lastMessages.filter(msg => {
+      const invitation = invitationMap.get(msg.thread_id);
+      if (!invitation || !invitation.invitationAt || !msg?.created_at) return false;
+
+      return msg?.created_at > invitation.invitationAt;
+    });
+
+      const messages = filteredMessages;
+
 
       const result: MessageWithInvitationAndEvent[] = [];
 
@@ -206,39 +213,6 @@ export class CampaignMessagesAutomationService {
         });
       }
 
-      // const messages = await this.prisma.message.findMany({
-      //   where: {
-      //     ai_processed: false,
-      //     thread_id: { not: null },
-
-      //     invitation: {
-      //       is: {
-      //         event: {
-      //           is: {},
-      //         },
-      //         campaign: {
-      //           status: {
-      //             not: CampaignStatus.completed,
-      //           },
-      //         },
-      //       },
-      //     },
-      //   },
-
-      //   include: {
-      //     invitation: {
-      //       include: {
-      //         campaign: true,
-      //         event: true,
-      //       },
-      //     },
-      //   },
-
-      //   orderBy: {
-      //     created_at: "asc",
-      //   },
-      // });
-
       const talentReplies = result.filter((msg) => {
         if (!msg.invitation?.invitationAt || !msg.created_at) return false;
         const invitation = msg.invitation as any;
@@ -261,7 +235,7 @@ export class CampaignMessagesAutomationService {
         const event = message.invitation?.event;
         const campaign = message.invitation?.campaign;
 
-        const invitationAt = (message.invitation as any)?.createdAt;
+        const invitationAt = (message.invitation as any)?.invitationAt;
         const threads = await this.prisma.message.findMany({
           select: {
             message: true,
@@ -294,9 +268,9 @@ export class CampaignMessagesAutomationService {
           (event?.city ? `Event City: ${event?.city}\n\n` : "") +
           (event?.dt ? `Event Date: ${event?.dt}\n\n` : "") +
           (talent?.cityHome ? `Talent In City: ${talent?.cityHome}\n\n` : "") +
-          threads.map((msg) => `${msg.created_at} ${msg.message}`).join("\n\n");
+          (invitationAt ? `InvitationSentAt: ${invitationAt}\n\n` : "") +
+          threads.map((msg) => `${msg.created_at}: ${msg.message}`).join("\n\n");
 
-          console.log("fullMessage",fullMessage)
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {

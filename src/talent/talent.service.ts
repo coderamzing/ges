@@ -484,7 +484,10 @@ export class TalentService {
         where: {
           userId: BigInt(promoterId),
           statusId: {
-            in: [TP_STATUS_MAP.FIRST_CHOICE, TP_STATUS_MAP.OPEN_CHAT],
+            in: [
+              // TP_STATUS_MAP.FIRST_CHOICE, 
+              TP_STATUS_MAP.OPEN_CHAT
+            ],
           },
         },
         _count: {
@@ -567,7 +570,7 @@ export class TalentService {
       // take: limit,
       // take: recommendation ? 100 : limit,
       include: {
-        blacklists: { where: { promoterId }, take: 1 },
+        // blacklists: { where: { promoterId }, take: 1 },
         promoterStates: {
           where: { promoterId },
           take: 1,

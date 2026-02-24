@@ -16,7 +16,8 @@ export const InvitationStatus = {
   MANUALLY_PENDING: "manually-pending",
   MANUALLY_DECLINED: "manually-declined",
   MANUALLY_NOREPLY: "manually-noreply",
-  NOREPLY: "no-reply"
+  NOREPLY: "no-reply",
+  NOSHOW: "no-show"
 } as const;
 
 export type InvitationStatusType =

@@ -294,7 +294,7 @@ export class CampaignInvitationAutomationService {
       const pendingInvitations = await this.prisma.campaignInvitation.findMany({
         where: {
           AND: [
-            { status: InvitationStatus.PENDING },
+            { status: InvitationStatus.INIT },
             {
               campaign: {
                 status: { in: [CampaignStatus.active, CampaignStatus.draft] },

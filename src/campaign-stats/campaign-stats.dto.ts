@@ -2,12 +2,12 @@ import { ApiProperty } from '@nestjs/swagger';
 import { EventDto } from 'src/event/event.dto';
 // import { IsEnum } from 'class-validator';
 
-// export enum MainEventType {
-//   DINNER_ONLY = 'Dinner Only',
-//   CLUB_ONLY = 'Club Only',
-//   DINNER_CLUB = 'Dinner+Club',
-//   PRE_DRINK_CLUB = 'Pre-Drink+Club',
-// }
+export enum MainEventType {
+  DINNER_ONLY = 'Dinner Only',
+  CLUB_ONLY = 'Club Only',
+  DINNER_CLUB = 'Dinner+Club',
+  PRE_DRINK_CLUB = 'Pre-Drink+Club',
+}
 
 export class BatchStatsDto {
   @ApiProperty({ description: 'Batch number' })

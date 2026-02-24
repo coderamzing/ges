@@ -201,6 +201,7 @@ model CampaignInvitation {
   hasReplied   Boolean          @default(false)
   thread_id    String?          @unique @db.VarChar(255)
   createdAt    DateTime         @default(now())
+  eventType    String?          @map("event_type")  @db.VarChar(255)
 
   // Relations
   campaign Campaign @relation(fields: [campaignId], references: [id])
