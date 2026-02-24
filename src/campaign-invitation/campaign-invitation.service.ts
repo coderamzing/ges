@@ -624,8 +624,7 @@ export class CampaignInvitationService {
     TalentId: string,
     promoterId: number,
   ): Promise<{ Message: string, data: any }> {
-    // Check if campaign exists
-
+    let talentId = TalentId
     const event = await this.prisma.events.findUnique({
       where: { id: eventId }
     })
@@ -651,6 +650,52 @@ export class CampaignInvitationService {
         status: "no-show"
       }
     })
+
+    const created = await this.prisma.trustScoreLog.create({
+      data: {
+        talentId,
+        promoterId,
+        eventId: eventId ?? null,
+        change: -10,
+        reason: "Not Attended",
+      },
+    });
+
+    const trustScoreAgg = await this.prisma.trustScoreLog.aggregate({
+      where: {
+        talentId,
+        promoterId: BigInt(promoterId),
+      },
+      _sum: {
+        change: true,
+      },
+    });
+
+    const newTrustScore = trustScoreAgg._sum?.change ?? 0;
+
+    const state = await this.prisma.talentPromoterState.upsert({
+      where: {
+        talentId_promoterId: {
+          talentId,
+          promoterId,
+        },
+      },
+      create: {
+        talentId,
+        promoterId,
+        trustScore: newTrustScore,
+        lastContacted: new Date(),
+      },
+      update: {
+        lastContacted: new Date(),
+        ...(newTrustScore > 0 && {
+          trustScore: newTrustScore
+        }),
+      },
+    });
+
+
+
     return {
       Message: "Status Set to No-show successfully",
       data: updateStatus
