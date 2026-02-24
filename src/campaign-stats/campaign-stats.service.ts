@@ -4,6 +4,7 @@ import { CampaignService } from '../campaign/campaign.service';
 import { CampaignStatsDto, BatchStatsDto } from './campaign-stats.dto';
 import { EventDto } from 'src/event/event.dto';
 import { InvitationStatus, type InvitationStatusType } from "src/campaign-invitation/campaign-invitation.config"
+import { all } from 'axios';
 
 
 @Injectable()
@@ -161,9 +162,10 @@ export class CampaignStatsService {
     const manuallConfirmed = allInvitations.filter(invAll => invAll.status === InvitationStatus.MANUALLY_CONFIRM).length
     const manuallPending = allInvitations.filter(invAll => invAll.status === InvitationStatus.MANUALLY_PENDING).length
     const manuallDeclined = allInvitations.filter(invAll => invAll.status === InvitationStatus.MANUALLY_DECLINED).length
+    const sentAll = allInvitations.filter(invAll => invAll.status === InvitationStatus.SENT).length
 
     const totalConfirm = manuallConfirmed + confirmed
-    const totalPending = manuallPending + pending + sent + interested
+    const totalPending = manuallPending + pending + sentAll + interested
     const totalDeclined = manuallDeclined + declined
 
     const noReply = allInvitations.filter(invAll => invAll.status === InvitationStatus.NOREPLY || invAll.status === InvitationStatus.MANUALLY_NOREPLY).length
