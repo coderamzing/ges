@@ -621,7 +621,7 @@ export class CampaignInvitationService {
 
   async markInvitationsAsNoShow(
     eventId: number,
-    TalentId: number,
+    TalentId: string,
     promoterId: number,
   ): Promise<{ Message: string, data: any }> {
     // Check if campaign exists
@@ -640,7 +640,7 @@ export class CampaignInvitationService {
       throw new NotFoundException(`Campaign not found`);
     }
     const findInvitation = await this.prisma.campaignInvitation.findFirst({
-      where: { eventId: event.id, talentId: TalentId.toString() }
+      where: { eventId: event.id, talentId: TalentId }
     })
     if (!findInvitation) {
       throw new NotFoundException(`Error while fetching the invitation for this Talent`)
