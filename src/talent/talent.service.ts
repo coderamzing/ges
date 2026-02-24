@@ -3,12 +3,12 @@ import { PrismaService } from "../prisma/prisma.service";
 import { TalentPool } from "@prisma/client";
 import { TalentRecommendationFiltersDto } from "./talent.dto";
 // import { InvitationStatus } from "@prisma/client";
-import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
+import { InvitationStatus, type InvitationStatusType } from "src/campaign-invitation/campaign-invitation.config"
 import { TP_STATUS_MAP } from "./talent.config";
 import { BadRequestError } from "openai";
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -496,7 +496,8 @@ export class TalentService {
         having: {
           statusId: {
             _count: {
-              equals: 2,
+              equals: 1,
+              // equals: 2,
             },
           },
         },
