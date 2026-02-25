@@ -399,18 +399,31 @@ export class TalentService {
       (id) => id !== TP_STATUS_MAP.BLACKLIST,
     );
 
+    // if (normalStatusIds.length > 0) {
+    //   baseWhere.AND = [
+    //     ...(baseWhere.AND || []),
+    //     {
+    //       userTpStatus: {
+    //         some: {
+    //           userId: promoterId,
+    //           statusId: { in: normalStatusIds },
+    //         },
+    //       },
+    //     },
+    //   ];
+    // }
+
     if (normalStatusIds.length > 0) {
-      baseWhere.AND = [
-        ...(baseWhere.AND || []),
-        {
+      baseWhere.AND.push(
+        ...normalStatusIds.map((statusId) => ({
           userTpStatus: {
             some: {
               userId: promoterId,
-              statusId: { in: normalStatusIds },
+              statusId,
             },
           },
-        },
-      ];
+        }))
+      );
     }
 
     if (hasBlacklistFilter) {
@@ -485,7 +498,7 @@ export class TalentService {
           userId: BigInt(promoterId),
           statusId: {
             in: [
-              // TP_STATUS_MAP.FIRST_CHOICE, 
+              TP_STATUS_MAP.FIRST_CHOICE, 
               TP_STATUS_MAP.OPEN_CHAT
             ],
           },
@@ -496,8 +509,8 @@ export class TalentService {
         having: {
           statusId: {
             _count: {
-              equals: 1,
-              // equals: 2,
+              // equals: 1,
+              equals: 2,
             },
           },
         },
@@ -678,9 +691,9 @@ export class TalentService {
           const attendB = attendanceMap.get(b.id) ?? 0;
           if (attendA !== attendB) return attendB - attendA;
 
-          // const firstA = firstChoiceMap.get(a.id) ? 1 : 0;
-          // const firstB = firstChoiceMap.get(b.id) ? 1 : 0;
-          // if (firstA !== firstB) return firstB - firstA;
+          const firstA = firstChoiceMap.get(a.id) ? 1 : 0;
+          const firstB = firstChoiceMap.get(b.id) ? 1 : 0;
+          if (firstA !== firstB) return firstB - firstA;
         }
         return 0;
       });
