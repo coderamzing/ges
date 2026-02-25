@@ -621,25 +621,25 @@ export class CampaignInvitationService {
 
   async markInvitationsAsNoShow(
     eventId: number,
-    TalentId: string,
+    invitationId: number,
     promoterId: number,
   ): Promise<{ Message: string, data: any }> {
-    let talentId = TalentId
-    const event = await this.prisma.events.findUnique({
-      where: { id: eventId }
-    })
-    if (!event || event.userId?.toString() !== promoterId.toString()) {
-      throw new NotFoundException(`Campaign does not belong to this promoter`);
-    }
-    const campaign = await this.prisma.campaign.findFirst({
-      where: { eventId: event.id },
-    });
+    // let talentId = TalentId
+    // const event = await this.prisma.events.findUnique({
+    //   where: { id: eventId }
+    // })
+    // if (!event || event.userId?.toString() !== promoterId.toString()) {
+    //   throw new NotFoundException(`Campaign does not belong to this promoter`);
+    // }
+    // const campaign = await this.prisma.campaign.findFirst({
+    //   where: { eventId: event.id },
+    // });
 
-    if (!campaign) {
-      throw new NotFoundException(`Campaign not found`);
-    }
+    // if (!campaign) {
+    //   throw new NotFoundException(`Campaign not found`);
+    // }
     const findInvitation = await this.prisma.campaignInvitation.findFirst({
-      where: { eventId: event.id, talentId: TalentId }
+      where: { id: invitationId}
     })
     if (!findInvitation) {
       throw new NotFoundException(`Error while fetching the invitation for this Talent`)
@@ -651,15 +651,36 @@ export class CampaignInvitationService {
       }
     })
 
-    const created = await this.prisma.trustScoreLog.create({
-      data: {
-        talentId,
-        promoterId,
-        eventId: eventId ?? null,
-        change: -10,
-        reason: "Not Attended",
-      },
-    });
+    let talentId = findInvitation.talentId
+
+      const existing = await this.prisma.trustScoreLog.findFirst({
+          where: {
+            talentId,
+            promoterId: BigInt(promoterId),
+            eventId: Number(eventId),
+          },
+        });
+      if (existing) {
+       const updated = await this.prisma.trustScoreLog.update({
+          where: { id: existing.id },
+          data: {
+            change: -10,
+            reason: "Not Attended",
+          },
+        });
+        this.logger.log(`Updated trust score log: ${updated.change} points applied (No Show) for talent ${talentId}`);
+      } else {
+      const created = await this.prisma.trustScoreLog.create({
+          data: {
+            talentId,
+            promoterId,
+            eventId: eventId ?? null,
+            change: -10,
+            reason: "Not Attended",
+          },
+        });
+        this.logger.log(`Created trust score log: ${created.change} points applied (No Show) for talent ${talentId}`);
+      }
 
     const trustScoreAgg = await this.prisma.trustScoreLog.aggregate({
       where: {
@@ -684,15 +705,12 @@ export class CampaignInvitationService {
         talentId,
         promoterId,
         trustScore: newTrustScore,
-        lastContacted: new Date(),
       },
       update: {
-        lastContacted: new Date(),
-        ...(newTrustScore > 0 && {
           trustScore: newTrustScore
-        }),
       },
     });
+    this.logger.log(`Updated total trust score to ${state.trustScore} for talent ${talentId}`);
 
 
 

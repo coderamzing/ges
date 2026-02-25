@@ -233,8 +233,8 @@ export class MarkInvitationsAsAttendedDto {
 }
 
 export class MarkInvitationNoShowDto {
-  @IsString()
-  id: string;
+  @IsInt()
+  id: number;
 
   @IsInt()
   eventId: number;
