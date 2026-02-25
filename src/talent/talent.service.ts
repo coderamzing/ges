@@ -3,12 +3,15 @@ import { PrismaService } from "../prisma/prisma.service";
 import { TalentPool } from "@prisma/client";
 import { TalentRecommendationFiltersDto } from "./talent.dto";
 // import { InvitationStatus } from "@prisma/client";
-import { InvitationStatus, type InvitationStatusType } from "src/campaign-invitation/campaign-invitation.config"
+import {
+  InvitationStatus,
+  type InvitationStatusType,
+} from "src/campaign-invitation/campaign-invitation.config";
 import { TP_STATUS_MAP } from "./talent.config";
 import { BadRequestError } from "openai";
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -422,7 +425,7 @@ export class TalentService {
               statusId,
             },
           },
-        }))
+        })),
       );
     }
 
@@ -486,7 +489,7 @@ export class TalentService {
     } else {
       profilePriority = defaultPriority;
     }
-    console.log(profilePriority, "profile prioeot")
+    console.log(profilePriority, "profile prioeot");
     // handle top N logic here
     const topLimit = filters.top ?? null;
     console.log(topLimit, "trustc score");
@@ -498,8 +501,8 @@ export class TalentService {
           userId: BigInt(promoterId),
           statusId: {
             in: [
-              TP_STATUS_MAP.FIRST_CHOICE, 
-              TP_STATUS_MAP.OPEN_CHAT
+              // TP_STATUS_MAP.FIRST_CHOICE,
+              TP_STATUS_MAP.OPEN_CHAT,
             ],
           },
         },
@@ -509,8 +512,8 @@ export class TalentService {
         having: {
           statusId: {
             _count: {
-              // equals: 1,
-              equals: 2,
+              equals: 1,
+              // equals: 2,
             },
           },
         },
@@ -525,7 +528,7 @@ export class TalentService {
       //     statusId: true,
       //   },
       // });
-      console.log(statusTalents, "incoming talent")
+      console.log(statusTalents, "incoming talent");
       const statusTalentIds = statusTalents
         .map((s) => s.talentPoolId)
         .filter((id): id is string => Boolean(id));
@@ -541,7 +544,7 @@ export class TalentService {
           id: true,
         },
       });
-      console.log(topTalents, "top talent ")
+      console.log(topTalents, "top talent ");
       const finalTalentIds = topTalents.map((t) => t.id);
 
       baseWhere.AND ||= [];
@@ -551,7 +554,7 @@ export class TalentService {
         },
       });
     }
-    console.log(baseWhere, "conditon")
+    console.log(baseWhere, "conditon");
     let excludedTalentIds: string[] = [];
     const invited = await this.prisma.campaignInvitation.findMany({
       where: { campaignId },
@@ -611,7 +614,7 @@ export class TalentService {
         },
       },
     });
-    console.log(data, "final data")
+    console.log(data, "final data");
     const totalPages = Math.ceil(total / limit);
 
     let sortedData: TalentPool[];
@@ -640,35 +643,57 @@ export class TalentService {
       );
       firstChoiceMap.set(talent.id, Boolean(isFirstChoice));
     }
-    console.log(firstChoiceMap, "firstc Chaouce")
-
+    console.log(firstChoiceMap, "firstc Chaouce");
 
     if (topLimit && topLimit > 0) {
-      //  TOP FLOW → group + trustScore + priority
       const allowedTypes = Object.keys(profilePriority);
-      console.log(allowedTypes, "allowed type ")
+
       const filteredData = data.filter(
-        (talent) =>
-          talent.genre && allowedTypes.includes(talent.genre),
+        (talent) => talent.genre && allowedTypes.includes(talent.genre),
       );
-      console.log(filteredData, "filter data")
-      const grouped: Record<string, typeof filteredData> = {};
+
+      const firstChoiceTalents: TalentPool[] = [];
+      const nonFirstChoiceTalents: TalentPool[] = [];
 
       for (const talent of filteredData) {
-        const type = talent.genre!;
-        if (!grouped[type]) grouped[type] = [];
-        grouped[type].push(talent);
+        if (firstChoiceMap.get(talent.id)) {
+          firstChoiceTalents.push(talent);
+        } else {
+          nonFirstChoiceTalents.push(talent);
+        }
       }
-      // sort inside each group by trustScore DESC
-      Object.values(grouped).forEach((group) => {
+
+      firstChoiceTalents.sort((a, b) => {
+        const trustA = (a as any).promoterStates?.[0]?.trustScore ?? 0;
+        const trustB = (b as any).promoterStates?.[0]?.trustScore ?? 0;
+        return trustB - trustA;
+      });
+
+      // group remaining by genre
+      const groupedByGenre: Record<string, TalentPool[]> = {};
+
+      for (const talent of nonFirstChoiceTalents) {
+        const genre = talent.genre!;
+        if (!groupedByGenre[genre]) groupedByGenre[genre] = [];
+        groupedByGenre[genre].push(talent);
+      }
+
+      // sort each genre by trustScore DESC
+      Object.values(groupedByGenre).forEach((group) => {
         group.sort((a, b) => {
-          const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
-          const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
+          const trustA = (a as any).promoterStates?.[0]?.trustScore ?? 0;
+          const trustB = (b as any).promoterStates?.[0]?.trustScore ?? 0;
           return trustB - trustA;
         });
       });
-      // order groups by priority
-      sortedData = allowedTypes.flatMap((type) => grouped[type] ?? []);
+
+      sortedData = [
+        ...firstChoiceTalents,
+        ...(groupedByGenre.Supermodels ?? []),
+        ...(groupedByGenre.Models ?? []),
+        ...(groupedByGenre.Hybrids ?? []),
+        ...(groupedByGenre.Civilians ?? []),
+      ];
     } else {
       // NORMAL FLOW → global trustScore sort only
       sortedData = [...data].sort((a, b) => {
@@ -701,7 +726,7 @@ export class TalentService {
 
     const start = (page - 1) * limit;
     const end = start + limit;
-    console.log(sortedData, "sorted data")
+    console.log(sortedData, "sorted data");
     const paginatedData = sortedData.slice(start, end);
 
     return {
@@ -713,3 +738,33 @@ export class TalentService {
     };
   }
 }
+
+
+// 648
+ // if (topLimit && topLimit > 0) {
+    //   //  TOP FLOW → group + trustScore + priority
+    //   const allowedTypes = Object.keys(profilePriority);
+    //   console.log(allowedTypes, "allowed type ")
+    //   const filteredData = data.filter(
+    //     (talent) =>
+    //       talent.genre && allowedTypes.includes(talent.genre),
+    //   );
+    //   console.log(filteredData, "filter data")
+    //   const grouped: Record<string, typeof filteredData> = {};
+
+    //   for (const talent of filteredData) {
+    //     const type = talent.genre!;
+    //     if (!grouped[type]) grouped[type] = [];
+    //     grouped[type].push(talent);
+    //   }
+    //   // sort inside each group by trustScore DESC
+    //   Object.values(grouped).forEach((group) => {
+    //     group.sort((a, b) => {
+    //       const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
+    //       const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
+    //       return trustB - trustA;
+    //     });
+    //   });
+    //   // order groups by priority
+    //   sortedData = allowedTypes.flatMap((type) => grouped[type] ?? []);
+    // }
