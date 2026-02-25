@@ -8,7 +8,23 @@ import {
   type InvitationStatusType,
 } from "src/campaign-invitation/campaign-invitation.config";
 import { TP_STATUS_MAP } from "./talent.config";
-import { BadRequestError } from "openai";
+import { Prisma } from "@prisma/client";
+
+type TalentWithRelations = Prisma.TalentPoolGetPayload<{
+  include: {
+    promoterStates: {
+      select: { trustScore: true };
+    };
+    userTpStatus: {
+      select: {
+        id: true;
+        statusId: true;
+        statusName: true;
+        createdAt: true;
+      };
+    };
+  };
+}>;
 @Injectable()
 export class TalentService {
   constructor(private prisma: PrismaService) {}
@@ -591,7 +607,7 @@ export class TalentService {
     });
 
     // -------------------- fetch paginated data --------------------
-    const data = await this.prisma.talentPool.findMany({
+    const data: TalentWithRelations[] = await this.prisma.talentPool.findMany({
       where: baseWhere,
       // skip,
       // take: limit,
@@ -645,55 +661,100 @@ export class TalentService {
     }
     console.log(firstChoiceMap, "firstc Chaouce");
 
+    enum ChoiceType {
+      FIRST = 1,
+      BACKUP = 2,
+      NONE = 3,
+    }
+
+    function getChoiceType(talent: TalentWithRelations): ChoiceType {
+      if (
+        talent.userTpStatus?.some(
+          (s) => s.statusId === TP_STATUS_MAP.FIRST_CHOICE,
+        )
+      ) {
+        return ChoiceType.FIRST;
+      }
+
+      if (
+        talent.userTpStatus?.some(
+          (s) => s.statusId === TP_STATUS_MAP.BACKUP_GUEST,
+        )
+      ) {
+        return ChoiceType.BACKUP;
+      }
+
+      return ChoiceType.NONE;
+    }
+
+    const GENRE_ORDER: Record<string, number> = {
+      Supermodels: 1,
+      Models: 2,
+      Hybrids: 3,
+      Civilians: 4,
+    };
+
+    //     if (topLimit && topLimit > 0) {
+    //   sortedData = [...data]
+    //     .filter(
+    //       (t) =>
+    //         t.genre &&
+    //         GENRE_ORDER[t.genre] !== undefined,
+    //     )
+    //     .sort((a, b) => {
+    //       // 1️⃣ Choice priority: FIRST → BACKUP → NONE
+    //       const choiceDiff =
+    //         getChoiceType(a) - getChoiceType(b);
+    //       if (choiceDiff !== 0) return choiceDiff;
+
+    //       // 2️⃣ Genre priority: Supermodels → Models → Hybrids
+    //       const genreDiff =
+    //         GENRE_ORDER[a.genre!] - GENRE_ORDER[b.genre!];
+    //       if (genreDiff !== 0) return genreDiff;
+
+    //       // 3️⃣ TrustScore DESC inside same bucket
+    //       const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
+    //       const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
+    //       if (trustA !== trustB) return trustB - trustA;
+
+    //       return 0;
+    //     });
+    // }
+
     if (topLimit && topLimit > 0) {
-      const allowedTypes = Object.keys(profilePriority);
+      // GROUP BY GENRE
+      const groupedByGenre: Record<string, TalentWithRelations[]> = {};
 
-      const filteredData = data.filter(
-        (talent) => talent.genre && allowedTypes.includes(talent.genre),
-      );
+      for (const talent of data) {
+        if (!talent.genre) continue;
+        if (GENRE_ORDER[talent.genre] === undefined) continue;
 
-      const firstChoiceTalents: TalentPool[] = [];
-      const nonFirstChoiceTalents: TalentPool[] = [];
-
-      for (const talent of filteredData) {
-        if (firstChoiceMap.get(talent.id)) {
-          firstChoiceTalents.push(talent);
-        } else {
-          nonFirstChoiceTalents.push(talent);
+        if (!groupedByGenre[talent.genre]) {
+          groupedByGenre[talent.genre] = [];
         }
+
+        groupedByGenre[talent.genre].push(talent);
       }
 
-      firstChoiceTalents.sort((a, b) => {
-        const trustA = (a as any).promoterStates?.[0]?.trustScore ?? 0;
-        const trustB = (b as any).promoterStates?.[0]?.trustScore ?? 0;
-        return trustB - trustA;
-      });
+      // SORT INSIDE EACH GENRE
+      for (const genre of Object.keys(groupedByGenre)) {
+        groupedByGenre[genre].sort((a, b) => {
+          const choiceDiff = getChoiceType(a) - getChoiceType(b);
+          if (choiceDiff !== 0) return choiceDiff;
 
-      // group remaining by genre
-      const groupedByGenre: Record<string, TalentPool[]> = {};
+          // TrustScore DESC inside same choice bucket
+          const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
+          const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
+          if (trustA !== trustB) return trustB - trustA;
 
-      for (const talent of nonFirstChoiceTalents) {
-        const genre = talent.genre!;
-        if (!groupedByGenre[genre]) groupedByGenre[genre] = [];
-        groupedByGenre[genre].push(talent);
-      }
-
-      // sort each genre by trustScore DESC
-      Object.values(groupedByGenre).forEach((group) => {
-        group.sort((a, b) => {
-          const trustA = (a as any).promoterStates?.[0]?.trustScore ?? 0;
-          const trustB = (b as any).promoterStates?.[0]?.trustScore ?? 0;
-          return trustB - trustA;
+          return 0;
         });
-      });
+      }
 
-      sortedData = [
-        ...firstChoiceTalents,
-        ...(groupedByGenre.Supermodels ?? []),
-        ...(groupedByGenre.Models ?? []),
-        ...(groupedByGenre.Hybrids ?? []),
-        ...(groupedByGenre.Civilians ?? []),
-      ];
+      // FLATTEN BY GENRE ORDER
+      sortedData = Object.entries(GENRE_ORDER)
+        .sort(([, a], [, b]) => a - b)
+        .flatMap(([genre]) => groupedByGenre[genre] ?? []);
     } else {
       // NORMAL FLOW → global trustScore sort only
       sortedData = [...data].sort((a, b) => {
@@ -739,32 +800,85 @@ export class TalentService {
   }
 }
 
-
 // 648
- // if (topLimit && topLimit > 0) {
-    //   //  TOP FLOW → group + trustScore + priority
-    //   const allowedTypes = Object.keys(profilePriority);
-    //   console.log(allowedTypes, "allowed type ")
-    //   const filteredData = data.filter(
-    //     (talent) =>
-    //       talent.genre && allowedTypes.includes(talent.genre),
-    //   );
-    //   console.log(filteredData, "filter data")
-    //   const grouped: Record<string, typeof filteredData> = {};
+// if (topLimit && topLimit > 0) {
+//   //  TOP FLOW → group + trustScore + priority
+//   const allowedTypes = Object.keys(profilePriority);
+//   console.log(allowedTypes, "allowed type ")
+//   const filteredData = data.filter(
+//     (talent) =>
+//       talent.genre && allowedTypes.includes(talent.genre),
+//   );
+//   console.log(filteredData, "filter data")
+//   const grouped: Record<string, typeof filteredData> = {};
 
-    //   for (const talent of filteredData) {
-    //     const type = talent.genre!;
-    //     if (!grouped[type]) grouped[type] = [];
-    //     grouped[type].push(talent);
-    //   }
-    //   // sort inside each group by trustScore DESC
-    //   Object.values(grouped).forEach((group) => {
-    //     group.sort((a, b) => {
-    //       const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
-    //       const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
-    //       return trustB - trustA;
-    //     });
-    //   });
-    //   // order groups by priority
-    //   sortedData = allowedTypes.flatMap((type) => grouped[type] ?? []);
-    // }
+//   for (const talent of filteredData) {
+//     const type = talent.genre!;
+//     if (!grouped[type]) grouped[type] = [];
+//     grouped[type].push(talent);
+//   }
+//   // sort inside each group by trustScore DESC
+//   Object.values(grouped).forEach((group) => {
+//     group.sort((a, b) => {
+//       const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
+//       const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
+//       return trustB - trustA;
+//     });
+//   });
+//   // order groups by priority
+//   sortedData = allowedTypes.flatMap((type) => grouped[type] ?? []);
+// }
+
+
+
+// 2.
+// if (topLimit && topLimit > 0) {
+//   const allowedTypes = Object.keys(profilePriority);
+
+//   const filteredData = data.filter(
+//     (talent) => talent.genre && allowedTypes.includes(talent.genre),
+//   );
+
+//   const firstChoiceTalents: TalentPool[] = [];
+//   const nonFirstChoiceTalents: TalentPool[] = [];
+
+//   for (const talent of filteredData) {
+//     if (firstChoiceMap.get(talent.id)) {
+//       firstChoiceTalents.push(talent);
+//     } else {
+//       nonFirstChoiceTalents.push(talent);
+//     }
+//   }
+
+//   firstChoiceTalents.sort((a, b) => {
+//     const trustA = (a as any).promoterStates?.[0]?.trustScore ?? 0;
+//     const trustB = (b as any).promoterStates?.[0]?.trustScore ?? 0;
+//     return trustB - trustA;
+//   });
+
+//   // group remaining by genre
+//   const groupedByGenre: Record<string, TalentPool[]> = {};
+
+//   for (const talent of nonFirstChoiceTalents) {
+//     const genre = talent.genre!;
+//     if (!groupedByGenre[genre]) groupedByGenre[genre] = [];
+//     groupedByGenre[genre].push(talent);
+//   }
+
+//   // sort each genre by trustScore DESC
+//   Object.values(groupedByGenre).forEach((group) => {
+//     group.sort((a, b) => {
+//       const trustA = (a as any).promoterStates?.[0]?.trustScore ?? 0;
+//       const trustB = (b as any).promoterStates?.[0]?.trustScore ?? 0;
+//       return trustB - trustA;
+//     });
+//   });
+
+//   sortedData = [
+//     ...firstChoiceTalents,
+//     ...(groupedByGenre.Supermodels ?? []),
+//     ...(groupedByGenre.Models ?? []),
+//     ...(groupedByGenre.Hybrids ?? []),
+//     ...(groupedByGenre.Civilians ?? []),
+//   ];
+// }
