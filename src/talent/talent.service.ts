@@ -508,74 +508,80 @@ export class TalentService {
     console.log(profilePriority, "profile prioeot");
     // handle top N logic here
     const topLimit = filters.top ?? null;
-    console.log(topLimit, "trustc score");
+    console.log(topLimit, "topLimit");
     console.log(promoterId, "incoming promoter id ");
-    if (topLimit && topLimit > 0) {
-      const statusTalents = await this.prisma.userTpStatus.groupBy({
-        by: ["talentPoolId"],
-        where: {
-          userId: BigInt(promoterId),
-          statusId: {
-            in: [
-              // TP_STATUS_MAP.FIRST_CHOICE,
-              TP_STATUS_MAP.OPEN_CHAT,
-            ],
-          },
-        },
-        _count: {
-          statusId: true,
-        },
-        having: {
-          statusId: {
-            _count: {
-              equals: 1,
-              // equals: 2,
-            },
-          },
-        },
-      });
-      // const statusTalents = await this.prisma.userTpStatus.groupBy({
-      //   by: ["talentPoolId"],
-      //   where: {
-      //     userId: BigInt(promoterId),
-      //     statusId: TP_STATUS_MAP.OPEN_CHAT,
-      //   },
-      //   _count: {
-      //     statusId: true,
-      //   },
-      // });
-      console.log(statusTalents, "incoming talent");
-      const statusTalentIds = statusTalents
-        .map((s) => s.talentPoolId)
-        .filter((id): id is string => Boolean(id));
+    // if (topLimit && topLimit > 0) {
+    //   const statusTalents = await this.prisma.userTpStatus.groupBy({
+    //     by: ["talentPoolId"],
+    //     where: {
+    //       userId: BigInt(promoterId),
+    //       statusId: {
+    //         in: [
+    //           // TP_STATUS_MAP.FIRST_CHOICE,
+    //           TP_STATUS_MAP.OPEN_CHAT,
+    //         ],
+    //       },
+    //     },
+    //     _count: {
+    //       statusId: true,
+    //     },
+    //     having: {
+    //       statusId: {
+    //         _count: {
+    //           equals: 1,
+    //           // equals: 2,
+    //         },
+    //       },
+    //     },
+    //   });
+    //   // const statusTalents = await this.prisma.userTpStatus.groupBy({
+    //   //   by: ["talentPoolId"],
+    //   //   where: {
+    //   //     userId: BigInt(promoterId),
+    //   //     statusId: TP_STATUS_MAP.OPEN_CHAT,
+    //   //   },
+    //   //   _count: {
+    //   //     statusId: true,
+    //   //   },
+    //   // });
+    //   console.log(statusTalents, "incoming talent");
+    //   const statusTalentIds = statusTalents
+    //     .map((s) => s.talentPoolId)
+    //     .filter((id): id is string => Boolean(id));
 
-      const topTalents = await this.prisma.talentPool.findMany({
-        where: {
-          id: {
-            in: statusTalentIds.length ? statusTalentIds : ["__none__"],
-          },
-        },
-        take: topLimit,
-        select: {
-          id: true,
-        },
-      });
-      console.log(topTalents, "top talent ");
-      const finalTalentIds = topTalents.map((t) => t.id);
+    //   const topTalents = await this.prisma.talentPool.findMany({
+    //     where: {
+    //       id: {
+    //         in: statusTalentIds.length ? statusTalentIds : ["__none__"],
+    //       },
+    //     },
+    //     take: topLimit,
+    //     select: {
+    //       id: true,
+    //     },
+    //   });
+    //   console.log(topTalents, "top talent ");
 
-      baseWhere.AND ||= [];
-      baseWhere.AND.push({
-        id: {
-          in: finalTalentIds.length ? finalTalentIds : ["__none__"],
-        },
-      });
-    }
-    console.log(baseWhere, "conditon");
+
+    //   const finalTalentIds = topTalents.map((t) => t.id);
+
+    //   baseWhere.AND ||= [];
+    //   baseWhere.AND.push({
+    //     id: {
+    //       in: finalTalentIds.length ? finalTalentIds : ["__none__"],
+    //     },
+    //   });
+    // }
+ 
+
+
+    // exclude talent who already send invitation in same campaign
     let excludedTalentIds: string[] = [];
     const invited = await this.prisma.campaignInvitation.findMany({
       where: { campaignId },
       select: { talentId: true },
     });
+    console.log("already invited in same campaign-----",invited)
     excludedTalentIds = invited.map((i) => i.talentId);
     if (excludedTalentIds.length) {
       baseWhere.AND = [
@@ -599,7 +605,9 @@ export class TalentService {
     }
     console.log(limit, "final limit");
 
-    const skip = (page - 1) * limit;
+    // const skip = (page - 1) * limit;
+
+       console.log("baseWhere--->",baseWhere);
 
     // -------------------- total count --------------------
     const total = await this.prisma.talentPool.count({
@@ -630,7 +638,9 @@ export class TalentService {
         },
       },
     });
-    console.log(data, "final data");
+    console.log("final data length---->", data.length);
+
+    console.log("final data", data);
     const totalPages = Math.ceil(total / limit);
 
     let sortedData: TalentPool[];
@@ -659,7 +669,7 @@ export class TalentService {
       );
       firstChoiceMap.set(talent.id, Boolean(isFirstChoice));
     }
-    console.log(firstChoiceMap, "firstc Chaouce");
+    console.log("firstChoiceMap-------",firstChoiceMap);
 
     enum ChoiceType {
       FIRST = 1,
@@ -735,6 +745,8 @@ export class TalentService {
 
         groupedByGenre[talent.genre].push(talent);
       }
+      console.log("groupedByGenre length------>",groupedByGenre.length)
+      console.log("groupedByGenre------>",groupedByGenre)
 
       // SORT INSIDE EACH GENRE
       for (const genre of Object.keys(groupedByGenre)) {
@@ -787,7 +799,8 @@ export class TalentService {
 
     const start = (page - 1) * limit;
     const end = start + limit;
-    console.log(sortedData, "sorted data");
+    console.log("sorted data length------->",sortedData.length);
+    console.log("sorted data------->",sortedData);
     const paginatedData = sortedData.slice(start, end);
 
     return {
