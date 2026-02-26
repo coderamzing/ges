@@ -581,7 +581,7 @@ export class TalentService {
       where: { campaignId },
       select: { talentId: true },
     });
-    console.log("already invited in same campaign-----",invited)
+    console.log("already invited in same campaign-----",invited.length)
     excludedTalentIds = invited.map((i) => i.talentId);
     if (excludedTalentIds.length) {
       baseWhere.AND = [
@@ -640,7 +640,7 @@ export class TalentService {
     });
     console.log("final data length---->", data.length);
 
-    console.log("final data", data);
+    // console.log("final data", data);
     const totalPages = Math.ceil(total / limit);
 
     let sortedData: TalentPool[];
@@ -657,6 +657,7 @@ export class TalentService {
       },
     });
 
+    
     for (const row of attendedCountsRaw) {
       attendanceMap.set(row.talentId, row._count.id);
     }
@@ -745,7 +746,7 @@ export class TalentService {
 
         groupedByGenre[talent.genre].push(talent);
       }
-      console.log("groupedByGenre length------>",groupedByGenre.length)
+
       console.log("groupedByGenre------>",groupedByGenre)
 
       // SORT INSIDE EACH GENRE
@@ -800,7 +801,7 @@ export class TalentService {
     const start = (page - 1) * limit;
     const end = start + limit;
     console.log("sorted data length------->",sortedData.length);
-    console.log("sorted data------->",sortedData);
+
     const paginatedData = sortedData.slice(start, end);
 
     return {
