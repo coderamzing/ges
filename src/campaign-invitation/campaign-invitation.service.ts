@@ -10,7 +10,6 @@ import { PrismaService } from "../prisma/prisma.service";
 import {
   CampaignInvitation,
   CampaignStatus,
-  // InvitationStatus,
   TemplateType,
 } from "@prisma/client";
 import {
@@ -928,7 +927,7 @@ export class CampaignInvitationService {
         campaignId,
         batch: previousBatchId,
         status: {
-          not: "pending",
+          not: InvitationStatus.INIT,
         },
       },
     });

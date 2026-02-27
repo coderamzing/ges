@@ -25,50 +25,143 @@ export class CampaignInvitationAutomationService {
    * Check if enough time has passed since last sent message for a promoter
    * Returns true if we should send, false if we should wait
    */
-  private async shouldSendMessage(
-    promoterId: bigint,
-    delayMinutes?: number[],
-  ): Promise<boolean> {
-    // Get the last sent message for this promoter
-    const lastMessage = await this.prisma.message.findFirst({
-      where: {
-        sender: promoterId,
-        invite: true,
-        ai_processed: true,
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-      select: {
-        created_at: true,
-      },
+private async getLastMessageTimestamp(
+  promoterId: bigint,
+  threadId?: string | null,
+): Promise<number | null> {
+  let whereCondition: any = {
+    user_id: promoterId,
+  };
+
+  // If threadId is provided, fetch thread
+  if (threadId) {
+    const threadData = await this.prisma.thread.findUnique({
+      where: { id: threadId },
+      select: { username1: true }, // fetch only what we need
+    });
+    
+    console.log("threadData---------->",threadData)
+    if (threadData?.username1) {
+      whereCondition.sender_username = threadData.username1;
+    }
+  } else {
+    // Default condition when no thread
+    whereCondition.ai_processed = false;
+  }
+
+  console.log("whereCondition----------->",whereCondition)
+  const lastMessage = await this.prisma.message.findFirst({
+    where: whereCondition,
+    orderBy: {
+      created_at: "desc",
+    },
+    select: {
+      created_at: true,
+    },
+  });
+
+  if (!lastMessage?.created_at) {
+    return null;
+  }
+
+  return lastMessage.created_at.getTime();
+}
+
+private promoterClusterState = new Map<
+  bigint,
+  {
+    clusterSize: number;
+    sentInCluster: number;
+    lastMessageAt: number | null;
+    breakUntil: number | null;
+  }
+>();
+
+private randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+private async shouldSendMessage(
+  promoterId: bigint,
+  delayMinutes?: number[],
+  threadId?:string | null,
+): Promise<boolean> {
+  const now = Date.now();
+
+  if (!this.promoterClusterState.has(promoterId)) {
+    const lastMessageAt = await this.getLastMessageTimestamp(promoterId,threadId);
+
+    console.log("lastMessageAt",lastMessageAt)
+
+    this.promoterClusterState.set(promoterId, {
+      clusterSize: this.randomInt(8, 12),
+      sentInCluster: 0,
+      lastMessageAt: lastMessageAt, 
+      breakUntil: null,
     });
 
-    if (!lastMessage || !lastMessage.created_at) {
-      return true; // No previous message, can send
-    }
-
-    const now = Date.now();
-    const lastSent = lastMessage.created_at.getTime();
-    let minutes: number;
-
-    if (delayMinutes && delayMinutes.length === 2) {
-      // Use provided range
-      const min = Math.min(delayMinutes[0], delayMinutes[1]);
-      const max = Math.max(delayMinutes[0], delayMinutes[1]);
-
-      minutes = Math.floor(Math.random() * (max - min + 1)) + min;
-    } else {
-      // Default random 1–3 minutes
-      minutes = Math.floor(Math.random() * 3) + 1;
-    }
-
-    this.logger.log(`Random Delay time add`);
-
-    const requiredGapMs = minutes * 60 * 1000;
-
-    return now - lastSent >= requiredGapMs;
+    this.logger.log(
+      `Initialized cluster state for promoter ${promoterId}`,
+    );
   }
+
+  const state = this.promoterClusterState.get(promoterId)!;
+
+  // 1️⃣ Check cluster break
+  if (state.breakUntil && now < state.breakUntil) {
+    return false;
+  }
+
+  // 2️⃣ Per-message delay (60–120 sec default)
+  let delaySeconds: number;
+
+  if (delayMinutes && delayMinutes.length === 2) {
+    const min = Math.min(delayMinutes[0], delayMinutes[1]);
+    const max = Math.max(delayMinutes[0], delayMinutes[1]);
+
+    const randomMinutes = this.randomInt(min, max);
+    delaySeconds = randomMinutes * 60; // convert to seconds
+  } else {
+    delaySeconds = this.randomInt(60, 120);
+  }
+
+  if (state.lastMessageAt) {
+    const requiredGap = delaySeconds * 1000;
+
+    if (now - state.lastMessageAt < requiredGap) {
+      console.log("random gap added")
+      return false;
+    }
+  }
+
+  return true;
+}
+
+private updateClusterAfterSend(promoterId: bigint) {
+  const now = Date.now();
+  const state = this.promoterClusterState.get(promoterId);
+
+  if (!state) return;
+
+  state.sentInCluster += 1;
+  state.lastMessageAt = now;
+
+  // If cluster completed
+  if (state.sentInCluster >= state.clusterSize) {
+    const breakMinutes = this.randomInt(10, 15);
+
+    state.breakUntil = now + breakMinutes * 60 * 1000;
+
+    this.logger.log(
+      `Cluster completed for promoter ${promoterId}. Taking break for ${breakMinutes} minutes.`,
+    );
+
+    // Reset for next cluster
+    state.clusterSize = this.randomInt(8, 12);
+    state.sentInCluster = 0;
+  }
+}
+
 
   private async updateTalentPromoterState(params: {
     talentId: string;
@@ -327,6 +420,7 @@ export class CampaignInvitationAutomationService {
       // Loop through invitations to find one that can be sent
       for (const invitation of pendingInvitations) {
         const promoterId = invitation.promoterId;
+        const threadId = invitation.thread_id;
         // const campaignId = invitation.campaignId;
         // const batchId = invitation.batch;
 
@@ -354,12 +448,12 @@ export class CampaignInvitationAutomationService {
 
         // // Then check if enough time has passed since last send for this promoter
         const mode = process.env.MESSAGE_MODE || "dev";
-        const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
+        const delayMinutes = mode === "dev" ? [1, 2] : [1, 2];
 
         if(mode === 'live'){
            this.logger.log(`[Message Scheduler] Mode: ${mode}`);
             this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
-           if (!(await this.shouldSendMessage(promoterId,delayMinutes))) {
+           if (!(await this.shouldSendMessage(promoterId,delayMinutes,threadId))) {
              this.logger.debug(
                `Skipping invitation ${invitation.id} for promoter ${promoterId}, waiting for random gap`,
               );
@@ -370,6 +464,7 @@ export class CampaignInvitationAutomationService {
         // Both conditions met - send the message
         try {
           await this.sendInitialMessage(invitation);
+          this.updateClusterAfterSend(promoterId);
           this.logger.log(
             `Sent initial message for invitation ${invitation.id}, promoter ${promoterId}`,
           );
@@ -609,16 +704,17 @@ export class CampaignInvitationAutomationService {
 
       const invitation = invitationsNeedingFollowup[0];
       const promoterId = invitation.promoterId;
+      const threadId = invitation.thread_id;
 
       const mode = process.env.MESSAGE_MODE || "dev";
-      const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
+      const delayMinutes = mode === "dev" ? [1, 2] : [1,2];
       this.logger.log(`[Message Scheduler] Mode: ${mode}`);
       this.logger.log(
         `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
       );
 
       // Check if enough time has passed since last send for this promoter
-      if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
+      if (!(await this.shouldSendMessage(promoterId, delayMinutes,threadId))) {
         this.logger.debug(
           `Skipping followup for promoter ${promoterId}, waiting for random gap for this invitation ${invitation.id}`,
         );
@@ -627,6 +723,7 @@ export class CampaignInvitationAutomationService {
 
       try {
         await this.sendFollowupMessage(invitation);
+        this.updateClusterAfterSend(promoterId);
         this.logger.log(
           `Sent followup message for invitation ${invitation.id}, promoter ${promoterId}`,
         );
@@ -672,6 +769,7 @@ export class CampaignInvitationAutomationService {
 
       for (const invitation of invitationsNeedingFollowup) {
         const promoterId = invitation.promoterId;
+        const threadId = invitation.thread_id;
 
         // Calculate dynamic followup time based on campaign.followup_delay
         const followupTime = new Date(
@@ -687,14 +785,14 @@ export class CampaignInvitationAutomationService {
         }
 
         const mode = process.env.MESSAGE_MODE || "dev";
-        const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
+        const delayMinutes = mode === "dev" ? [1, 2] : [1, 2];
         this.logger.log(`[Message Scheduler] Mode: ${mode}`);
         this.logger.log(
           `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
         );
 
         // Check promoter-specific rate limiting
-        if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
+        if (!(await this.shouldSendMessage(promoterId, delayMinutes,threadId))) {
           this.logger.debug(
             `Skipping followup for promoter ${promoterId}, waiting for random gap in delay for this invitation ${invitation.id}`,
           );
@@ -709,6 +807,7 @@ export class CampaignInvitationAutomationService {
         while (attempts < maxAttempts) {
           try {
             await this.sendFollowupMessage(invitation);
+            this.updateClusterAfterSend(promoterId);
             this.logger.log(
               `Sent followup message for invitation ${invitation.id}, promoter ${promoterId} in delay`,
             );
@@ -884,9 +983,10 @@ export class CampaignInvitationAutomationService {
 
       const invitation = invitationsNeedingThankYou[0];
       const promoterId = invitation.promoterId;
+      const threadId = invitation.thread_id;
 
       const mode = process.env.MESSAGE_MODE || "dev";
-      const delayMinutes = mode === "dev" ? [1, 3] : [15, 20];
+      const delayMinutes = mode === "dev" ? [1, 2] : [1, 2];
 
       this.logger.log(`[Message Scheduler] Mode: ${mode}`);
       this.logger.log(
@@ -894,15 +994,16 @@ export class CampaignInvitationAutomationService {
       );
 
       // Check if enough time has passed since last send for this promoter
-      // if (!(await this.shouldSendMessage(promoterId, delayMinutes))) {
-      //   this.logger.debug(
-      //     `Skipping thank you for promoter ${promoterId}, waiting for random gap for this invitation: ${invitation.id}`,
-      //   );
-      //   return;
-      // }
+      if (!(await this.shouldSendMessage(promoterId, delayMinutes,threadId))) {
+        this.logger.debug(
+          `Skipping thank you for promoter ${promoterId}, waiting for random gap for this invitation: ${invitation.id}`,
+        );
+        return;
+      }
 
       try {
         await this.sendThankYouMessage(invitation);
+        this.updateClusterAfterSend(promoterId);
         this.logger.log(
           `Sent thank you message for invitation ${invitation.id}, promoter ${promoterId}`,
         );
@@ -1026,3 +1127,49 @@ export class CampaignInvitationAutomationService {
     );
   }
 }
+
+
+  // private async shouldSendMessage(
+  //   promoterId: bigint,
+  //   delayMinutes?: number[],
+  // ): Promise<boolean> {
+  //   // Get the last sent message for this promoter
+  //   const lastMessage = await this.prisma.message.findFirst({
+  //     where: {
+  //       sender: promoterId,
+  //       invite: true,
+  //       ai_processed: true,
+  //     },
+  //     orderBy: {
+  //       created_at: "desc",
+  //     },
+  //     select: {
+  //       created_at: true,
+  //     },
+  //   });
+
+  //   if (!lastMessage || !lastMessage.created_at) {
+  //     return true; // No previous message, can send
+  //   }
+
+  //   const now = Date.now();
+  //   const lastSent = lastMessage.created_at.getTime();
+  //   let minutes: number;
+
+  //   if (delayMinutes && delayMinutes.length === 2) {
+  //     // Use provided range
+  //     const min = Math.min(delayMinutes[0], delayMinutes[1]);
+  //     const max = Math.max(delayMinutes[0], delayMinutes[1]);
+
+  //     minutes = Math.floor(Math.random() * (max - min + 1)) + min;
+  //   } else {
+  //     // Default random 1–3 minutes
+  //     minutes = Math.floor(Math.random() * 3) + 1;
+  //   }
+
+  //   this.logger.log(`Random Delay time add`);
+
+  //   const requiredGapMs = minutes * 60 * 1000;
+
+  //   return now - lastSent >= requiredGapMs;
+  // }

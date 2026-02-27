@@ -107,7 +107,7 @@ export class CampaignStatsService {
     const totalContacted = invitations.length;
 
     // Sent = invitations with status != pending
-    const sent = invitations.filter(inv => inv.status !== InvitationStatus.PENDING).length;
+    const sent = invitations.filter(inv => inv.status !== InvitationStatus.INIT).length;
 
     // Delivered = invitations with status != pending (same as sent)
     const delivered = sent;
@@ -205,7 +205,7 @@ export class CampaignStatsService {
         const batchStats = batchMap.get(batch)!;
         batchStats.invites++; // Total CampaignInvitation for that batch
 
-        if (inv.status === InvitationStatus.PENDING) {
+        if (inv.status === InvitationStatus.INIT) {
           batchStats.pendingInvites++; // CampaignInvitation has status pending
         } else {
           // if (inv.status === InvitationStatus.SENT) {
