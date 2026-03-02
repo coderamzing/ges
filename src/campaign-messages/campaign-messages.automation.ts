@@ -13,7 +13,10 @@ import { renderTemplate } from "utils/handlebar";
 import { TalentBlacklistService } from "src/talend-blacklist/talent-blacklist.service";
 import { TP_STATUS_MAP } from "src/talent/talent.config";
 import { updateUserTpStatus } from "src/talent/talent.utils";
-import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
+import {
+  InvitationStatus,
+  type InvitationStatusType,
+} from "src/campaign-invitation/campaign-invitation.config";
 
 interface MessageInterpretationResponse {
   status: InvitationStatusType;
@@ -22,6 +25,7 @@ interface MessageInterpretationResponse {
   blacklist: string | null;
   reason: string;
   messageLanguage: string;
+  future_date: string | null;
 }
 
 type CampaignInvitationHydrated = CampaignInvitation & {
@@ -53,20 +57,18 @@ export class CampaignMessagesAutomationService {
       },
     });
 
-
-
     const target = (() => {
       switch (event?.mainEventType) {
-        case 'Club Only':
+        case "Club Only":
           return event.clubGuests ?? 0;
 
-        case 'Dinner Only':
+        case "Dinner Only":
           return event.dinnerGuests ?? 0;
 
-        case 'Pre-Drink+Club':
+        case "Pre-Drink+Club":
           return (event.preDrinkGuests ?? 0) + (event.clubGuests ?? 0);
 
-        case 'Dinner+Club':
+        case "Dinner+Club":
           return (event.dinnerGuests ?? 0) + (event.clubGuests ?? 0);
 
         default:
@@ -112,7 +114,7 @@ export class CampaignMessagesAutomationService {
         },
       });
 
-       if (!this.prompt) {
+      if (!this.prompt) {
         this.logger.warn("EVENT_INTERPRETATION prompt not found");
         return;
       }
@@ -137,51 +139,49 @@ export class CampaignMessagesAutomationService {
       const invitations = await this.prisma.campaignInvitation.findMany({
         where: {
           status: {
-            notIn:[InvitationStatus.DECLINED, InvitationStatus.INIT]
-          }
+            notIn: [InvitationStatus.DECLINED, InvitationStatus.INIT],
+          },
         },
         include: {
           campaign: true,
         },
       });
 
+      const invitationMap = new Map(
+        invitations.map((inv) => [inv.thread_id, inv]),
+      );
 
-        const invitationMap = new Map(
-          invitations.map((inv) => [inv.thread_id, inv]),
-        );
-
-        const threadIds = invitations
-        .map(inv => inv.thread_id)
+      const threadIds = invitations
+        .map((inv) => inv.thread_id)
         .filter((id): id is string => Boolean(id));
 
-        const talentIds = invitations
-        .map(inv => inv.talentId)
+      const talentIds = invitations
+        .map((inv) => inv.talentId)
         .filter((id): id is string => Boolean(id));
 
       const lastMessages = await this.prisma.message.findMany({
-        where :{
+        where: {
           thread_id: {
-            in: threadIds
+            in: threadIds,
           },
-          sender_username:{
-            in:talentIds
+          sender_username: {
+            in: talentIds,
           },
         },
-          orderBy: {
-            tm: "asc",
-          },
-          
-      })
+        orderBy: {
+          tm: "asc",
+        },
+      });
 
-      const filteredMessages = lastMessages.filter(msg => {
-      const invitation = invitationMap.get(msg.thread_id);
-      if (!invitation || !invitation.invitationAt || !msg?.created_at) return false;
+      const filteredMessages = lastMessages.filter((msg) => {
+        const invitation = invitationMap.get(msg.thread_id);
+        if (!invitation || !invitation.invitationAt || !msg?.created_at)
+          return false;
 
-      return msg?.created_at > invitation.invitationAt;
-    });
+        return msg?.created_at > invitation.invitationAt;
+      });
 
       const messages = filteredMessages;
-
 
       const result: MessageWithInvitationAndEvent[] = [];
 
@@ -199,7 +199,7 @@ export class CampaignMessagesAutomationService {
 
         if (
           !invitation.campaign ||
-          invitation.campaign.status === CampaignStatus.completed 
+          invitation.campaign.status === CampaignStatus.completed
         ) {
           continue;
         }
@@ -264,13 +264,14 @@ export class CampaignMessagesAutomationService {
         });
 
         const fullMessage =
-          (`Time Now: ${new Date().toISOString()}\n\n`) +
+          `Time Now: ${new Date().toISOString()}\n\n` +
           (event?.city ? `Event City: ${event?.city}\n\n` : "") +
           (event?.dt ? `Event Date: ${event?.dt}\n\n` : "") +
           (talent?.cityHome ? `Talent In City: ${talent?.cityHome}\n\n` : "") +
           (invitationAt ? `InvitationSentAt: ${invitationAt}\n\n` : "") +
-          threads.map((msg) => `${msg.created_at}: ${msg.message}`).join("\n\n");
-
+          threads
+            .map((msg) => `${msg.created_at}: ${msg.message}`)
+            .join("\n\n");
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {
@@ -352,6 +353,7 @@ export class CampaignMessagesAutomationService {
           blacklist: null,
           reason: response.reason,
           messageLanguage: response.language,
+          future_date: response.future_date,
         };
       } catch (error) {
         throw new Error(
@@ -371,8 +373,6 @@ export class CampaignMessagesAutomationService {
           isSeen: true,
         },
       });
-
-
 
       await this.campaignTargetReached(
         update.campaignId,
@@ -495,15 +495,60 @@ export class CampaignMessagesAutomationService {
         `Processed messages for campaign ${campaignId}, talent ${talentId}. Status: ${interpretation.status}, Score: ${interpretation.score}`,
       );
 
-      if(interpretation.messageLanguage){
-         await this.prisma.talentPool.update({
+      if (interpretation.messageLanguage) {
+        await this.prisma.talentPool.update({
+          where: {
+            id: talentId,
+          },
+          data: {
+            language: interpretation.messageLanguage,
+          },
+        });
+      }
+
+      if (interpretation.future_date) {
+        const event = await this.prisma.events.findFirst({
+          where: {
+            userId: BigInt(promoterId),
+            dt: new Date(interpretation.future_date),
+          },
+        });
+
+        if (!event) return;
+
+        const campaign = await this.prisma.campaign.findFirst({
+          where: {
+            eventId: event.id,
+          },
+        });
+
+        if (!campaign) return;
+
+        const existingInvitation =
+          await this.prisma.campaignInvitation.findUnique({
             where: {
-              id: talentId,   
+              campaignId_talentId: {
+                campaignId: campaign.id,
+                talentId: talentId,
+              },
             },
+          });
+
+        if (!existingInvitation) {
+          const createInvitation = await this.prisma.campaignInvitation.create({
             data: {
-              language: interpretation.messageLanguage,
+              campaignId: campaign.id,
+              eventId: event.id,
+              promoterId: BigInt(promoterId),
+              talentId,
+              batch: 1,
+              status: InvitationStatus.INIT,
             },
-  });
+          });
+          this.logger.log(
+            `Create invitation for this campaign: ${campaignId}, talent: ${talentId}, Event: ${event.id} by future date available:${interpretation.future_date}.`,
+          );
+        }
       }
     } catch (error) {
       this.logger.error(`Error processing message ${message.id}:`, error);
@@ -532,20 +577,18 @@ export class CampaignMessagesAutomationService {
    */
   private mapStatusToEnum(status: string): InvitationStatusType {
     const statusMap: Record<string, InvitationStatusType> = {
-    pending: InvitationStatus.PENDING,
-    sent: InvitationStatus.SENT,
-    confirmed: InvitationStatus.CONFIRMED,
-    declined: InvitationStatus.DECLINED,
-    maybe: InvitationStatus.MAYBE,
-    ignored: InvitationStatus.IGNORED,
-    attended: InvitationStatus.ATTENDED,
-    interested: InvitationStatus.INTERESTED,
-    optout: InvitationStatus.OPTOUT,
-    moved: InvitationStatus.MOVED,
-    blacklist: InvitationStatus.BLACKLIST,
-    "soft-decline": InvitationStatus.SOFT_DECLINE,
-   
-
+      pending: InvitationStatus.PENDING,
+      sent: InvitationStatus.SENT,
+      confirmed: InvitationStatus.CONFIRMED,
+      declined: InvitationStatus.DECLINED,
+      maybe: InvitationStatus.MAYBE,
+      ignored: InvitationStatus.IGNORED,
+      attended: InvitationStatus.ATTENDED,
+      interested: InvitationStatus.INTERESTED,
+      optout: InvitationStatus.OPTOUT,
+      moved: InvitationStatus.MOVED,
+      blacklist: InvitationStatus.BLACKLIST,
+      "soft-decline": InvitationStatus.SOFT_DECLINE,
     };
 
     return statusMap[status.toLowerCase()] || InvitationStatus.PENDING;
