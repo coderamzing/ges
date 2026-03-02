@@ -27,7 +27,7 @@ type TalentWithRelations = Prisma.TalentPoolGetPayload<{
 }>;
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -418,20 +418,6 @@ export class TalentService {
       (id) => id !== TP_STATUS_MAP.BLACKLIST,
     );
 
-    // if (normalStatusIds.length > 0) {
-    //   baseWhere.AND = [
-    //     ...(baseWhere.AND || []),
-    //     {
-    //       userTpStatus: {
-    //         some: {
-    //           userId: promoterId,
-    //           statusId: { in: normalStatusIds },
-    //         },
-    //       },
-    //     },
-    //   ];
-    // }
-
     if (normalStatusIds.length > 0) {
       baseWhere.AND.push(
         ...normalStatusIds.map((statusId) => ({
@@ -510,70 +496,6 @@ export class TalentService {
     const topLimit = filters.top ?? null;
     console.log(topLimit, "topLimit");
     console.log(promoterId, "incoming promoter id ");
-    // if (topLimit && topLimit > 0) {
-    //   const statusTalents = await this.prisma.userTpStatus.groupBy({
-    //     by: ["talentPoolId"],
-    //     where: {
-    //       userId: BigInt(promoterId),
-    //       statusId: {
-    //         in: [
-    //           // TP_STATUS_MAP.FIRST_CHOICE,
-    //           TP_STATUS_MAP.OPEN_CHAT,
-    //         ],
-    //       },
-    //     },
-    //     _count: {
-    //       statusId: true,
-    //     },
-    //     having: {
-    //       statusId: {
-    //         _count: {
-    //           equals: 1,
-    //           // equals: 2,
-    //         },
-    //       },
-    //     },
-    //   });
-    //   // const statusTalents = await this.prisma.userTpStatus.groupBy({
-    //   //   by: ["talentPoolId"],
-    //   //   where: {
-    //   //     userId: BigInt(promoterId),
-    //   //     statusId: TP_STATUS_MAP.OPEN_CHAT,
-    //   //   },
-    //   //   _count: {
-    //   //     statusId: true,
-    //   //   },
-    //   // });
-    //   console.log(statusTalents, "incoming talent");
-    //   const statusTalentIds = statusTalents
-    //     .map((s) => s.talentPoolId)
-    //     .filter((id): id is string => Boolean(id));
-
-    //   const topTalents = await this.prisma.talentPool.findMany({
-    //     where: {
-    //       id: {
-    //         in: statusTalentIds.length ? statusTalentIds : ["__none__"],
-    //       },
-    //     },
-    //     take: topLimit,
-    //     select: {
-    //       id: true,
-    //     },
-    //   });
-    //   console.log(topTalents, "top talent ");
-
-
-    //   const finalTalentIds = topTalents.map((t) => t.id);
-
-    //   baseWhere.AND ||= [];
-    //   baseWhere.AND.push({
-    //     id: {
-    //       in: finalTalentIds.length ? finalTalentIds : ["__none__"],
-    //     },
-    //   });
-    // }
- 
-
 
     // exclude talent who already send invitation in same campaign
     let excludedTalentIds: string[] = [];
@@ -581,7 +503,7 @@ export class TalentService {
       where: { campaignId },
       select: { talentId: true },
     });
-    console.log("already invited in same campaign-----",invited.length)
+    console.log("already invited in same campaign-----", invited.length)
     excludedTalentIds = invited.map((i) => i.talentId);
     if (excludedTalentIds.length) {
       baseWhere.AND = [
@@ -607,7 +529,7 @@ export class TalentService {
 
     // const skip = (page - 1) * limit;
 
-       console.log("baseWhere--->",baseWhere);
+    console.log("baseWhere--->", baseWhere);
 
     // -------------------- total count --------------------
     const total = await this.prisma.talentPool.count({
@@ -657,7 +579,7 @@ export class TalentService {
       },
     });
 
-    
+
     for (const row of attendedCountsRaw) {
       attendanceMap.set(row.talentId, row._count.id);
     }
@@ -670,7 +592,7 @@ export class TalentService {
       );
       firstChoiceMap.set(talent.id, Boolean(isFirstChoice));
     }
-    console.log("firstChoiceMap-------",firstChoiceMap);
+    console.log("firstChoiceMap-------", firstChoiceMap);
 
     enum ChoiceType {
       FIRST = 1,
@@ -705,49 +627,43 @@ export class TalentService {
       Civilians: 4,
     };
 
-    //     if (topLimit && topLimit > 0) {
-    //   sortedData = [...data]
-    //     .filter(
-    //       (t) =>
-    //         t.genre &&
-    //         GENRE_ORDER[t.genre] !== undefined,
-    //     )
-    //     .sort((a, b) => {
-    //       // 1️⃣ Choice priority: FIRST → BACKUP → NONE
-    //       const choiceDiff =
-    //         getChoiceType(a) - getChoiceType(b);
-    //       if (choiceDiff !== 0) return choiceDiff;
-
-    //       // 2️⃣ Genre priority: Supermodels → Models → Hybrids
-    //       const genreDiff =
-    //         GENRE_ORDER[a.genre!] - GENRE_ORDER[b.genre!];
-    //       if (genreDiff !== 0) return genreDiff;
-
-    //       // 3️⃣ TrustScore DESC inside same bucket
-    //       const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
-    //       const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
-    //       if (trustA !== trustB) return trustB - trustA;
-
-    //       return 0;
-    //     });
-    // }
 
     if (topLimit && topLimit > 0) {
+
+      const talentIds = data.map(t => t.id);
+
+      const recentMessages = await this.prisma.message.findMany({
+        where: {
+          user_id: promoterId,
+          receiver_username: { in: talentIds },
+          created_at: {
+            gte: cutoffDate,
+          },
+        },
+        select: {
+          receiver_username: true,
+        },
+      });
+
+      // Create set of excluded talents
+      const excludedTalentIds = new Set(recentMessages.map(m => m.receiver_username));
+
+      // FILTER talents (exclude those contacted in last 48 hours)
+      const filteredData = data.filter(talent => !excludedTalentIds.has(talent.id));
+
       // GROUP BY GENRE
       const groupedByGenre: Record<string, TalentWithRelations[]> = {};
 
-      for (const talent of data) {
+      for (const talent of filteredData) {
         if (!talent.genre) continue;
         if (GENRE_ORDER[talent.genre] === undefined) continue;
 
         if (!groupedByGenre[talent.genre]) {
           groupedByGenre[talent.genre] = [];
         }
-
         groupedByGenre[talent.genre].push(talent);
       }
-
-      console.log("groupedByGenre------>",groupedByGenre)
+      console.log("groupedByGenre------>", groupedByGenre)
 
       // SORT INSIDE EACH GENRE
       for (const genre of Object.keys(groupedByGenre)) {
@@ -800,7 +716,7 @@ export class TalentService {
 
     const start = (page - 1) * limit;
     const end = start + limit;
-    console.log("sorted data length------->",sortedData.length);
+    console.log("sorted data length------->", sortedData.length);
 
     const paginatedData = sortedData.slice(start, end);
 
@@ -814,85 +730,4 @@ export class TalentService {
   }
 }
 
-// 648
-// if (topLimit && topLimit > 0) {
-//   //  TOP FLOW → group + trustScore + priority
-//   const allowedTypes = Object.keys(profilePriority);
-//   console.log(allowedTypes, "allowed type ")
-//   const filteredData = data.filter(
-//     (talent) =>
-//       talent.genre && allowedTypes.includes(talent.genre),
-//   );
-//   console.log(filteredData, "filter data")
-//   const grouped: Record<string, typeof filteredData> = {};
 
-//   for (const talent of filteredData) {
-//     const type = talent.genre!;
-//     if (!grouped[type]) grouped[type] = [];
-//     grouped[type].push(talent);
-//   }
-//   // sort inside each group by trustScore DESC
-//   Object.values(grouped).forEach((group) => {
-//     group.sort((a, b) => {
-//       const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
-//       const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
-//       return trustB - trustA;
-//     });
-//   });
-//   // order groups by priority
-//   sortedData = allowedTypes.flatMap((type) => grouped[type] ?? []);
-// }
-
-
-
-// 2.
-// if (topLimit && topLimit > 0) {
-//   const allowedTypes = Object.keys(profilePriority);
-
-//   const filteredData = data.filter(
-//     (talent) => talent.genre && allowedTypes.includes(talent.genre),
-//   );
-
-//   const firstChoiceTalents: TalentPool[] = [];
-//   const nonFirstChoiceTalents: TalentPool[] = [];
-
-//   for (const talent of filteredData) {
-//     if (firstChoiceMap.get(talent.id)) {
-//       firstChoiceTalents.push(talent);
-//     } else {
-//       nonFirstChoiceTalents.push(talent);
-//     }
-//   }
-
-//   firstChoiceTalents.sort((a, b) => {
-//     const trustA = (a as any).promoterStates?.[0]?.trustScore ?? 0;
-//     const trustB = (b as any).promoterStates?.[0]?.trustScore ?? 0;
-//     return trustB - trustA;
-//   });
-
-//   // group remaining by genre
-//   const groupedByGenre: Record<string, TalentPool[]> = {};
-
-//   for (const talent of nonFirstChoiceTalents) {
-//     const genre = talent.genre!;
-//     if (!groupedByGenre[genre]) groupedByGenre[genre] = [];
-//     groupedByGenre[genre].push(talent);
-//   }
-
-//   // sort each genre by trustScore DESC
-//   Object.values(groupedByGenre).forEach((group) => {
-//     group.sort((a, b) => {
-//       const trustA = (a as any).promoterStates?.[0]?.trustScore ?? 0;
-//       const trustB = (b as any).promoterStates?.[0]?.trustScore ?? 0;
-//       return trustB - trustA;
-//     });
-//   });
-
-//   sortedData = [
-//     ...firstChoiceTalents,
-//     ...(groupedByGenre.Supermodels ?? []),
-//     ...(groupedByGenre.Models ?? []),
-//     ...(groupedByGenre.Hybrids ?? []),
-//     ...(groupedByGenre.Civilians ?? []),
-//   ];
-// }

@@ -119,7 +119,11 @@ export class CampaignStatsService {
     const confirmed = invitations.filter(inv => inv.status === InvitationStatus.CONFIRMED).length;
     const interested = invitations.filter(inv => inv.status === InvitationStatus.MAYBE).length;
     const declined = invitations.filter(inv => inv.status === InvitationStatus.DECLINED).length;
-    const pending = invitations.filter(inv => inv.status === InvitationStatus.PENDING).length;
+    // const pending = invitations.filter(inv => inv.status === InvitationStatus.INIT).length;
+    // const pending = invitations.filter(inv => inv.status === InvitationStatus.PENDING).length;
+    const pending = invitations.filter(
+      inv => inv.status === InvitationStatus.INIT || inv.status === InvitationStatus.PENDING
+    ).length;
 
     console.log(pending, "pending")
 
@@ -165,7 +169,7 @@ export class CampaignStatsService {
     const sentAll = allInvitations.filter(invAll => invAll.status === InvitationStatus.SENT).length
 
     const totalConfirm = manuallConfirmed + confirmed
-    const totalPending = manuallPending + pending + sentAll + interested
+    const totalPending = manuallPending + sentAll + interested
     const totalDeclined = manuallDeclined + declined
 
     const noReply = allInvitations.filter(invAll => invAll.status === InvitationStatus.NOREPLY || invAll.status === InvitationStatus.MANUALLY_NOREPLY).length

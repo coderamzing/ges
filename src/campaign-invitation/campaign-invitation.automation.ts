@@ -13,7 +13,7 @@ import {
 import { renderTemplate } from "utils/handlebar";
 import { SendMessageResponse } from "./campaign-invitation.types";
 import { TP_STATUS_MAP } from "../talent/talent.config";
-import {InvitationStatus, type InvitationStatusType} from "src/campaign-invitation/campaign-invitation.config"
+import { InvitationStatus, type InvitationStatusType } from "src/campaign-invitation/campaign-invitation.config"
 
 @Injectable()
 export class CampaignInvitationAutomationService {
@@ -25,142 +25,142 @@ export class CampaignInvitationAutomationService {
    * Check if enough time has passed since last sent message for a promoter
    * Returns true if we should send, false if we should wait
    */
-private async getLastMessageTimestamp(
-  promoterId: bigint,
-  threadId?: string | null,
-): Promise<number | null> {
-  let whereCondition: any = {
-    user_id: promoterId,
-  };
+  private async getLastMessageTimestamp(
+    promoterId: bigint,
+    threadId?: string | null,
+  ): Promise<number | null> {
+    let whereCondition: any = {
+      user_id: promoterId,
+    };
 
-  // If threadId is provided, fetch thread
-  if (threadId) {
-    const threadData = await this.prisma.thread.findUnique({
-      where: { id: threadId },
-      select: { username1: true }, // fetch only what we need
-    });
-    
-    console.log("threadData---------->",threadData)
-    if (threadData?.username1) {
-      whereCondition.sender_username = threadData.username1;
+    // If threadId is provided, fetch thread
+    if (threadId) {
+      const threadData = await this.prisma.thread.findUnique({
+        where: { id: threadId },
+        select: { username1: true }, // fetch only what we need
+      });
+
+      console.log("threadData---------->", threadData)
+      if (threadData?.username1) {
+        whereCondition.sender_username = threadData.username1;
+      }
+    } else {
+      // Default condition when no thread
+      whereCondition.ai_processed = false;
     }
-  } else {
-    // Default condition when no thread
-    whereCondition.ai_processed = false;
-  }
 
-  console.log("whereCondition----------->",whereCondition)
-  const lastMessage = await this.prisma.message.findFirst({
-    where: whereCondition,
-    orderBy: {
-      created_at: "desc",
-    },
-    select: {
-      created_at: true,
-    },
-  });
-
-  if (!lastMessage?.created_at) {
-    return null;
-  }
-
-  return lastMessage.created_at.getTime();
-}
-
-private promoterClusterState = new Map<
-  bigint,
-  {
-    clusterSize: number;
-    sentInCluster: number;
-    lastMessageAt: number | null;
-    breakUntil: number | null;
-  }
->();
-
-private randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-private async shouldSendMessage(
-  promoterId: bigint,
-  delayMinutes?: number[],
-  threadId?:string | null,
-): Promise<boolean> {
-  const now = Date.now();
-
-  if (!this.promoterClusterState.has(promoterId)) {
-    const lastMessageAt = await this.getLastMessageTimestamp(promoterId,threadId);
-
-    console.log("lastMessageAt",lastMessageAt)
-
-    this.promoterClusterState.set(promoterId, {
-      clusterSize: this.randomInt(8, 12),
-      sentInCluster: 0,
-      lastMessageAt: lastMessageAt, 
-      breakUntil: null,
+    console.log("whereCondition----------->", whereCondition)
+    const lastMessage = await this.prisma.message.findFirst({
+      where: whereCondition,
+      orderBy: {
+        created_at: "desc",
+      },
+      select: {
+        created_at: true,
+      },
     });
 
-    this.logger.log(
-      `Initialized cluster state for promoter ${promoterId}`,
-    );
+    if (!lastMessage?.created_at) {
+      return null;
+    }
+
+    return lastMessage.created_at.getTime();
   }
 
-  const state = this.promoterClusterState.get(promoterId)!;
+  private promoterClusterState = new Map<
+    bigint,
+    {
+      clusterSize: number;
+      sentInCluster: number;
+      lastMessageAt: number | null;
+      breakUntil: number | null;
+    }
+  >();
 
-  // 1️⃣ Check cluster break
-  if (state.breakUntil && now < state.breakUntil) {
-    return false;
+  private randomInt(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  // 2️⃣ Per-message delay (60–120 sec default)
-  let delaySeconds: number;
+  private async shouldSendMessage(
+    promoterId: bigint,
+    delayMinutes?: number[],
+    threadId?: string | null,
+  ): Promise<boolean> {
+    const now = Date.now();
 
-  if (delayMinutes && delayMinutes.length === 2) {
-    const min = Math.min(delayMinutes[0], delayMinutes[1]);
-    const max = Math.max(delayMinutes[0], delayMinutes[1]);
+    if (!this.promoterClusterState.has(promoterId)) {
+      const lastMessageAt = await this.getLastMessageTimestamp(promoterId, threadId);
 
-    const randomMinutes = this.randomInt(min, max);
-    delaySeconds = randomMinutes * 60; // convert to seconds
-  } else {
-    delaySeconds = this.randomInt(60, 120);
-  }
+      console.log("lastMessageAt", lastMessageAt)
 
-  if (state.lastMessageAt) {
-    const requiredGap = delaySeconds * 1000;
+      this.promoterClusterState.set(promoterId, {
+        clusterSize: this.randomInt(8, 12),
+        sentInCluster: 0,
+        lastMessageAt: lastMessageAt,
+        breakUntil: null,
+      });
 
-    if (now - state.lastMessageAt < requiredGap) {
-      console.log("random gap added")
+      this.logger.log(
+        `Initialized cluster state for promoter ${promoterId}`,
+      );
+    }
+
+    const state = this.promoterClusterState.get(promoterId)!;
+
+    // 1️⃣ Check cluster break
+    if (state.breakUntil && now < state.breakUntil) {
       return false;
     }
+
+    // 2️⃣ Per-message delay (60–120 sec default)
+    let delaySeconds: number;
+
+    if (delayMinutes && delayMinutes.length === 2) {
+      const min = Math.min(delayMinutes[0], delayMinutes[1]);
+      const max = Math.max(delayMinutes[0], delayMinutes[1]);
+
+      const randomMinutes = this.randomInt(min, max);
+      delaySeconds = randomMinutes * 60; // convert to seconds
+    } else {
+      delaySeconds = this.randomInt(60, 120);
+    }
+
+    if (state.lastMessageAt) {
+      const requiredGap = delaySeconds * 1000;
+
+      if (now - state.lastMessageAt < requiredGap) {
+        console.log("random gap added")
+        return false;
+      }
+    }
+
+    return true;
   }
 
-  return true;
-}
+  private updateClusterAfterSend(promoterId: bigint) {
+    const now = Date.now();
+    const state = this.promoterClusterState.get(promoterId);
 
-private updateClusterAfterSend(promoterId: bigint) {
-  const now = Date.now();
-  const state = this.promoterClusterState.get(promoterId);
+    if (!state) return;
 
-  if (!state) return;
+    state.sentInCluster += 1;
+    state.lastMessageAt = now;
 
-  state.sentInCluster += 1;
-  state.lastMessageAt = now;
+    // If cluster completed
+    if (state.sentInCluster >= state.clusterSize) {
+      const breakMinutes = this.randomInt(10, 15);
 
-  // If cluster completed
-  if (state.sentInCluster >= state.clusterSize) {
-    const breakMinutes = this.randomInt(10, 15);
+      state.breakUntil = now + breakMinutes * 60 * 1000;
 
-    state.breakUntil = now + breakMinutes * 60 * 1000;
+      this.logger.log(
+        `Cluster completed for promoter ${promoterId}. Taking break for ${breakMinutes} minutes.`,
+      );
 
-    this.logger.log(
-      `Cluster completed for promoter ${promoterId}. Taking break for ${breakMinutes} minutes.`,
-    );
-
-    // Reset for next cluster
-    state.clusterSize = this.randomInt(8, 12);
-    state.sentInCluster = 0;
+      // Reset for next cluster
+      state.clusterSize = this.randomInt(8, 12);
+      state.sentInCluster = 0;
+    }
   }
-}
 
 
   private async updateTalentPromoterState(params: {
@@ -183,7 +183,7 @@ private updateClusterAfterSend(promoterId: bigint) {
 
     return this.prisma.$transaction(async (tx) => {
       // Create trust score log ONLY if score increment exists
-      if(trustScoreIncrement){
+      if (trustScoreIncrement) {
         const existing = await tx.trustScoreLog.findFirst({
           where: {
             talentId,
@@ -191,28 +191,28 @@ private updateClusterAfterSend(promoterId: bigint) {
             eventId: Number(eventId),
           },
         });
-      if (existing) {
-       const updated = await tx.trustScoreLog.update({
-          where: { id: existing.id },
-          data: {
-            change: trustScoreIncrement,
-            reason: scoreReason ?? "SYSTEM_UPDATE",
-          },
-        });
-      } else {
-      const created = await tx.trustScoreLog.create({
-          data: {
-            talentId,
-            promoterId,
-            eventId: eventId ?? null,
-            change: trustScoreIncrement,
-            reason: scoreReason ?? "SYSTEM_UPDATE",
-          },
-        });
+        if (existing) {
+          const updated = await tx.trustScoreLog.update({
+            where: { id: existing.id },
+            data: {
+              change: trustScoreIncrement,
+              reason: scoreReason ?? "SYSTEM_UPDATE",
+            },
+          });
+        } else {
+          const created = await tx.trustScoreLog.create({
+            data: {
+              talentId,
+              promoterId,
+              eventId: eventId ?? null,
+              change: trustScoreIncrement,
+              reason: scoreReason ?? "SYSTEM_UPDATE",
+            },
+          });
+        }
+
+
       }
-
-
-    }
 
       const trustScoreAgg = await tx.trustScoreLog.aggregate({
         where: {
@@ -246,7 +246,7 @@ private updateClusterAfterSend(promoterId: bigint) {
           }),
         },
       });
-    
+
       return state;
     });
   }
@@ -329,8 +329,7 @@ private updateClusterAfterSend(promoterId: bigint) {
       );
 
       throw new Error(
-        `Automation stopped: Failed to send message - ${
-          error?.message || error
+        `Automation stopped: Failed to send message - ${error?.message || error
         }`,
       );
     }
@@ -374,7 +373,7 @@ private updateClusterAfterSend(promoterId: bigint) {
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
     private campaignInvitationService: CampaignInvitationService,
-  ) {}
+  ) { }
 
   @Cron(CronExpression.EVERY_MINUTE)
   async sendInitialMessages() {
@@ -450,16 +449,16 @@ private updateClusterAfterSend(promoterId: bigint) {
         const mode = process.env.MESSAGE_MODE || "dev";
         const delayMinutes = mode === "dev" ? [1, 2] : [1, 2];
 
-        if(mode === 'live'){
-           this.logger.log(`[Message Scheduler] Mode: ${mode}`);
-            this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
-           if (!(await this.shouldSendMessage(promoterId,delayMinutes,threadId))) {
-             this.logger.debug(
-               `Skipping invitation ${invitation.id} for promoter ${promoterId}, waiting for random gap`,
-              );
-              continue; // Try next invitation
-            }
+        if (mode === 'live') {
+          this.logger.log(`[Message Scheduler] Mode: ${mode}`);
+          this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
+          if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
+            this.logger.debug(
+              `Skipping invitation ${invitation.id} for promoter ${promoterId}, waiting for random gap`,
+            );
+            continue; // Try next invitation
           }
+        }
 
         // Both conditions met - send the message
         try {
@@ -530,10 +529,11 @@ private updateClusterAfterSend(promoterId: bigint) {
     });
 
     if (!finalMessageContent) return;
-
+    const firstName = talent.name?.trim().split(/\s+/)[0] || "";
+    console.log(firstName, "First Name")
     // Prepare template variables
     const variables = {
-      name: talent.name,
+      name: firstName,
       eventName: event.name,
       eventType: event.eventType || "",
       eventCity: event.city || "",
@@ -707,14 +707,14 @@ private updateClusterAfterSend(promoterId: bigint) {
       const threadId = invitation.thread_id;
 
       const mode = process.env.MESSAGE_MODE || "dev";
-      const delayMinutes = mode === "dev" ? [1, 2] : [1,2];
+      const delayMinutes = mode === "dev" ? [1, 2] : [1, 2];
       this.logger.log(`[Message Scheduler] Mode: ${mode}`);
       this.logger.log(
         `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
       );
 
       // Check if enough time has passed since last send for this promoter
-      if (!(await this.shouldSendMessage(promoterId, delayMinutes,threadId))) {
+      if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
         this.logger.debug(
           `Skipping followup for promoter ${promoterId}, waiting for random gap for this invitation ${invitation.id}`,
         );
@@ -774,7 +774,7 @@ private updateClusterAfterSend(promoterId: bigint) {
         // Calculate dynamic followup time based on campaign.followup_delay
         const followupTime = new Date(
           invitation.invitationAt!.getTime() +
-            invitation.campaign.followup_delay * 60 * 60 * 1000,
+          invitation.campaign.followup_delay * 60 * 60 * 1000,
         );
         if (new Date() < followupTime) {
           // Not yet time to send followup
@@ -792,7 +792,7 @@ private updateClusterAfterSend(promoterId: bigint) {
         );
 
         // Check promoter-specific rate limiting
-        if (!(await this.shouldSendMessage(promoterId, delayMinutes,threadId))) {
+        if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
           this.logger.debug(
             `Skipping followup for promoter ${promoterId}, waiting for random gap in delay for this invitation ${invitation.id}`,
           );
@@ -883,10 +883,11 @@ private updateClusterAfterSend(promoterId: bigint) {
     });
 
     if (!finalMessageContent) return;
-
+    const firstName = talent.name?.trim().split(/\s+/)[0] || "";
+    console.log(firstName, "First Name");
     // Prepare template variables
     const variables = {
-      name: talent.name,
+      name: firstName,
       eventName: event.name,
       eventType: event.eventType || "",
       eventCity: event.city || "",
@@ -994,7 +995,7 @@ private updateClusterAfterSend(promoterId: bigint) {
       );
 
       // Check if enough time has passed since last send for this promoter
-      if (!(await this.shouldSendMessage(promoterId, delayMinutes,threadId))) {
+      if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
         this.logger.debug(
           `Skipping thank you for promoter ${promoterId}, waiting for random gap for this invitation: ${invitation.id}`,
         );
@@ -1073,10 +1074,11 @@ private updateClusterAfterSend(promoterId: bigint) {
     });
 
     if (!finalMessageContent) return;
-
+    const firstName = talent.name?.trim().split(/\s+/)[0] || "";
+    console.log(firstName, "First Name");
     // Prepare template variables
     const variables = {
-      name: talent.name,
+      name: firstName,
       eventName: event.name,
       eventType: event.eventType || "",
       eventCity: event.city || "",
@@ -1129,47 +1131,47 @@ private updateClusterAfterSend(promoterId: bigint) {
 }
 
 
-  // private async shouldSendMessage(
-  //   promoterId: bigint,
-  //   delayMinutes?: number[],
-  // ): Promise<boolean> {
-  //   // Get the last sent message for this promoter
-  //   const lastMessage = await this.prisma.message.findFirst({
-  //     where: {
-  //       sender: promoterId,
-  //       invite: true,
-  //       ai_processed: true,
-  //     },
-  //     orderBy: {
-  //       created_at: "desc",
-  //     },
-  //     select: {
-  //       created_at: true,
-  //     },
-  //   });
+// private async shouldSendMessage(
+//   promoterId: bigint,
+//   delayMinutes?: number[],
+// ): Promise<boolean> {
+//   // Get the last sent message for this promoter
+//   const lastMessage = await this.prisma.message.findFirst({
+//     where: {
+//       sender: promoterId,
+//       invite: true,
+//       ai_processed: true,
+//     },
+//     orderBy: {
+//       created_at: "desc",
+//     },
+//     select: {
+//       created_at: true,
+//     },
+//   });
 
-  //   if (!lastMessage || !lastMessage.created_at) {
-  //     return true; // No previous message, can send
-  //   }
+//   if (!lastMessage || !lastMessage.created_at) {
+//     return true; // No previous message, can send
+//   }
 
-  //   const now = Date.now();
-  //   const lastSent = lastMessage.created_at.getTime();
-  //   let minutes: number;
+//   const now = Date.now();
+//   const lastSent = lastMessage.created_at.getTime();
+//   let minutes: number;
 
-  //   if (delayMinutes && delayMinutes.length === 2) {
-  //     // Use provided range
-  //     const min = Math.min(delayMinutes[0], delayMinutes[1]);
-  //     const max = Math.max(delayMinutes[0], delayMinutes[1]);
+//   if (delayMinutes && delayMinutes.length === 2) {
+//     // Use provided range
+//     const min = Math.min(delayMinutes[0], delayMinutes[1]);
+//     const max = Math.max(delayMinutes[0], delayMinutes[1]);
 
-  //     minutes = Math.floor(Math.random() * (max - min + 1)) + min;
-  //   } else {
-  //     // Default random 1–3 minutes
-  //     minutes = Math.floor(Math.random() * 3) + 1;
-  //   }
+//     minutes = Math.floor(Math.random() * (max - min + 1)) + min;
+//   } else {
+//     // Default random 1–3 minutes
+//     minutes = Math.floor(Math.random() * 3) + 1;
+//   }
 
-  //   this.logger.log(`Random Delay time add`);
+//   this.logger.log(`Random Delay time add`);
 
-  //   const requiredGapMs = minutes * 60 * 1000;
+//   const requiredGapMs = minutes * 60 * 1000;
 
-  //   return now - lastSent >= requiredGapMs;
-  // }
+//   return now - lastSent >= requiredGapMs;
+// }
