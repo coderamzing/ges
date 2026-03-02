@@ -5,6 +5,7 @@ import { CreateCampaignDto, UpdateCampaignAutoLangModeDto, UpdateCampaignDto, Up
 import { Campaign, CampaignStatus, Prisma, TemplateType } from '@prisma/client';
 import { DEFAULT_TEMPLATES } from '../campaign-template/campaign-template.config';
 import { CAMPAIGN_TEMPLATE_SAVED_EVENT } from '../campaign-template/campaign-template.service';
+import { InvitationStatus } from 'src/campaign-invitation/campaign-invitation.config';
 
 @Injectable()
 export class CampaignService {
@@ -13,6 +14,8 @@ export class CampaignService {
         private prisma: PrismaService,
         private eventEmitter: EventEmitter2,
     ) { }
+
+    private readonly averageSendGapMs = 2 * 60 * 1000;
 
     async create(createCampaignDto: CreateCampaignDto, promoterId: number): Promise<Campaign> {
 
@@ -101,29 +104,104 @@ export class CampaignService {
         return campaign;
     }
 
-    async findByPromoter(promoterId: number): Promise<Campaign[]> {
-        // Get all events for this promoter first
+    async findByPromoter(promoterId: number) {
+
+
         const events = await this.prisma.events.findMany({
             where: { userId: BigInt(promoterId) },
-            select: { id: true },
+            select: { id: true, dt: true },
         });
 
-        const eventIds = events.map(event => Number(event.id));
+        const eventIds = events.map(e => Number(e.id));
 
-        if (eventIds.length === 0) {
+        if (!eventIds.length) {
             return [];
         }
+        const eventMap = new Map(
+            events.map(e => [Number(e.id), e.dt])
+        );
 
-        return this.prisma.campaign.findMany({
+        const campaigns = await this.prisma.campaign.findMany({
             where: {
                 eventId: {
                     in: eventIds,
                 },
             },
             orderBy: {
-                createdAt: 'desc',
+                createdAt: "desc",
             },
         });
+
+        const campaignIds = campaigns.map(c => c.id);
+
+        if (!campaignIds.length) {
+            return campaigns;
+        }
+
+        const invitations = await this.prisma.campaignInvitation.findMany({
+            where: {
+                campaignId: {
+                    in: campaignIds,
+                },
+                NOT: {
+                    status: {
+                        startsWith: 'manually',
+                    },
+                },
+            },
+        });
+        const now = new Date();
+
+        const campaignsWithSummary = campaigns.map(campaign => {
+
+            const campaignInvites = invitations.filter(
+                inv => inv.campaignId === campaign.id
+            );
+            const pendingInvites = campaignInvites.filter(
+                i => i.status === InvitationStatus.INIT
+            ).length;
+
+            const sentInvites = campaignInvites.filter(
+                i => i.status !== InvitationStatus.INIT && i.invitationAt
+            );
+
+            const lastSentAt =
+                sentInvites.length > 0
+                    ? sentInvites.reduce((latest, inv) =>
+                        new Date(inv.invitationAt!) > new Date(latest.invitationAt!)
+                            ? inv
+                            : latest
+                    ).invitationAt
+                    : null;
+
+            let estimatedCompletionAt: Date | null = null;
+            let estimatedRemainingSeconds = 0;
+
+            if (pendingInvites > 0) {
+                estimatedRemainingSeconds = Math.floor(
+                    (pendingInvites * this.averageSendGapMs) / 1000
+                );
+
+                const baseTime = lastSentAt ? new Date(lastSentAt) : new Date();
+
+                estimatedCompletionAt = new Date(
+                    baseTime.getTime() + pendingInvites * this.averageSendGapMs
+                );
+            }
+            return {
+                ...campaign,
+                eventDate: eventMap.get(Number(campaign.eventId)) || null,
+                summary: {
+                    total: campaignInvites.length,
+                    pendingInvites,
+                    sentInvites: sentInvites.length,
+                    estimatedRemainingSeconds,
+                    estimatedCompletionAt,
+                },
+            };
+        });
+
+        return campaignsWithSummary;
     }
 
     async update(id: number, updateCampaignDto: UpdateCampaignDto, promoterId: number): Promise<Campaign> {
