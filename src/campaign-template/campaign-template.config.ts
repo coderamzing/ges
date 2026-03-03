@@ -17,7 +17,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         name: 'Invitation',
         // Keep only {name} by default (no event variables) and use spintax-ready text
         content:
-            '{Hi {name}!|Hello {name}!|Hey {name}!}\n\n{Quick question—are you open to a new invite?|Can I share a quick invite with you?|Would you be interested in an invite?}',
+            '{Hi {name}!|Hello {name}!|Hey {name}!}}',
         isActive: true,
         batchId: 1,
     },
@@ -27,7 +27,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         type: TemplateType.followup,
         name: 'Followup',
         content:
-            '{Hi {name},|Hey {name},|Hello {name},}\n\n{Just following up on my last note—should I send the details?|Quick follow-up—do you want me to share the details?|Checking back—are you interested in the details?}',
+            '{Hi {name},|Hey {name},|Hello {name},}}',
         isActive: true,
         batchId: 1,
     },
@@ -37,7 +37,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         type: TemplateType.postevent,
         name: 'Postevent',
         content:
-            '{Hi {name},|Hey {name},|Hello {name},}\n\n{Thank you so much for coming—really appreciate it!|Thanks a lot for joining—so happy you made it!|Really appreciate you coming—thank you!}',
+            '{Hi {name},|Hey {name},|Hello {name},}}',
         isActive: true,
         batchId: 1,
     },
@@ -47,7 +47,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         name: 'Invitation',
         // Keep only {name} by default (no event variables) and use spintax-ready text
         content:
-            '{Hi {name}!|Hello {name}!|Hey {name}!}\n\n{Quick question—are you open to a new invite?|Can I share a quick invite with you?|Would you be interested in an invite?}',
+            '{Hi {name}!|Hello {name}!|Hey {name}!}}',
         isActive: true,
         batchId: 2,
     },
@@ -57,7 +57,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         type: TemplateType.followup,
         name: 'Followup',
         content:
-            '{Hi {name},|Hey {name},|Hello {name},}\n\n{Just following up on my last note—should I send the details?|Quick follow-up—do you want me to share the details?|Checking back—are you interested in the details?}',
+            '{Hi {name},|Hey {name},|Hello {name},}}',
         isActive: true,
         batchId: 2,
     },
@@ -67,7 +67,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         type: TemplateType.postevent,
         name: 'Postevent',
         content:
-            '{Hi {name},|Hey {name},|Hello {name},}\n\n{Thank you so much for coming—really appreciate it!|Thanks a lot for joining—so happy you made it!|Really appreciate you coming—thank you!}',
+            '{Hi {name},|Hey {name},|Hello {name},}}',
         isActive: true,
         batchId: 2,
     },
@@ -90,7 +90,7 @@ Rules:
 - Dont add much extra text
 - here {name} is the placeholder dont change it with dummy name and must present in each variation
 - varations must not spintax blocks
-- Eache lang must have {{variationsCount}} variations
+- Each lang must have {{variationsCount}} variations
 - Keep the message 95% identical to the original.
 - Each variation must start with a DIFFERENT greeting appropriate to the detected language.
 - After the greeting, change exactly 2 words in the body per variation. No more, no less.
@@ -178,4 +178,3 @@ Return ONLY a JSON object with this exact format:
 Do not include any explanations, meta-commentary, or text outside the JSON object.`;
 
 
- 

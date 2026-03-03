@@ -84,10 +84,10 @@ export class CampaignService {
             return { campaign: createdCampaign, templates: createdTemplates };
         });
 
-        // Emit events for each created template after the transaction commits
-        campaign.templates.forEach(template => {
-            this.eventEmitter.emit(CAMPAIGN_TEMPLATE_SAVED_EVENT, template.id);
-        });
+        // // Emit events for each created template after the transaction commits
+        // campaign.templates.forEach(template => {
+        //     this.eventEmitter.emit(CAMPAIGN_TEMPLATE_SAVED_EVENT, template.id);
+        // });
 
         return campaign.campaign;
     }
