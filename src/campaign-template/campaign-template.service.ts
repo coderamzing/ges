@@ -35,33 +35,33 @@ export class CampaignTemplateService {
             where: { id: campaign.eventId },
         });
 
-         if (!event) {
-      throw new NotFoundException(
-        `Event with ID ${campaign.eventId} not found`,
-      );
-    }
+    //      if (!event) {
+    //   throw new NotFoundException(
+    //     `Event with ID ${campaign.eventId} not found`,
+    //   );
+    // }
 
-    let collaborator = await this.prisma.eventCollaborator.findFirst({
-      where: {
-        event_id: event.id,
-        user_id: promoterId,
-      },
-    });
+    // let collaborator = await this.prisma.eventCollaborator.findFirst({
+    //   where: {
+    //     event_id: event.id,
+    //     user_id: promoterId,
+    //   },
+    // });
 
-    const isOwner = event.userId?.toString() === promoterId.toString();
-    const isCollaborator = !!collaborator;
+    // const isOwner = event.userId?.toString() === promoterId.toString();
+    // const isCollaborator = !!collaborator;
 
-    if (!isOwner && !isCollaborator) {
-      throw new NotFoundException(
-        `Event with ID ${event.id} does not belong to this promoter`,
-      );
-    }
+    // if (!isOwner && !isCollaborator) {
+    //   throw new NotFoundException(
+    //     `Event with ID ${event.id} does not belong to this promoter`,
+    //   );
+    // }
 
-        // if (!event || event.userId?.toString() !== promoterId.toString()) {
-        //     throw new NotFoundException(
-        //         `Campaign with ID ${createCampaignTemplateDto.campaignId} does not belong to this promoter`,
-        //     );
-        // }
+        if (!event || event.userId?.toString() !== promoterId.toString()) {
+            throw new NotFoundException(
+                `Campaign with ID ${createCampaignTemplateDto.campaignId} does not belong to this promoter`,
+            );
+        }
 
         const batchId = createCampaignTemplateDto.batchId ?? 1;
 
