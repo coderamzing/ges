@@ -811,19 +811,35 @@ export class CampaignInvitationService {
     const event = await this.prisma.events.findFirst({
       where: {
         id: eventId,
-        userId: BigInt(promoterId),
+        // userId: BigInt(promoterId),
       },
     });
 
     if (!event) {
-      throw new NotFoundException("Event not found or not belongs to promoter");
+      throw new NotFoundException("Event not found");
     }
 
-    if (event.userId?.toString() !== promoterId.toString()) {
+    let collaborator = await this.prisma.eventCollaborator.findFirst({
+      where: {
+        event_id: event.id,
+        user_id: promoterId,
+      },
+    });
+
+    const isOwner = event.userId?.toString() === promoterId.toString();
+    const isCollaborator = !!collaborator;
+
+    if (!isOwner && !isCollaborator) {
       throw new NotFoundException(
-        `Event with ID ${dto.eventId} does not belong to this promoter`,
+        `Event with ID ${eventId} does not belong to this promoter`,
       );
     }
+
+    // if (event.userId?.toString() !== promoterId.toString()) {
+    //   throw new NotFoundException(
+    //     `Event with ID ${dto.eventId} does not belong to this promoter`,
+    //   );
+    // }
 
     let campaign = await this.prisma.campaign.findFirst({
       where: {
