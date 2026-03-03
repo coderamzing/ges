@@ -246,11 +246,27 @@ export class CampaignService {
       throw new NotFoundException(`Event with ID ${eventId} not found`);
     }
 
-    if (event.userId?.toString() !== promoterId.toString()) {
+      let collaborator = await this.prisma.eventCollaborator.findFirst({
+      where: {
+        event_id: event.id,
+        user_id: promoterId,
+      },
+    });
+
+    const isOwner = event.userId?.toString() === promoterId.toString();
+    const isCollaborator = !!collaborator;
+
+    if (!isOwner && !isCollaborator) {
       throw new NotFoundException(
-        `Event with ID ${eventId} does not belong to this promoter`,
+        `Event with ID ${event.id} does not belong to this promoter`,
       );
     }
+
+    // if (event.userId?.toString() !== promoterId.toString()) {
+    //   throw new NotFoundException(
+    //     `Event with ID ${eventId} does not belong to this promoter`,
+    //   );
+    // }
 
     // Prepare update data
     const updateData: any = {};
@@ -286,9 +302,31 @@ export class CampaignService {
       where: { id: campaign.eventId },
     });
 
-    if (!event || event.userId?.toString() !== promoterId.toString()) {
-      throw new NotFoundException(`Campaign does not belong to this promoter`);
+    if (!event) {
+      throw new NotFoundException(
+        `Event with ID ${campaign.eventId} not found`,
+      );
     }
+
+    let collaborator = await this.prisma.eventCollaborator.findFirst({
+      where: {
+        event_id: event.id,
+        user_id: promoterId,
+      },
+    });
+
+    const isOwner = event.userId?.toString() === promoterId.toString();
+    const isCollaborator = !!collaborator;
+
+    if (!isOwner && !isCollaborator) {
+      throw new NotFoundException(
+        `Event with ID ${event.id} does not belong to this promoter`,
+      );
+    }
+
+    // if (!event || event.userId?.toString() !== promoterId.toString()) {
+    //   throw new NotFoundException(`Campaign does not belong to this promoter`);
+    // }
 
     if (updateCampaignStatusDto.status === "active") {
       if (!campaign.start_at) {

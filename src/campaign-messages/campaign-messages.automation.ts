@@ -104,8 +104,7 @@ export class CampaignMessagesAutomationService {
    * Runs every minute via cron
    */
 
-  // @Cron(CronExpression.EVERY_30_MINUTES)
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_30_MINUTES)
   async processLastMinuteMessages(): Promise<void> {
     try {
       //here we will get the interpretation prompt and system prompt
@@ -147,6 +146,32 @@ export class CampaignMessagesAutomationService {
           campaign: true,
         },
       });
+
+      const now = new Date();
+
+      for (const invitation of invitations) {
+        if (!invitation.invitationAt) continue;
+
+        const diffMs = now.getTime() - invitation.invitationAt.getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+        
+        if (
+          !invitation.hasReplied &&
+          invitation.status == InvitationStatus.SENT &&
+          diffHours > 2
+        ) {
+          console.log("invitation",invitation)
+          this.logger.log(`Processing Marking NO_REPLY for invitation ${invitation.id}`);
+
+          await this.prisma.campaignInvitation.update({
+            where: { id: invitation.id },
+            data: {
+              status: InvitationStatus.NOREPLY,
+            },
+          });
+          this.logger.log(`Marked NO_REPLY for invitation ${invitation.id}`);
+        }
+      }
 
       const invitationMap = new Map(
         invitations.map((inv) => [inv.thread_id, inv]),
@@ -245,7 +270,6 @@ export class CampaignMessagesAutomationService {
           },
           where: {
             thread_id: (message as any).thread_id,
-            // ai_processed: false,
             sender_username: (message as any).sender_username,
             ...(invitationAt && {
               created_at: {
@@ -515,12 +539,12 @@ export class CampaignMessagesAutomationService {
           },
         });
 
-        if (!event){
-           this.logger.log(
+        if (!event) {
+          this.logger.log(
             `No event found for this promotor: ${promoterId}, by mentioned_other_date :${interpretation.mentioned_other_date}.`,
           );
           return;
-        } 
+        }
 
         const campaign = await this.prisma.campaign.findFirst({
           where: {
