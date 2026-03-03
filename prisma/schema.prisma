@@ -37,6 +37,7 @@ model User {
   talentPromoterStates TalentPromoterState[]
   talentBlacklists     TalentBlacklist[]
   userTpStatuses       UserTpStatus[]
+  collaborators        EventCollaborator[]
 
   @@map("users")
 }
@@ -407,6 +408,7 @@ model Events {
   monthlyRecurrenceDate Int?      @map("monthly_recurrence_date")
 
   invitations      CampaignInvitation[]
+  collaborators    EventCollaborator[]
 
   @@map("events")
 }
@@ -509,4 +511,16 @@ model SpringSession {
   @@index([expiryTime])
   @@index([principalName])
   @@map("spring_session")
+}
+
+model EventCollaborator {
+  id         String   @id @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(6)
+  event_id   BigInt?
+  user_id    BigInt?
+
+  event Events? @relation(fields: [event_id], references: [id])
+  user  User?  @relation(fields: [user_id], references: [id])
+
+  @@map("event_collaborator")
 }
