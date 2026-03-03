@@ -125,8 +125,6 @@ export class CampaignStatsService {
       inv => inv.status === InvitationStatus.INIT || inv.status === InvitationStatus.PENDING
     ).length;
 
-    console.log(pending, "pending")
-
     // Seen but no reply = invitations that are seen but haven't replied
     // const noReply = invitations.filter(inv =>
     //   inv.isSeen === true && inv.status === InvitationStatus.NOREPLY
