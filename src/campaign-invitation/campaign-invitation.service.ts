@@ -111,9 +111,32 @@ export class CampaignInvitationService {
       where: { id: campaign.eventId },
     });
 
-    if (!event || event.userId?.toString() !== promoterId.toString()) {
-      throw new NotFoundException(`Campaign does not belong to this promoter`);
+    if (!event) {
+      throw new NotFoundException(
+        `Event with ID ${campaign.eventId} not found`,
+      );
     }
+
+
+    let collaborator = await this.prisma.eventCollaborator.findFirst({
+      where: {
+        event_id: event.id,
+        user_id: promoterId,
+      },
+    });
+
+    const isOwner = event.userId?.toString() === promoterId.toString();
+    const isCollaborator = !!collaborator;
+
+    if (!isOwner && !isCollaborator) {
+      throw new NotFoundException(
+        `Event with ID ${event.id} does not belong to this promoter`,
+      );
+    }
+
+    // if (!event || event.userId?.toString() !== promoterId.toString()) {
+    //   throw new NotFoundException(`Campaign does not belong to this promoter`);
+    // }
 
     return { campaign, event };
   }
@@ -587,10 +610,31 @@ export class CampaignInvitationService {
     const event = await this.prisma.events.findUnique({
       where: { id: campaign.eventId },
     });
-
-    if (!event || event.userId?.toString() !== promoterId.toString()) {
-      throw new NotFoundException(`Campaign does not belong to this promoter`);
+    if (!event) {
+      throw new NotFoundException(
+        `Event with ID ${campaign.eventId} not found`,
+      );
     }
+
+    let collaborator = await this.prisma.eventCollaborator.findFirst({
+      where: {
+        event_id: event.id,
+        user_id: promoterId,
+      },
+    });
+
+    const isOwner = event.userId?.toString() === promoterId.toString();
+    const isCollaborator = !!collaborator;
+
+    if (!isOwner && !isCollaborator) {
+      throw new NotFoundException(
+        `Event with ID ${event.id} does not belong to this promoter`,
+      );
+    }
+
+    // if (!event || event.userId?.toString() !== promoterId.toString()) {
+    //   throw new NotFoundException(`Campaign does not belong to this promoter`);
+    // }
     await this.ensureActiveTemplatesForAllTypes(
       campaignId,
       TemplateType.postevent,
