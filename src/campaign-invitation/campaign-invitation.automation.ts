@@ -3,6 +3,7 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 import { CampaignMessagesService } from "../campaign-messages/campaign-messages.service";
 import { CampaignInvitationService } from "./campaign-invitation.service";
+import { CampaignTemplateService } from "src/campaign-template/campaign-template.service";
 import { updateUserTpStatus } from "src/talent/talent.utils";
 import {
   // InvitationStatus,
@@ -13,7 +14,10 @@ import {
 import { renderTemplate } from "utils/handlebar";
 import { SendMessageResponse } from "./campaign-invitation.types";
 import { TP_STATUS_MAP } from "../talent/talent.config";
-import { InvitationStatus, type InvitationStatusType } from "src/campaign-invitation/campaign-invitation.config"
+import {
+  InvitationStatus,
+  type InvitationStatusType,
+} from "src/campaign-invitation/campaign-invitation.config";
 
 @Injectable()
 export class CampaignInvitationAutomationService {
@@ -39,8 +43,6 @@ export class CampaignInvitationAutomationService {
         where: { id: threadId },
         select: { username1: true }, // fetch only what we need
       });
-
-      console.log("threadData---------->", threadData)
       if (threadData?.username1) {
         whereCondition.sender_username = threadData.username1;
       }
@@ -49,7 +51,6 @@ export class CampaignInvitationAutomationService {
       whereCondition.ai_processed = false;
     }
 
-    console.log("whereCondition----------->", whereCondition)
     const lastMessage = await this.prisma.message.findFirst({
       where: whereCondition,
       orderBy: {
@@ -89,9 +90,12 @@ export class CampaignInvitationAutomationService {
     const now = Date.now();
 
     if (!this.promoterClusterState.has(promoterId)) {
-      const lastMessageAt = await this.getLastMessageTimestamp(promoterId, threadId);
+      const lastMessageAt = await this.getLastMessageTimestamp(
+        promoterId,
+        threadId,
+      );
 
-      console.log("lastMessageAt", lastMessageAt)
+      console.log("lastMessageAt", lastMessageAt);
 
       this.promoterClusterState.set(promoterId, {
         clusterSize: this.randomInt(8, 12),
@@ -100,9 +104,7 @@ export class CampaignInvitationAutomationService {
         breakUntil: null,
       });
 
-      this.logger.log(
-        `Initialized cluster state for promoter ${promoterId}`,
-      );
+      this.logger.log(`Initialized cluster state for promoter ${promoterId}`);
     }
 
     const state = this.promoterClusterState.get(promoterId)!;
@@ -129,7 +131,7 @@ export class CampaignInvitationAutomationService {
       const requiredGap = delaySeconds * 1000;
 
       if (now - state.lastMessageAt < requiredGap) {
-        console.log("random gap added")
+        console.log("random gap added");
         return false;
       }
     }
@@ -161,7 +163,6 @@ export class CampaignInvitationAutomationService {
       state.sentInCluster = 0;
     }
   }
-
 
   private async updateTalentPromoterState(params: {
     talentId: string;
@@ -210,8 +211,6 @@ export class CampaignInvitationAutomationService {
             },
           });
         }
-
-
       }
 
       const trustScoreAgg = await tx.trustScoreLog.aggregate({
@@ -242,7 +241,7 @@ export class CampaignInvitationAutomationService {
         update: {
           lastContacted: safeLastContacted,
           ...(newTrustScore > 0 && {
-            trustScore: newTrustScore
+            trustScore: newTrustScore,
           }),
         },
       });
@@ -256,6 +255,7 @@ export class CampaignInvitationAutomationService {
     templateType: TemplateType;
     talentLang: string;
     batchId: number;
+    promoterId?: bigint;
   }): Promise<string | null> {
     const { campaignId, templateType, talentLang, batchId } = params;
     const template = await this.prisma.campaignTemplate.findFirst({
@@ -273,16 +273,21 @@ export class CampaignInvitationAutomationService {
       return null;
     }
 
+    const templateLangs = template.lang
+      ? template.lang.split(",").map((l) => l.trim())
+      : [];
+
     const spintaxTemplates = await this.prisma.campaignSpintaxTemplate.findMany(
       {
         where: {
           campaignId: campaignId,
           type: templateType,
-          lang: { in: [template.lang, talentLang] },
+          lang: { in: [...templateLangs, talentLang] },
           batch: batchId,
         },
       },
     );
+
     if (!spintaxTemplates.length) {
       this.logger.warn(
         `No spintax templates found for campaign ${campaignId}, type ${templateType}`,
@@ -290,6 +295,26 @@ export class CampaignInvitationAutomationService {
       return null;
     }
     let preferred = spintaxTemplates.filter((t) => t.lang === talentLang);
+
+    const mergedLangs = Array.from(new Set([...templateLangs, talentLang]));
+
+    if (!preferred.length) {
+      const updatedTemplate = await this.campaignTemplateService.update(
+        template.id,
+        {
+          lang: mergedLangs,
+        },
+        params.promoterId ? Number(params.promoterId) : 0,
+      );
+      preferred = await this.prisma.campaignSpintaxTemplate.findMany({
+        where: {
+          campaignId,
+          type: templateType,
+          batch: batchId,
+          lang: talentLang,
+        },
+      });
+    }
     if (!preferred.length) {
       preferred = spintaxTemplates.filter((t) => t.lang === template.lang);
     }
@@ -329,7 +354,8 @@ export class CampaignInvitationAutomationService {
       );
 
       throw new Error(
-        `Automation stopped: Failed to send message - ${error?.message || error
+        `Automation stopped: Failed to send message - ${
+          error?.message || error
         }`,
       );
     }
@@ -342,7 +368,7 @@ export class CampaignInvitationAutomationService {
         campaignId,
         batch: batchId,
         status: {
-          not: "pending",
+          not: InvitationStatus.INIT,
         },
       },
     });
@@ -373,7 +399,8 @@ export class CampaignInvitationAutomationService {
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
     private campaignInvitationService: CampaignInvitationService,
-  ) { }
+    private campaignTemplateService: CampaignTemplateService,
+  ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
   async sendInitialMessages() {
@@ -449,10 +476,14 @@ export class CampaignInvitationAutomationService {
         const mode = process.env.MESSAGE_MODE || "dev";
         const delayMinutes = mode === "dev" ? [1, 2] : [1, 2];
 
-        if (mode === 'live') {
+        if (mode === "live") {
           this.logger.log(`[Message Scheduler] Mode: ${mode}`);
-          this.logger.log(`[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`);
-          if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
+          this.logger.log(
+            `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
+          );
+          if (
+            !(await this.shouldSendMessage(promoterId, delayMinutes, threadId))
+          ) {
             this.logger.debug(
               `Skipping invitation ${invitation.id} for promoter ${promoterId}, waiting for random gap`,
             );
@@ -526,11 +557,12 @@ export class CampaignInvitationAutomationService {
       templateType: TemplateType.invitation,
       talentLang,
       batchId: invitation.batch,
+      promoterId,
     });
 
     if (!finalMessageContent) return;
     const firstName = talent.name?.trim().split(/\s+/)[0] || "";
-    console.log(firstName, "First Name")
+    console.log(firstName, "First Name");
     // Prepare template variables
     const variables = {
       name: firstName,
@@ -880,11 +912,12 @@ export class CampaignInvitationAutomationService {
       templateType: TemplateType.followup,
       talentLang,
       batchId: invitation.batch,
+      promoterId,
     });
 
     if (!finalMessageContent) return;
     const firstName = talent.name?.trim().split(/\s+/)[0] || "";
-    console.log(firstName, "First Name");
+
     // Prepare template variables
     const variables = {
       name: firstName,
@@ -1028,6 +1061,7 @@ export class CampaignInvitationAutomationService {
     }>,
   ): Promise<void> {
     const campaign = invitation.campaign;
+    const promoterId = invitation.promoterId;
 
     // Skip if postEventTriggerAt is not set
     if (!campaign.postEventTriggerAt) {
@@ -1071,6 +1105,7 @@ export class CampaignInvitationAutomationService {
       templateType: TemplateType.postevent,
       talentLang,
       batchId: invitation.batch,
+      promoterId,
     });
 
     if (!finalMessageContent) return;
@@ -1129,7 +1164,6 @@ export class CampaignInvitationAutomationService {
     );
   }
 }
-
 
 // private async shouldSendMessage(
 //   promoterId: bigint,

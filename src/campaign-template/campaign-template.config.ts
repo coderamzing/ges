@@ -17,7 +17,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         name: 'Invitation',
         // Keep only {name} by default (no event variables) and use spintax-ready text
         content:
-            '{Hi {name}!|Hello {name}!|Hey {name}!}}',
+            '{Hi {name}!|Hello {name}!|Hey {name}!}',
         isActive: true,
         batchId: 1,
     },
@@ -27,7 +27,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         type: TemplateType.followup,
         name: 'Followup',
         content:
-            '{Hi {name},|Hey {name},|Hello {name},}}',
+            '{Hi {name},|Hey {name},|Hello {name},}',
         isActive: true,
         batchId: 1,
     },
@@ -37,7 +37,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         type: TemplateType.postevent,
         name: 'Postevent',
         content:
-            '{Hi {name},|Hey {name},|Hello {name},}}',
+            '{Hi {name},|Hey {name},|Hello {name},}',
         isActive: true,
         batchId: 1,
     },
@@ -47,7 +47,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         name: 'Invitation',
         // Keep only {name} by default (no event variables) and use spintax-ready text
         content:
-            '{Hi {name}!|Hello {name}!|Hey {name}!}}',
+            '{Hi {name}!|Hello {name}!|Hey {name}!}',
         isActive: true,
         batchId: 2,
     },
@@ -57,7 +57,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         type: TemplateType.followup,
         name: 'Followup',
         content:
-            '{Hi {name},|Hey {name},|Hello {name},}}',
+            '{Hi {name},|Hey {name},|Hello {name},}',
         isActive: true,
         batchId: 2,
     },
@@ -67,7 +67,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
         type: TemplateType.postevent,
         name: 'Postevent',
         content:
-            '{Hi {name},|Hey {name},|Hello {name},}}',
+            '{Hi {name},|Hey {name},|Hello {name},}',
         isActive: true,
         batchId: 2,
     },

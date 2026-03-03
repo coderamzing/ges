@@ -7,11 +7,13 @@ import { CampaignInvitationController } from './campaign-invitation.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { CampaignMessagesModule } from '../campaign-messages/campaign-messages.module';
 import { TalentModule } from '../talent/talent.module';
+import { CampaignTemplateModule } from 'src/campaign-template/campaign-template.module';
 
 @Module({
   imports: [
     CampaignMessagesModule,
     TalentModule,
+    CampaignTemplateModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

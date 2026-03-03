@@ -25,7 +25,7 @@ interface MessageInterpretationResponse {
   blacklist: string | null;
   reason: string;
   messageLanguage: string;
-  future_date: string | null;
+  mentioned_other_date: string | null;
 }
 
 type CampaignInvitationHydrated = CampaignInvitation & {
@@ -104,7 +104,8 @@ export class CampaignMessagesAutomationService {
    * Runs every minute via cron
    */
 
-  @Cron(CronExpression.EVERY_30_MINUTES)
+  // @Cron(CronExpression.EVERY_30_MINUTES)
+  @Cron(CronExpression.EVERY_MINUTE)
   async processLastMinuteMessages(): Promise<void> {
     try {
       //here we will get the interpretation prompt and system prompt
@@ -353,7 +354,7 @@ export class CampaignMessagesAutomationService {
           blacklist: null,
           reason: response.reason,
           messageLanguage: response.language,
-          future_date: response.future_date,
+          mentioned_other_date: response.mentioned_other_date,
         };
       } catch (error) {
         throw new Error(
@@ -506,15 +507,20 @@ export class CampaignMessagesAutomationService {
         });
       }
 
-      if (interpretation.future_date) {
+      if (interpretation.mentioned_other_date) {
         const event = await this.prisma.events.findFirst({
           where: {
             userId: BigInt(promoterId),
-            dt: new Date(interpretation.future_date),
+            dt: new Date(interpretation.mentioned_other_date),
           },
         });
 
-        if (!event) return;
+        if (!event){
+           this.logger.log(
+            `No event found for this promotor: ${promoterId}, by mentioned_other_date :${interpretation.mentioned_other_date}.`,
+          );
+          return;
+        } 
 
         const campaign = await this.prisma.campaign.findFirst({
           where: {
@@ -546,7 +552,7 @@ export class CampaignMessagesAutomationService {
             },
           });
           this.logger.log(
-            `Create invitation for this campaign: ${campaignId}, talent: ${talentId}, Event: ${event.id} by future date available:${interpretation.future_date}.`,
+            `Create invitation for this campaign: ${campaignId}, talent: ${talentId}, Event: ${event.id} by future date available:${interpretation.mentioned_other_date}.`,
           );
         }
       }
