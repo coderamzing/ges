@@ -92,6 +92,13 @@ export class CampaignSpintaxTemplateListener {
             this.logger.log(
                 `Successfully generated and saved ${spintaxTemplates.length} spintax templates for template ${template.id}`,
             );
+
+            await this.prisma.campaignTemplate.update({
+                where: { id: template.id },
+                data: {
+                    content: "{Hi [name]}"
+                },
+            })
         } catch (error) {
             this.logger.error(
                 `Failed to generate variations for template ${templateId}: ${error.message}`,
