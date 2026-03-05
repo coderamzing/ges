@@ -47,10 +47,26 @@ export class EventService {
     if (!event) {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
+  
+    let collaborator = await this.prisma.eventCollaborator.findFirst({
+      where: {
+        event_id: event.id,
+        user_id: promoterId,
+      },
+    });
 
-    if (event.userId?.toString() !== promoterId.toString()) {
-      throw new ForbiddenException('You do not have access to this event');
+    const isOwner = event.userId?.toString() === promoterId.toString();
+    const isCollaborator = !!collaborator;
+
+    if (!isOwner && !isCollaborator) {
+      throw new NotFoundException(
+        `Event with ID ${event.id} does not belong to this promoter`,
+      );
     }
+
+    // if (event.userId?.toString() !== promoterId.toString()) {
+    //   throw new ForbiddenException('You do not have access to this event');
+    // }
 
     return event;
   }
