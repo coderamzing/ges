@@ -85,6 +85,7 @@ export class TalentService {
     campaignId: number,
     batchId: number,
     filters: TalentRecommendationFiltersDto,
+    promoterId: number,
   ): Promise<{
     data: TalentPool[];
     total: number;
@@ -106,8 +107,8 @@ export class TalentService {
     if (!event)
       throw new NotFoundException(`Event ${campaign.eventId} not found`);
 
-    const promoterId = event.userId ? BigInt(event.userId) : null;
-    if (!promoterId) throw new NotFoundException(`Event has no promoter`);
+    // const promoterId = event.userId ? BigInt(event.userId) : null;
+    // if (!promoterId) throw new NotFoundException(`Event has no promoter`);
 
     // 48 hours rule
     const cutoffDate = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
