@@ -524,3 +524,13 @@ model EventCollaborator {
 
   @@map("event_collaborator")
 }
+
+model EventShare {
+  id         String    @id @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(6)
+  event_dt   DateTime? @db.Date
+  event_id   BigInt?
+  user_id    BigInt?
+
+  @@map("event_share")
+}

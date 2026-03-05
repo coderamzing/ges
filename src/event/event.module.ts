@@ -5,9 +5,13 @@ import { EventController } from './event.controller';
 import { EventService } from './event.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../../guard/jwt-auth.guard';
+import { CampaignStatsModule } from 'src/campaign-stats/campaign-stats.module';
+import { CampaignInvitationModule } from 'src/campaign-invitation/campaign-invitation.module';
 
 @Module({
   imports: [
+    CampaignStatsModule,
+    CampaignInvitationModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

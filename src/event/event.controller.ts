@@ -23,10 +23,10 @@ import { GetPromoter } from '../../guard/get-promoter.decorator';
 @ApiTags('events')
 @ApiBearerAuth()
 @Controller('events')
-@UseGuards(JwtAuthGuard)
 export class EventController {
   constructor(private readonly eventService: EventService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post()
   @ApiOperation({ summary: 'Create a new event' })
   @ApiResponse({ status: 201, description: 'Event created successfully' })
@@ -39,6 +39,7 @@ export class EventController {
     return this.eventService.create(createEventDto, promoter.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   @ApiOperation({ summary: 'Get all events for the authenticated promoter' })
   @ApiResponse({ status: 200, description: 'List of events for the authenticated promoter' })
@@ -49,6 +50,7 @@ export class EventController {
     return this.eventService.findByPromoter(promoter.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   @ApiOperation({ summary: 'Get an event by ID' })
   @ApiResponse({ status: 200, description: 'Event found' })
@@ -62,6 +64,7 @@ export class EventController {
     return this.eventService.findOne(id, promoter.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @ApiOperation({ summary: 'Update an event' })
   @ApiResponse({ status: 200, description: 'Event updated successfully' })
@@ -77,6 +80,7 @@ export class EventController {
     return this.eventService.update(id, updateEventDto, promoter.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an event' })
@@ -103,6 +107,17 @@ export class EventController {
   // ): Promise<Events> {
   //   return this.eventService.updateMainEventType(id, dto, promoter.id);
   // }
+
+
+  @Get("event-details/:id")
+  @ApiOperation({ summary: 'Get event details' })
+  @ApiResponse({ status: 200, description: 'details of events' })
+  async findEventDetails(
+    @Param('id' ) id: string,
+  ): Promise<any> {
+    return this.eventService.findEventDetails(id);
+  }
+
 
 }
 
