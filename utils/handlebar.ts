@@ -14,7 +14,8 @@ export function renderTemplate(
   // Replace all {variableName} with actual values
   for (const [key, value] of Object.entries(variables)) {
     const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`\\{${escapedKey}\\}`, 'g');
+    // const regex = new RegExp(`\\{${escapedKey}\\}`, 'g');
+    const regex = new RegExp(`(\\{${escapedKey}\\}|\\[${escapedKey}\\])`, 'g');
     result = result.replace(regex, String(value || ''));
   }
   
