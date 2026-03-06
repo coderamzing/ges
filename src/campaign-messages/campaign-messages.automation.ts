@@ -104,8 +104,7 @@ export class CampaignMessagesAutomationService {
    * Runs every minute via cron
    */
 
-  // @Cron(CronExpression.EVERY_30_MINUTES)
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_30_MINUTES)
   async processLastMinuteMessages(): Promise<void> {
     try {
       //here we will get the interpretation prompt and system prompt
