@@ -25,7 +25,7 @@ export class CampaignService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   private readonly averageSendGapMs = 2 * 60 * 1000;
 
@@ -198,10 +198,10 @@ export class CampaignService {
       const lastSentAt =
         sentInvites.length > 0
           ? sentInvites.reduce((latest, inv) =>
-              new Date(inv.invitationAt!) > new Date(latest.invitationAt!)
-                ? inv
-                : latest,
-            ).invitationAt
+            new Date(inv.invitationAt!) > new Date(latest.invitationAt!)
+              ? inv
+              : latest,
+          ).invitationAt
           : null;
 
       let estimatedCompletionAt: Date | null = null;
@@ -234,6 +234,101 @@ export class CampaignService {
     return campaignsWithSummary;
   }
 
+
+
+  async getEventStatsReport(promoterId: number) {
+    // Compute current week's Monday (00:00:00) and Sunday (23:59:59.999) in local timezone
+    const now = new Date();
+    const day = now.getDay(); // 0 (Sun) .. 6 (Sat)
+    const diffToMonday = (day + 6) % 7; // days to subtract to get Monday
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - diffToMonday);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    // Fetch events for promoter during this week
+    const events = await this.prisma.events.findMany({
+      where: {
+        userId: BigInt(promoterId),
+        dt: {
+          gte: monday,
+          lte: sunday,
+        },
+      },
+      orderBy: { dt: "asc" },
+    });
+
+    if (events.length === 0) {
+      return {
+        total: 0,
+        confirmed: 0,
+        pending: 0,
+        declined: 0,
+        noReply: 0,
+      };
+    }
+
+    const eventIds = events.map((e) => Number(e.id));
+
+    // Fetch campaigns for these events
+    const campaigns = await this.prisma.campaign.findMany({
+      where: {
+        eventId: { in: eventIds },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const campaignIds = campaigns.map((c) => c.id);
+
+    if (campaignIds.length === 0) {
+      return {
+        total: 0,
+        confirmed: 0,
+        pending: 0,
+        declined: 0,
+        noReply: 0,
+      };
+    }
+
+    // Fetch invitations for those campaigns
+    const invitations = await this.prisma.campaignInvitation.findMany({
+      where: {
+        campaignId: { in: campaignIds },
+      },
+      select: { status: true }, // only need status for counts
+    });
+
+    // Status grouping (as requested)
+    const CONFIRMED = ["manually-confirmed", "confirmed"];
+    const PENDING = ["manually-pending", "maybe", "sent"];
+    const DECLINED = ["manually-declined", "declined"];
+    const NOREPLY = ["manually-noreply", "no-reply"];
+
+    const totals = invitations.reduce(
+      (acc, inv) => {
+        const status = String(inv.status ?? "").toLowerCase();
+        acc.total += 1;
+        if (CONFIRMED.includes(status)) acc.confirmed += 1;
+        else if (PENDING.includes(status)) acc.pending += 1;
+        else if (DECLINED.includes(status)) acc.declined += 1;
+        else if (NOREPLY.includes(status)) acc.noReply += 1;
+        return acc;
+      },
+      { total: 0, confirmed: 0, pending: 0, declined: 0, noReply: 0 },
+    );
+
+    return {
+      total: totals.total,
+      confirmed: totals.confirmed,
+      pending: totals.pending,
+      declined: totals.declined,
+      noReply: totals.noReply,
+    };
+  }
+
   async update(
     id: number,
     updateCampaignDto: UpdateCampaignDto,
@@ -252,7 +347,7 @@ export class CampaignService {
       throw new NotFoundException(`Event with ID ${eventId} not found`);
     }
 
-      let collaborator = await this.prisma.eventCollaborator.findFirst({
+    let collaborator = await this.prisma.eventCollaborator.findFirst({
       where: {
         event_id: event.id,
         user_id: promoterId,
@@ -386,7 +481,7 @@ export class CampaignService {
       where: { id: campaign.eventId },
     });
 
-     if (!event) {
+    if (!event) {
       throw new NotFoundException(
         `Event with ID ${campaign.eventId} not found`,
       );

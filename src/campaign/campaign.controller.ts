@@ -50,6 +50,15 @@ export class CampaignController {
         return this.campaignService.findByPromoter(promoter.id);
     }
 
+    @Get('event-stats-report')
+    @ApiOperation({ summary: 'Get event stats report for the authenticated promoter' })
+    @ApiResponse({ status: 200, description: 'Event stats report for the promoter' })
+    async getEventStatsReport(
+        @GetPromoter() promoter: { id: number; email: string },
+    ): Promise<any> {
+        return this.campaignService.getEventStatsReport(promoter.id);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get a campaign by ID' })
     @ApiResponse({ status: 200, description: 'Campaign found' })
