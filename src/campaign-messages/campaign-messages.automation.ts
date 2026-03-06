@@ -104,7 +104,8 @@ export class CampaignMessagesAutomationService {
    * Runs every minute via cron
    */
 
-  @Cron(CronExpression.EVERY_30_MINUTES)
+  // @Cron(CronExpression.EVERY_30_MINUTES)
+  @Cron(CronExpression.EVERY_MINUTE)
   async processLastMinuteMessages(): Promise<void> {
     try {
       //here we will get the interpretation prompt and system prompt
@@ -226,6 +227,11 @@ export class CampaignMessagesAutomationService {
         });
 
         if (!event) continue;
+        const now = new Date();
+
+        if (event.dt && event.dt < now) {
+          continue;
+        }
 
         if (
           !invitation.campaign ||
@@ -277,7 +283,14 @@ export class CampaignMessagesAutomationService {
 
         const talentUsername = threadData.username2;
         const promoterUsername = threadData.username1;
+
+        const DAYS = 2;
+        const daysAgo = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000);
+        console.log("daysAgo",daysAgo)
         const invitationAt = (message.invitation as any)?.invitationAt;
+        const startDate = invitationAt ? new Date(Math.max(new Date(invitationAt).getTime(), daysAgo.getTime())) : daysAgo;
+
+        console.log("startDate",startDate)
         const threads = await this.prisma.message.findMany({
           select: {
             message: true,
@@ -290,7 +303,7 @@ export class CampaignMessagesAutomationService {
             // sender_username: (message as any).sender_username,
             ...(invitationAt && {
               created_at: {
-                gt: invitationAt,
+                gt: startDate,
               },
             }),
           } as any,
