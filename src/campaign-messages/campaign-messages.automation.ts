@@ -19,7 +19,7 @@ import {
 } from "src/campaign-invitation/campaign-invitation.config";
 
 interface MessageInterpretationResponse {
-  status: InvitationStatusType;
+  status: InvitationStatusType | null;
   score: number;
   score_reason: string;
   blacklist: string | null;
@@ -413,7 +413,7 @@ export class CampaignMessagesAutomationService {
         const response = await this.openAIService.query(prompt, sysPrompt);
         console.log("Incominf response from ai ", response);
         interpretation = {
-          status: this.mapStatusToEnum(response.status),
+          status: response.status ? this.mapStatusToEnum(response.status) : null,
           score: response.score || 0,
           score_reason: response.score_reason || "neutral_reply",
           blacklist: null,
@@ -429,21 +429,24 @@ export class CampaignMessagesAutomationService {
       }
 
       // Update CampaignInvitation status, mark as replied and mark as seen using invitationId
-      const update = await this.prisma.campaignInvitation.update({
-        where: {
-          id: invitationId,
-        },
-        data: {
-          status: interpretation.status,
-          hasReplied: true,
-          isSeen: true,
-        },
-      });
+      if(interpretation.status){
+       const update = await this.prisma.campaignInvitation.update({
+          where: {
+            id: invitationId,
+          },
+          data: {
+            status: interpretation.status,
+            hasReplied: true,
+            isSeen: true,
+          },
+        });
+        this.logger.log(`status updated :${interpretation.status}`)
+        await this.campaignTargetReached(
+          update.campaignId,
+          Number(update.eventId),
+        );
+      }
 
-      await this.campaignTargetReached(
-        update.campaignId,
-        Number(update.eventId),
-      );
 
       if (interpretation.status == InvitationStatus.BLACKLIST) {
         await updateUserTpStatus({
