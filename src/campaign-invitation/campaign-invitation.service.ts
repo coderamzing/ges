@@ -90,6 +90,89 @@ export class CampaignInvitationService {
     }
   }
 
+  async updateTrustScore(
+  talentId: string,
+  promoterId: number | bigint,
+  eventId: number,
+  change: number,
+  reason: string,
+) {
+  const promoterBigInt = BigInt(promoterId);
+
+  let talentPromoterState = await this.prisma.talentPromoterState.findUnique({
+    where: {
+      talentId_promoterId: {
+        talentId,
+        promoterId: promoterBigInt,
+      },
+    },
+  });
+
+  if (!talentPromoterState) {
+    talentPromoterState = await this.prisma.talentPromoterState.create({
+      data: {
+        talentId,
+        promoterId: promoterBigInt,
+        trustScore: 0,
+      },
+    });
+  }
+
+  const existing = await this.prisma.trustScoreLog.findFirst({
+    where: {
+      talentId,
+      promoterId: promoterBigInt,
+      eventId,
+    },
+  });
+
+  if (existing) {
+    await this.prisma.trustScoreLog.update({
+      where: { id: existing.id },
+      data: {
+        change,
+        reason,
+      },
+    });
+  } else {
+    await this.prisma.trustScoreLog.create({
+      data: {
+        talentId,
+        promoterId: promoterBigInt,
+        eventId,
+        change,
+        reason,
+      },
+    });
+  }
+
+  const trustScoreAgg = await this.prisma.trustScoreLog.aggregate({
+    where: {
+      talentId,
+      promoterId: promoterBigInt,
+    },
+    _sum: {
+      change: true,
+    },
+  });
+
+  const newTrustScore = trustScoreAgg._sum?.change ?? 0;
+
+  await this.prisma.talentPromoterState.update({
+    where: {
+      talentId_promoterId: {
+        talentId,
+        promoterId: promoterBigInt,
+      },
+    },
+    data: {
+      trustScore: newTrustScore,
+    },
+  });
+
+  return newTrustScore;
+}
+
 
   /**
    * Ensure a campaign exists and belongs to the given promoter.
@@ -970,15 +1053,16 @@ export class CampaignInvitationService {
           },
         });
 
+        let invitation:any;
         if (existing) {
-          return this.prisma.campaignInvitation.update({
+          invitation = await this.prisma.campaignInvitation.update({
             where: { id: existing.id },
             data: {
               status,
             },
           });
         } else {
-          return this.prisma.campaignInvitation.create({
+          invitation = await this.prisma.campaignInvitation.create({
             data: {
               campaignId: campaign.id,
               eventId,
@@ -989,6 +1073,27 @@ export class CampaignInvitationService {
             },
           });
         }
+         if (status === InvitationStatus.MANUALLY_CONFIRM) {
+            await this.updateTrustScore(
+              talentId,
+              promoterId,
+              eventId,
+              10,
+              "manually confirmed",
+            );
+          }
+
+          if (status === InvitationStatus.MANUALLY_PENDING) {
+            await this.updateTrustScore(
+              talentId,
+              promoterId,
+              eventId,
+              2,
+              "manually pending",
+            );
+          }
+
+      return invitation;
       }),
     );
 

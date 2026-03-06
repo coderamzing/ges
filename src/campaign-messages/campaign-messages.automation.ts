@@ -160,7 +160,7 @@ export class CampaignMessagesAutomationService {
           invitation.status == InvitationStatus.SENT &&
           diffHours > 2
         ) {
-          console.log("invitation",invitation)
+
           this.logger.log(`Processing Marking NO_REPLY for invitation ${invitation.id}`);
 
           await this.prisma.campaignInvitation.update({
@@ -195,11 +195,15 @@ export class CampaignMessagesAutomationService {
           },
         },
         orderBy: {
-          tm: "asc",
+          tm: "desc",
         },
+        take:5
       });
 
-      const filteredMessages = lastMessages.filter((msg) => {
+
+      const reversedMessage = lastMessages.reverse();
+
+      const filteredMessages = reversedMessage.filter((msg) => {
         const invitation = invitationMap.get(msg.thread_id);
         if (!invitation || !invitation.invitationAt || !msg?.created_at)
           return false;
@@ -246,7 +250,7 @@ export class CampaignMessagesAutomationService {
         return (
           msg.thread_id === invitation.thread_id &&
           msg.sender_username === invitation.talentId &&
-          msg.created_at > invitation.createdAt
+          msg.created_at > invitation.invitationAt
         );
       });
 
@@ -260,17 +264,30 @@ export class CampaignMessagesAutomationService {
       for (const message of talentReplies) {
         const event = message.invitation?.event;
         const campaign = message.invitation?.campaign;
+        
+        let threadData:any;
+        if(message.thread_id){
+          threadData = await this.prisma.thread.findUnique({
+            where: {
+              id: message.thread_id,
+            },
+          });
+        }
+        if (!threadData || !threadData.username2) continue;
 
+        const talentUsername = threadData.username2;
+        const promoterUsername = threadData.username1;
         const invitationAt = (message.invitation as any)?.invitationAt;
         const threads = await this.prisma.message.findMany({
           select: {
             message: true,
             created_at: true,
             sender_username: true,
+            tm:true,
           },
           where: {
             thread_id: (message as any).thread_id,
-            sender_username: (message as any).sender_username,
+            // sender_username: (message as any).sender_username,
             ...(invitationAt && {
               created_at: {
                 gt: invitationAt,
@@ -291,12 +308,23 @@ export class CampaignMessagesAutomationService {
         const fullMessage =
           `Time Now: ${new Date().toISOString()}\n\n` +
           (event?.city ? `Event City: ${event?.city}\n\n` : "") +
-          (event?.dt ? `Event Date: ${event?.dt}\n\n` : "") +
+          (event?.dt ? `Event Date: ${new Date(event?.dt).toISOString()}\n\n` : "") +
           (talent?.cityHome ? `Talent In City: ${talent?.cityHome}\n\n` : "") +
-          (invitationAt ? `InvitationSentAt: ${invitationAt}\n\n` : "") +
+          (invitationAt ? `InvitationSentAt: ${new Date(invitationAt).toISOString()}\n\n` : "") +
+          // threads
+          //   .map((msg) => `${msg.created_at}: ${msg.message}`)
+          //   .join("\n\n");
+           `Conversation:\n\n` +
           threads
-            .map((msg) => `${msg.created_at}: ${msg.message}`)
+            .map((msg) => {
+              const label =
+                talentUsername && msg.sender_username === talentUsername
+                  ? "Talent"
+                  : "Promoter";
+              return `[${msg.tm?.toISOString() || msg.created_at?.toISOString()}] [${label}]: ${msg.message}`;
+            })
             .join("\n\n");
+            console.log("full message",fullMessage)
 
         const invitation = await this.prisma.campaignInvitation.findFirst({
           where: {
@@ -619,6 +647,7 @@ export class CampaignMessagesAutomationService {
       moved: InvitationStatus.MOVED,
       blacklist: InvitationStatus.BLACKLIST,
       "soft-decline": InvitationStatus.SOFT_DECLINE,
+      "no-reply": InvitationStatus.NOREPLY,
     };
 
     return statusMap[status.toLowerCase()] || InvitationStatus.PENDING;
