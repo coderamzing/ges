@@ -237,17 +237,19 @@ export class CampaignService {
 
 
   async getEventStatsReport(promoterId: number) {
-    // Compute current week's Monday (00:00:00) and Sunday (23:59:59.999) in local timezone
     const now = new Date();
-    const day = now.getDay(); // 0 (Sun) .. 6 (Sat)
-    const diffToMonday = (day + 6) % 7; // days to subtract to get Monday
+
+    const day = now.getUTCDay(); // 0 (Sun) .. 6 (Sat)
+
+    const diffToMonday = (day + 6) % 7;
+
     const monday = new Date(now);
-    monday.setHours(0, 0, 0, 0);
-    monday.setDate(monday.getDate() - diffToMonday);
+    monday.setUTCHours(0, 0, 0, 0);
+    monday.setUTCDate(monday.getUTCDate() - diffToMonday);
 
     const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    sunday.setUTCHours(23, 59, 59, 999);
 
     // Fetch events for promoter during this week
     const events = await this.prisma.events.findMany({
@@ -261,6 +263,7 @@ export class CampaignService {
       orderBy: { dt: "asc" },
     });
 
+    console.log("events",events)
     if (events.length === 0) {
       return {
         total: 0,
@@ -321,7 +324,7 @@ export class CampaignService {
     );
 
     return {
-      total: totals.total,
+      total: events.length,
       confirmed: totals.confirmed,
       pending: totals.pending,
       declined: totals.declined,
