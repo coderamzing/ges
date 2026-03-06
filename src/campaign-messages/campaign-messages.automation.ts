@@ -321,6 +321,7 @@ export class CampaignMessagesAutomationService {
         const fullMessage =
           `Time Now: ${new Date().toISOString()}\n\n` +
           (event?.city ? `Event City: ${event?.city}\n\n` : "") +
+          (event?.name ? `Event Name: ${event?.name}\n\n` : "") +
           (event?.dt ? `Event Date: ${new Date(event?.dt).toISOString()}\n\n` : "") +
           (talent?.cityHome ? `Talent In City: ${talent?.cityHome}\n\n` : "") +
           (invitationAt ? `InvitationSentAt: ${new Date(invitationAt).toISOString()}\n\n` : "") +
