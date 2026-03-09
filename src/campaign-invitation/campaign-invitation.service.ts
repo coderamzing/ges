@@ -1070,6 +1070,7 @@ export class CampaignInvitationService {
               status,
               promoterId: BigInt(promoterId),
               batch: 1,
+              invitationAt: new Date(),
             },
           });
         }

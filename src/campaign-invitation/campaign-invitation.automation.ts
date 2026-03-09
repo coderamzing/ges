@@ -698,6 +698,8 @@ export class CampaignInvitationAutomationService {
                     InvitationStatus.CONFIRMED,
                     InvitationStatus.DECLINED,
                     InvitationStatus.OPTOUT,
+                    InvitationStatus.MANUALLY_CONFIRM,
+                    InvitationStatus.MANUALLY_DECLINED,
                   ],
                 },
               },
@@ -776,6 +778,7 @@ export class CampaignInvitationAutomationService {
   @Cron(CronExpression.EVERY_MINUTE)
   async sendFollowupMessagesWithDelay() {
     this.logger.log("Process sending followup messages with autoDelay");
+    const now = new Date();
 
     try {
       // Fetch invitations that are eligible for followup
@@ -788,6 +791,23 @@ export class CampaignInvitationAutomationService {
             invitationAt: { not: null },
             campaign: { followup_delay: { gt: 0 } }, // Only campaigns with followup_delay > 0
             hasReplied: false,
+            status: {
+              notIn: [
+                InvitationStatus.ATTENDED,
+                InvitationStatus.CONFIRMED,
+                InvitationStatus.DECLINED,
+                InvitationStatus.OPTOUT,
+                InvitationStatus.MANUALLY_CONFIRM,
+                InvitationStatus.MANUALLY_DECLINED,
+                InvitationStatus.MANUALLY_PENDING,
+              ],
+            },
+            event: {
+              dt: {
+                not: null,
+                gte: now,
+              },
+            },
           },
           include: { campaign: true },
           orderBy: { invitationAt: "asc" },
@@ -1014,8 +1034,6 @@ export class CampaignInvitationAutomationService {
           orderBy: { id: "asc" },
           take: 1,
         });
-
-        console.log("invitationsNeedingThankYou",invitationsNeedingThankYou)
 
       if (!invitationsNeedingThankYou.length) {
         this.logger.log("No invitations needing thank you messages this run");
