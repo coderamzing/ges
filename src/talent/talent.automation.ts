@@ -221,4 +221,51 @@ export class TalentAutomationService {
       console.error("Error updating future cities:", err);
     }
   }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async syncInvitationThreads() {
+    try {
+      const invitations = await this.prisma.campaignInvitation.findMany({
+        where: {
+          thread_id: null,
+        },
+        select: {
+          id: true,
+          talentId: true,
+          promoterId: true,
+        },
+        take: 500,
+      });
+
+      for (const invitation of invitations) {
+        const thread = await this.prisma.thread.findFirst({
+          where: {
+            username2: invitation.talentId,
+            user_id: invitation.promoterId,
+          },
+          select: {
+            id: true,
+          },
+        });
+        
+        if (thread) {
+          await this.prisma.campaignInvitation.update({
+            where: {
+              id: invitation.id,
+            },
+            data: {
+              thread_id: thread.id,
+            },
+          });
+        this.logger.log(`Invitation updated with threadId for talent: ${invitation.talentId}, invitationId: ${invitation.id}, promoterId: ${invitation.promoterId}.`);
+        }
+      }
+
+      this.logger.log(
+        `Thread sync completed. Checked ${invitations.length} invitations.`,
+      );
+    } catch (error) {
+      console.error("Error syncing invitation threads:", error);
+    }
+  }
 }

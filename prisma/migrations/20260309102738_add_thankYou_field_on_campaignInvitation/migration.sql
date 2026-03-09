@@ -1,0 +1,2 @@
+ALTER TABLE "CampaignInvitation"
+ADD COLUMN IF NOT EXISTS "thankYou" BOOLEAN NOT NULL DEFAULT false;

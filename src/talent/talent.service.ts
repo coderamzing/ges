@@ -573,7 +573,9 @@ export class TalentService {
     const attendedCountsRaw = await this.prisma.campaignInvitation.groupBy({
       by: ["talentId"],
       where: {
-        status: InvitationStatus.ATTENDED,
+        // status: InvitationStatus.ATTENDED,
+        thankYouSent:true,
+        thankYou:true
       },
       _count: {
         id: true,

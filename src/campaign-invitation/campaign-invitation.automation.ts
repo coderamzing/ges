@@ -423,7 +423,7 @@ export class CampaignInvitationAutomationService {
               event: {
                 dt: {
                   not: null,
-                  gt: now,
+                  gte: now,
                 },
               },
             },
@@ -716,7 +716,7 @@ export class CampaignInvitationAutomationService {
                 event: {
                   dt: {
                     not: null,
-                    gt: now,
+                    gte: now,
                   },
                 },
               },
@@ -988,8 +988,13 @@ export class CampaignInvitationAutomationService {
           where: {
             AND: [
               { thankYouSent: false },
-              { status: InvitationStatus.ATTENDED },
-              // { thankyou: true},
+              { thankYou: true},
+              { status: {
+                in: [
+                  InvitationStatus.CONFIRMED,
+                  InvitationStatus.MANUALLY_CONFIRM
+                ] 
+              }},
               {
                 campaign: {
                   status: {
@@ -1009,6 +1014,8 @@ export class CampaignInvitationAutomationService {
           orderBy: { id: "asc" },
           take: 1,
         });
+
+        console.log("invitationsNeedingThankYou",invitationsNeedingThankYou)
 
       if (!invitationsNeedingThankYou.length) {
         this.logger.log("No invitations needing thank you messages this run");

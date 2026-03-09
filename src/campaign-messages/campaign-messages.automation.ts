@@ -225,10 +225,16 @@ export class CampaignMessagesAutomationService {
           where: { id: invitation.eventId },
         });
 
-        if (!event) continue;
+        if (!event || !event.dt) continue;
         const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-        if (event.dt && event.dt < now) {
+        const eventDate = new Date(event.dt);
+        const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+        this.logger.debug(`today Date: ${today}`)
+        this.logger.debug(`event Date: ${eventDay}`)
+
+        if (eventDay < today) {
           continue;
         }
 

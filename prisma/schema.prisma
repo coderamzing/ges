@@ -199,6 +199,7 @@ model CampaignInvitation {
   followupSent Boolean          @default(false)
   followup     Boolean          @default(false)
   thankYouSent Boolean          @default(false)
+  thankYou     Boolean          @default(false)
   hasReplied   Boolean          @default(false)
   thread_id    String?          @unique @db.VarChar(255)
   createdAt    DateTime         @default(now())

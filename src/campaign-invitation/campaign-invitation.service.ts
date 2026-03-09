@@ -754,8 +754,8 @@ export class CampaignInvitationService {
         campaignId: campaignId,
       },
       data: {
-        status: InvitationStatus.ATTENDED,
-        // thankyou: true
+        // status: InvitationStatus.ATTENDED,
+        thankYou: true
       },
     });
 
