@@ -234,7 +234,7 @@ export class TalentAutomationService {
           talentId: true,
           promoterId: true,
         },
-        take: 500,
+        // take: 500,
       });
 
       for (const invitation of invitations) {

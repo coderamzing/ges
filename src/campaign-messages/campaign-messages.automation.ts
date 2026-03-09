@@ -446,7 +446,7 @@ export class CampaignMessagesAutomationService {
             isSeen: true,
           },
         });
-        this.logger.log(`status updated :${interpretation.status}`)
+        this.logger.log(`status updated: ${interpretation.status}`)
         await this.campaignTargetReached(
           update.campaignId,
           Number(update.eventId),
@@ -485,7 +485,7 @@ export class CampaignMessagesAutomationService {
       }
 
       const lastReceivedAt = message.created_at || new Date();
-
+      if (interpretation.score !== 0) {
       const existing = await this.prisma.trustScoreLog.findFirst({
         where: {
           talentId,
@@ -535,6 +535,23 @@ export class CampaignMessagesAutomationService {
         },
         data: {
           trustScore: newTrustScore,
+          // lastReply: lastReceivedAt,
+        },
+      });
+       this.logger.log(
+        `Score updated for talent ${talentId}, Score: ${interpretation.score} in the campaign ${campaignId}`,
+      );
+    }
+
+     await this.prisma.talentPromoterState.update({
+        where: {
+          talentId_promoterId: {
+            talentId,
+            promoterId: BigInt(promoterId),
+          },
+        },
+        data: {
+          // trustScore: newTrustScore,
           lastReply: lastReceivedAt,
         },
       });
@@ -567,7 +584,7 @@ export class CampaignMessagesAutomationService {
       });
 
       this.logger.log(
-        `Processed messages for campaign ${campaignId}, talent ${talentId}. Status: ${interpretation.status}, Score: ${interpretation.score}`,
+        `Processed messages for campaign ${campaignId}, talent ${talentId}. Status: ${interpretation.status}`,
       );
 
       if (interpretation.messageLanguage) {
