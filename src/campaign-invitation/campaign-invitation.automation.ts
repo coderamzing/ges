@@ -1003,7 +1003,7 @@ export class CampaignInvitationAutomationService {
       // - Campaign's postEventTriggerAt has passed
       // - thankYouSent is false
       // - status is "attended"
-      const invitationsNeedingThankYou =
+      let invitationsNeedingThankYou =
         await this.prisma.campaignInvitation.findMany({
           where: {
             AND: [
@@ -1034,6 +1034,33 @@ export class CampaignInvitationAutomationService {
           orderBy: { id: "asc" },
           take: 10,
         });
+
+         if (!invitationsNeedingThankYou.length) {
+            invitationsNeedingThankYou =
+              await this.prisma.campaignInvitation.findMany({
+                where: {
+                  thankYouSent: false,
+                  status: {
+                    in: [
+                      InvitationStatus.CONFIRMED,
+                      InvitationStatus.MANUALLY_CONFIRM,
+                    ],
+                  },
+                  campaign: {
+                    status: {
+                      in: [CampaignStatus.active, CampaignStatus.completed],
+                    },
+                    postEventTriggerAt: {
+                      not: null,
+                      lte: now,
+                    },
+                  },
+                },
+                include: { campaign: true },
+                orderBy: { id: "asc" },
+                take: 10,
+              });
+          }
 
       if (!invitationsNeedingThankYou.length) {
         this.logger.log("No invitations needing thank you messages this run");
