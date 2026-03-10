@@ -1098,6 +1098,25 @@ export class CampaignInvitationService {
       }),
     );
 
+     const countCheck = await this.prisma.campaignInvitation.count({
+      where: {
+        campaignId: campaign.id,
+        batch: 1,
+      },
+    });
+
+     if (countCheck >= 1) {
+      await this.prisma.campaign.updateMany({
+        where: {
+          id: campaign.id,
+          status: CampaignStatus.draft,
+        },
+        data: {
+          status: CampaignStatus.active,
+        },
+      });
+    }
+
     await this.campaignTargetReached(
       campaign.id,
       eventId,
