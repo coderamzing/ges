@@ -1032,7 +1032,7 @@ export class CampaignInvitationAutomationService {
             campaign: true,
           },
           orderBy: { id: "asc" },
-          take: 1,
+          take: 10,
         });
 
       if (!invitationsNeedingThankYou.length) {

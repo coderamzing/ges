@@ -542,11 +542,11 @@ export class CampaignInvitationService {
       where: {
         campaignId,
         batch: batchId,
-        NOT: {
-          status: {
-            startsWith: 'manually',
-          },
-        },
+        // NOT: {
+        //   status: {
+        //     startsWith: 'manually',
+        //   },
+        // },
       },
     });
     let event = await this.prisma.events.findFirst({
@@ -580,7 +580,7 @@ export class CampaignInvitationService {
     })();
 
     let limit = target;
-    if (countCheck >= limit && batchId === 1) {
+    if (countCheck >= 1 && batchId === 1) {
       await this.prisma.campaign.updateMany({
         where: {
           id: campaignId,
