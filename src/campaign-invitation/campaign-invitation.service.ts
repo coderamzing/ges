@@ -733,6 +733,11 @@ export class CampaignInvitationService {
       TemplateType.postevent,
     );
 
+     if (!campaign.postEventTriggerAt) {
+        throw new NotFoundException(
+          `Post-event schedule time is not set for this event. Please set the post-event schedule time to proceed.`,
+        );
+      }
     // Verify that all invitations exist and belong to the campaign
     const invitations = await this.prisma.campaignInvitation.findMany({
       where: {
