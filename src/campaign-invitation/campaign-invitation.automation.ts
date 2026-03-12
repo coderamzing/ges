@@ -612,6 +612,7 @@ export class CampaignInvitationAutomationService {
       invitationId: invitation.id,
       message,
     });
+    console.log("response of send message",response)
     if (response) {
       let update = await this.prisma.campaignInvitation.update({
         where: {
