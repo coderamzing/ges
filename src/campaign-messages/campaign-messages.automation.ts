@@ -19,7 +19,7 @@ import {
 } from "src/campaign-invitation/campaign-invitation.config";
 
 interface MessageInterpretationResponse {
-  status: InvitationStatusType | null;
+  status: InvitationStatusType | null | 'null';
   score: number;
   score_reason: string;
   blacklist: string | null;
@@ -104,7 +104,7 @@ export class CampaignMessagesAutomationService {
    * Runs every minute via cron
    */
 
-  @Cron(CronExpression.EVERY_30_MINUTES)
+  @Cron(CronExpression.EVERY_MINUTE)
   async processLastMinuteMessages(): Promise<void> {
     try {
       //here we will get the interpretation prompt and system prompt
@@ -435,7 +435,7 @@ export class CampaignMessagesAutomationService {
       }
 
       // Update CampaignInvitation status, mark as replied and mark as seen using invitationId
-      if(interpretation.status){
+      if(interpretation.status && interpretation.status !== 'null'){
        const update = await this.prisma.campaignInvitation.update({
           where: {
             id: invitationId,
@@ -685,10 +685,11 @@ export class CampaignMessagesAutomationService {
       optout: InvitationStatus.OPTOUT,
       moved: InvitationStatus.MOVED,
       blacklist: InvitationStatus.BLACKLIST,
+      init:InvitationStatus.INIT,
       "soft-decline": InvitationStatus.SOFT_DECLINE,
       "no-reply": InvitationStatus.NOREPLY,
     };
 
-    return statusMap[status.toLowerCase()] || InvitationStatus.PENDING;
+    return statusMap[status.toLowerCase()] || InvitationStatus.INIT;
   }
 }

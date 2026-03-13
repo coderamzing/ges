@@ -581,6 +581,9 @@ export class CampaignInvitationAutomationService {
         talentId: talent.id,
         promoterId,
         hasReplied: false,
+        status:{
+          not: InvitationStatus.INIT,
+        },
         thread_id: {
           not: null,
         },
@@ -590,10 +593,10 @@ export class CampaignInvitationAutomationService {
       },
     });
 
+    console.log("lastReply",lastReply)
     if (lastReply) {
-      await this.campaignInvitationService.UnsendMessage("token", lastReply.id);
-
-      await this.prisma.campaignInvitation.update({
+      const unSend  = await this.campaignInvitationService.UnsendMessage("token", lastReply.id);
+     const updateHasReplied = await this.prisma.campaignInvitation.update({
         where: {
           id: lastReply?.id,
         },
@@ -601,6 +604,7 @@ export class CampaignInvitationAutomationService {
           hasReplied: true,
         },
       });
+      console.log("updateHasReplied",updateHasReplied)
       this.logger.log(
         `Processed for Unsend Last Message for invitation ${lastReply?.id}`,
       );
