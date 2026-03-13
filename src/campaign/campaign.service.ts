@@ -263,7 +263,7 @@ export class CampaignService {
       orderBy: { dt: "asc" },
     });
 
-    console.log("events",events)
+    // console.log("events",events)
     if (events.length === 0) {
       return {
         total: 0,

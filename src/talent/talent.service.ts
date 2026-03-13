@@ -27,7 +27,7 @@ type TalentWithRelations = Prisma.TalentPoolGetPayload<{
 }>;
 @Injectable()
 export class TalentService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
   async findOne(id: string): Promise<TalentPool> {
     const talent = await this.prisma.talentPool.findUnique({
       where: { id },
@@ -504,7 +504,7 @@ export class TalentService {
       where: { campaignId },
       select: { talentId: true },
     });
-    console.log("already invited in same campaign-----", invited.length)
+    console.log("already invited in same campaign-----", invited.length);
     excludedTalentIds = invited.map((i) => i.talentId);
     if (excludedTalentIds.length) {
       baseWhere.AND = [
@@ -561,9 +561,55 @@ export class TalentService {
         },
       },
     });
-    console.log("final data length---->", data.length);
 
-    // console.log("final data", data);
+    console.log("final data length---->", data.length);
+    console.log(
+      "final data ---->",
+      data.map((i) => i.id),
+    );
+
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    console.log("cutoff24h", cutoff24h);
+    const talentIds = data.map((t) => t.id);
+
+    const recentConversations = await this.prisma.message.findMany({
+      where: {
+        user_id: promoterId,
+        OR: [
+          { receiver_username: { in: talentIds } },
+          { sender_username: { in: talentIds } },
+        ],
+        created_at: {
+          gte: cutoff24h,
+        },
+      },
+      orderBy: {
+        tm: "desc",
+      },
+      select: {
+        sender_username: true,
+        receiver_username: true,
+        created_at: true,
+      },
+    });
+
+    const talkedRecently = new Set<string>();
+
+    for (const msg of recentConversations) {
+      if (msg.receiver_username && talentIds.includes(msg.receiver_username)) {
+        talkedRecently.add(msg.receiver_username);
+      }
+
+      if (msg.sender_username && talentIds.includes(msg.sender_username)) {
+        talkedRecently.add(msg.sender_username);
+      }
+    }
+
+    let filteredTalents = data.filter((t) => !talkedRecently.has(t.id));
+
+    console.log("after 24h filter", filteredTalents.length);
+
+
     const totalPages = Math.ceil(total / limit);
 
     let sortedData: TalentPool[];
@@ -574,14 +620,13 @@ export class TalentService {
       by: ["talentId"],
       where: {
         // status: InvitationStatus.ATTENDED,
-        thankYouSent:true,
-        thankYou:true
+        thankYouSent: true,
+        thankYou: true,
       },
       _count: {
         id: true,
       },
     });
-
 
     for (const row of attendedCountsRaw) {
       attendanceMap.set(row.talentId, row._count.id);
@@ -589,7 +634,7 @@ export class TalentService {
 
     const firstChoiceMap = new Map<string, boolean>();
 
-    for (const talent of data) {
+    for (const talent of filteredTalents) {
       const isFirstChoice = talent.userTpStatus?.some(
         (s) => s.statusId === TP_STATUS_MAP.FIRST_CHOICE,
       );
@@ -630,10 +675,8 @@ export class TalentService {
       Civilians: 4,
     };
 
-
     if (topLimit && topLimit > 0) {
-
-      const talentIds = data.map(t => t.id);
+      const talentIds = filteredTalents.map((t) => t.id);
 
       const recentMessages = await this.prisma.message.findMany({
         where: {
@@ -649,10 +692,14 @@ export class TalentService {
       });
 
       // Create set of excluded talents
-      const excludedTalentIds = new Set(recentMessages.map(m => m.receiver_username));
+      const excludedTalentIds = new Set(
+        recentMessages.map((m) => m.receiver_username),
+      );
 
       // FILTER talents (exclude those contacted in last 48 hours)
-      const filteredData = data.filter(talent => !excludedTalentIds.has(talent.id));
+      const filteredData = filteredTalents.filter(
+        (talent) => !excludedTalentIds.has(talent.id),
+      );
 
       // GROUP BY GENRE
       const groupedByGenre: Record<string, TalentWithRelations[]> = {};
@@ -666,7 +713,7 @@ export class TalentService {
         }
         groupedByGenre[talent.genre].push(talent);
       }
-      console.log("groupedByGenre------>", groupedByGenre)
+      console.log("groupedByGenre------>", groupedByGenre);
 
       // SORT INSIDE EACH GENRE
       for (const genre of Object.keys(groupedByGenre)) {
@@ -689,7 +736,7 @@ export class TalentService {
         .flatMap(([genre]) => groupedByGenre[genre] ?? []);
     } else {
       // NORMAL FLOW → global trustScore sort only
-      sortedData = [...data].sort((a, b) => {
+      sortedData = [...filteredTalents].sort((a, b) => {
         const trustA = a.promoterStates?.[0]?.trustScore ?? 0;
         const trustB = b.promoterStates?.[0]?.trustScore ?? 0;
         // return trustB - trustA;
@@ -732,5 +779,3 @@ export class TalentService {
     };
   }
 }
-
-

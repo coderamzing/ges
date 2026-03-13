@@ -576,12 +576,24 @@ export class CampaignInvitationAutomationService {
     const message = renderTemplate(finalMessageContent, variables);
     // add logic for unsend if last reply is false
 
+    function delay(ms: number) {
+      const seconds = ms / 1000;
+
+      console.log(`Delay started for ${seconds} seconds`);
+
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          console.log(`Delay finished after ${seconds} seconds`);
+          resolve(true);
+        }, ms),
+      );
+    }
     const lastReply = await this.prisma.campaignInvitation.findFirst({
       where: {
         talentId: talent.id,
         promoterId,
         hasReplied: false,
-        status:{
+        status: {
           not: InvitationStatus.INIT,
         },
         thread_id: {
@@ -593,10 +605,13 @@ export class CampaignInvitationAutomationService {
       },
     });
 
-    console.log("lastReply",lastReply)
+    console.log("lastReply", lastReply);
     if (lastReply) {
-      const unSend  = await this.campaignInvitationService.UnsendMessage("token", lastReply.id);
-     const updateHasReplied = await this.prisma.campaignInvitation.update({
+      const unSend = await this.campaignInvitationService.UnsendMessage(
+        "token",
+        lastReply.id,
+      );
+      const updateHasReplied = await this.prisma.campaignInvitation.update({
         where: {
           id: lastReply?.id,
         },
@@ -604,19 +619,21 @@ export class CampaignInvitationAutomationService {
           hasReplied: true,
         },
       });
-      console.log("updateHasReplied",updateHasReplied)
+      console.log("updateHasReplied", updateHasReplied);
       this.logger.log(
         `Processed for Unsend Last Message for invitation ${lastReply?.id}`,
       );
     }
 
+    // 3 seconds delay
+    await delay(3000);
     const response = await this.sendMessageCommon({
       receiverId: talent.id,
       promoterId: invitation.promoterId,
       invitationId: invitation.id,
       message,
     });
-    console.log("response of send message",response)
+    console.log("response of send message", response);
     if (response) {
       let update = await this.prisma.campaignInvitation.update({
         where: {
@@ -831,7 +848,7 @@ export class CampaignInvitationAutomationService {
         // Calculate dynamic followup time based on campaign.followup_delay
         const followupTime = new Date(
           invitation.invitationAt!.getTime() +
-          invitation.campaign.followup_delay * 60 * 60 * 1000,
+            invitation.campaign.followup_delay * 60 * 60 * 1000,
         );
         if (new Date() < followupTime) {
           // Not yet time to send followup
@@ -849,7 +866,9 @@ export class CampaignInvitationAutomationService {
         );
 
         // Check promoter-specific rate limiting
-        if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
+        if (
+          !(await this.shouldSendMessage(promoterId, delayMinutes, threadId))
+        ) {
           this.logger.debug(
             `Skipping followup for promoter ${promoterId}, waiting for random gap in delay for this invitation ${invitation.id}`,
           );
@@ -1013,13 +1032,15 @@ export class CampaignInvitationAutomationService {
           where: {
             AND: [
               { thankYouSent: false },
-              { thankYou: true},
-              { status: {
-                in: [
-                  InvitationStatus.CONFIRMED,
-                  InvitationStatus.MANUALLY_CONFIRM
-                ] 
-              }},
+              { thankYou: true },
+              {
+                status: {
+                  in: [
+                    InvitationStatus.CONFIRMED,
+                    InvitationStatus.MANUALLY_CONFIRM,
+                  ],
+                },
+              },
               {
                 campaign: {
                   status: {
@@ -1040,32 +1061,32 @@ export class CampaignInvitationAutomationService {
           take: 10,
         });
 
-         if (!invitationsNeedingThankYou.length) {
-            invitationsNeedingThankYou =
-              await this.prisma.campaignInvitation.findMany({
-                where: {
-                  thankYouSent: false,
-                  status: {
-                    in: [
-                      InvitationStatus.CONFIRMED,
-                      InvitationStatus.MANUALLY_CONFIRM,
-                    ],
-                  },
-                  campaign: {
-                    status: {
-                      in: [CampaignStatus.active, CampaignStatus.completed],
-                    },
-                    postEventTriggerAt: {
-                      not: null,
-                      lte: now,
-                    },
-                  },
+      if (!invitationsNeedingThankYou.length) {
+        invitationsNeedingThankYou =
+          await this.prisma.campaignInvitation.findMany({
+            where: {
+              thankYouSent: false,
+              status: {
+                in: [
+                  InvitationStatus.CONFIRMED,
+                  InvitationStatus.MANUALLY_CONFIRM,
+                ],
+              },
+              campaign: {
+                status: {
+                  in: [CampaignStatus.active, CampaignStatus.completed],
                 },
-                include: { campaign: true },
-                orderBy: { id: "asc" },
-                take: 10,
-              });
-          }
+                postEventTriggerAt: {
+                  not: null,
+                  lte: now,
+                },
+              },
+            },
+            include: { campaign: true },
+            orderBy: { id: "asc" },
+            take: 10,
+          });
+      }
 
       if (!invitationsNeedingThankYou.length) {
         this.logger.log("No invitations needing thank you messages this run");
