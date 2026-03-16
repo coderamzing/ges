@@ -200,6 +200,8 @@ export class CampaignStatsService {
         sent: number;
         delivered: number;
         replied: number;
+        confirmed: number;
+        pending: number;
         firstSentAt?: Date;
         lastSentAt?: Date;
       }
@@ -216,6 +218,8 @@ export class CampaignStatsService {
             sent: 0,
             delivered: 0,
             replied: 0,
+            confirmed: 0,
+            pending: 0,
             firstSentAt: undefined,
             lastSentAt: undefined,
           });
@@ -242,6 +246,19 @@ export class CampaignStatsService {
 
         if (inv.hasReplied === true) {
           batchStats.replied++; // CampaignInvitation hasReply == true for that batch
+        }
+        
+        if (
+          inv.status === InvitationStatus.CONFIRMED
+        ) {
+          batchStats.confirmed++;
+        }
+        
+        if (
+          inv.status === InvitationStatus.INIT ||
+          inv.status === InvitationStatus.PENDING
+        ) {
+          batchStats.pending++;
         }
       }
     });
@@ -289,8 +306,8 @@ export class CampaignStatsService {
           delivered: stats.delivered,
           replied: stats.replied,
           sentAt: stats.firstSentAt,
-          pending: pending,
-          confirmed: confirmed,
+          pending: stats.pending,
+          confirmed: stats.confirmed,
           totalTimeSpentSeconds,
           estimatedRemainingSeconds,
           estimatedCompletionAt,

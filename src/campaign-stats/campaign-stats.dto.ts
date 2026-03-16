@@ -30,6 +30,12 @@ export class BatchStatsDto {
   @ApiProperty({ description: 'Number of replies received' })
   replied: number;
 
+  @ApiProperty({ description: 'Number of confirmed' })
+  confirmed: number;
+
+  @ApiProperty({ description: 'Number of pending' })
+  pending: number;
+
   @ApiProperty({ description: 'Batch sent timestamp' })
   sentAt?: Date;
 
