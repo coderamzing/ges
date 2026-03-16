@@ -103,8 +103,66 @@ export class CampaignTemplateService {
                 } as any),
             });
 
-        // Emit event for template save
-        await this.eventEmitter.emitAsync(CAMPAIGN_TEMPLATE_SAVED_EVENT, template.id);
+        // ===== AUTO CREATE / UPDATE BATCH 2 FOR POSTEVENT =====
+
+        let batch2Template: CampaignTemplate | null = null;
+
+        if (
+            createCampaignTemplateDto.type === 'postevent' &&
+            batchId === 1
+        ) {
+            const batch2Existing = await this.prisma.campaignTemplate.findFirst({
+                where: {
+                    campaignId: createCampaignTemplateDto.campaignId,
+                    type: createCampaignTemplateDto.type,
+                    batchId: 2,
+                } as any,
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            });
+            const batch2Data = {
+                batchId: 2,
+                lang: createCampaignTemplateDto.lang.join(','),
+                type: createCampaignTemplateDto.type,
+                name: createCampaignTemplateDto.name,
+                content: createCampaignTemplateDto.content,
+                mode: createCampaignTemplateDto.mode ?? 'auto',
+                isActive: createCampaignTemplateDto.isActive,
+                spintaxEnabled: createCampaignTemplateDto.spintaxEnabled ?? true,
+            };
+
+            if (batch2Existing) {
+                batch2Template = await this.prisma.campaignTemplate.update({
+                    where: { id: batch2Existing.id },
+                    data: batch2Data as any,
+                });
+
+                console.log("batch2Template after update",batch2Template)
+            } 
+            else {
+                batch2Template = await this.prisma.campaignTemplate.create({
+                    data: {
+                        ...batch2Data,
+                        campaign: {
+                            connect: {
+                                id: createCampaignTemplateDto.campaignId,
+                            },
+                        },
+                    } as any,
+                });
+
+            }
+        }
+                // Emit event for template save
+            await this.eventEmitter.emitAsync(CAMPAIGN_TEMPLATE_SAVED_EVENT, template.id);
+
+            if (batch2Template) {
+            await this.eventEmitter.emitAsync(
+                CAMPAIGN_TEMPLATE_SAVED_EVENT,
+                batch2Template.id,
+            );
+        }
 
         return template;
     }

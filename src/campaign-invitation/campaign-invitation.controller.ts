@@ -71,6 +71,7 @@ export class CampaignInvitationController {
       markAttendedDto.campaignId,
       markAttendedDto.invitationIds,
       promoter.id,
+      markAttendedDto.batchId,
     );
   }
 
@@ -200,6 +201,7 @@ export class CampaignInvitationController {
       markForFollowupDto.campaignId,
       markForFollowupDto.invitationIds,
       promoter.id,
+      markForFollowupDto.batchId,
     );
   }
 

@@ -230,6 +230,14 @@ export class MarkInvitationsAsAttendedDto {
   @IsInt({ each: true })
   @IsNotEmpty()
   invitationIds: number[];
+
+   @ApiPropertyOptional({
+    description: 'Batch ID for the invitations. Defaults to 1 if not provided.',
+    example: 1
+  })
+  @IsInt()
+  // @IsOptional()
+  batchId: number;
 }
 
 export class MarkInvitationNoShowDto {
@@ -260,6 +268,14 @@ export class MarkInvitationsForFollowupDto {
   @IsInt({ each: true })
   @IsNotEmpty()
   invitationIds: number[];
+
+   @ApiPropertyOptional({
+    description: 'Batch ID for the invitations. Defaults to 1 if not provided.',
+    example: 1
+  })
+  @IsInt()
+  // @IsOptional()
+  batchId: number;
 }
 
 export class UpdateInvitationEventTypeDto {

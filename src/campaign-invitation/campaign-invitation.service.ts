@@ -227,6 +227,7 @@ export class CampaignInvitationService {
   private async ensureActiveTemplatesForAllTypes(
     campaignId: number,
     requiredType: TemplateType,
+    batchId: number,
   ) {
     const activeTemplates = await this.prisma.campaignTemplate.groupBy({
       by: ["type"],
@@ -250,6 +251,22 @@ export class CampaignInvitationService {
         `You must activate at least one ${requiredType} template language before performing this action`,
       );
     }
+
+    // check spintax variations exist for this campaign + batch + type
+    const spintaxCount = await this.prisma.campaignSpintaxTemplate.count({
+      where: {
+        campaignId: campaignId,
+        batch: batchId,
+        type: requiredType,
+      },
+    });
+
+    if (spintaxCount === 0) {
+      throw new BadRequestException(
+        `Spintax variations not available for ${requiredType} (Batch ${batchId}) in this campaign`,
+      );
+    }
+
   }
 
   private async getInvitations(
@@ -457,6 +474,7 @@ export class CampaignInvitationService {
     await this.ensureActiveTemplatesForAllTypes(
       campaignId,
       TemplateType.invitation,
+      batchId
     );
 
     // Use batchId from DTO or default to 1
@@ -690,6 +708,7 @@ export class CampaignInvitationService {
     campaignId: number,
     invitationIds: number[],
     promoterId: number,
+    batchId: number,
   ): Promise<{ count: number; invitations: CampaignInvitation[] }> {
     // Check if campaign exists
     const campaign = await this.prisma.campaign.findUnique({
@@ -731,6 +750,7 @@ export class CampaignInvitationService {
     await this.ensureActiveTemplatesForAllTypes(
       campaignId,
       TemplateType.postevent,
+      batchId
     );
 
      if (!campaign.postEventTriggerAt) {
@@ -883,6 +903,7 @@ export class CampaignInvitationService {
     campaignId: number,
     invitationIds: number[],
     promoterId: number,
+    batchId: number,
   ): Promise<{ count: number; invitations: CampaignInvitation[] }> {
     // Check if campaign exists
     const campaign = await this.prisma.campaign.findUnique({
@@ -896,6 +917,7 @@ export class CampaignInvitationService {
     await this.ensureActiveTemplatesForAllTypes(
       campaignId,
       TemplateType.followup,
+      batchId,
     );
 
     // Verify that the event belongs to the promoter
