@@ -27,6 +27,50 @@ export class CampaignService {
     private eventEmitter: EventEmitter2,
   ) { }
 
+  private async ensureActiveTemplatesForAllTypes(
+    campaignId: number,
+    requiredType: TemplateType,
+    batchId: number,
+  ) {
+    const activeTemplates = await this.prisma.campaignTemplate.groupBy({
+      by: ["type"],
+      where: {
+        campaignId,
+        isActive: true,
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    const requiredTypes = Object.values(TemplateType);
+
+    const missingTypes = requiredTypes.filter(
+      (type) => !activeTemplates.some((t) => t.type === type),
+    );
+
+    if (missingTypes.length > 0) {
+      throw new BadRequestException(
+        `You must activate at least one ${requiredType} template language before performing this action`,
+      );
+    }
+
+    // check spintax variations exist for this campaign + batch + type
+    const spintaxCount = await this.prisma.campaignSpintaxTemplate.count({
+      where: {
+        campaignId: campaignId,
+        batch: batchId,
+        type: requiredType,
+      },
+    });
+
+    if (spintaxCount === 0) {
+      throw new BadRequestException(
+        `Spintax variations not available for ${requiredType} (Batch ${batchId}) in this campaign`,
+      );
+    }
+
+  }
   private readonly averageSendGapMs = 2 * 60 * 1000;
 
   async create(
@@ -510,6 +554,16 @@ export class CampaignService {
     //   throw new NotFoundException("Campaign does not belong to this promoter");
     // }
 
+    const batches = [1, 2];
+
+    for (const batchId of batches) {
+      await this.ensureActiveTemplatesForAllTypes(
+        campaignId,
+        TemplateType.postevent,
+        batchId,
+      );
+    }
+    
     return this.prisma.campaign.update({
       where: { id: campaignId },
       data: {

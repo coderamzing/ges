@@ -297,15 +297,27 @@ export class CampaignInvitationAutomationService {
     let preferred = spintaxTemplates.filter((t) => t.lang === talentLang);
 
     const mergedLangs = Array.from(new Set([...templateLangs, talentLang]));
-
+    console.log("talentLang",talentLang)
+    console.log("mergedLangs",mergedLangs)
     if (!preferred.length) {
+      let enTemplate = spintaxTemplates.find(
+        (t) => t.lang === 'en'
+      );
+
+      if (!enTemplate && spintaxTemplates.length > 0) {
+        enTemplate = spintaxTemplates[0];
+      }
+     console.log("enTemplate",enTemplate)
       const updatedTemplate = await this.campaignTemplateService.update(
         template.id,
         {
           lang: mergedLangs,
+          content: enTemplate?.content ?? template.content,
         },
         params.promoterId ? Number(params.promoterId) : 0,
       );
+
+      console.log("updatedTemplate",updatedTemplate)
       preferred = await this.prisma.campaignSpintaxTemplate.findMany({
         where: {
           campaignId,
@@ -1088,6 +1100,8 @@ export class CampaignInvitationAutomationService {
           });
       }
 
+
+      console.log("invitationsNeedingThankYou",invitationsNeedingThankYou)
       if (!invitationsNeedingThankYou.length) {
         this.logger.log("No invitations needing thank you messages this run");
         return;

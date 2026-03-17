@@ -546,8 +546,8 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                         </div>
                         <div class="d-flex gap-2 mb-2">
                             ${invitationId ? `
-                                <button class="btn btn-sm btn-outline-info send-followup-btn" data-invitation-id="${invitationId}">Send Followup</button>
-                                <button class="btn btn-sm btn-outline-success mark-attend-btn" data-invitation-id="${invitationId}">Mark Attend</button>
+                                <button class="btn btn-sm btn-outline-info send-followup-btn" data-invitation-id="${invitationId}" data-batch-id="${invitation.batch || 1}">Send Followup</button>
+                                <button class="btn btn-sm btn-outline-success mark-attend-btn" data-invitation-id="${invitationId}" data-batch-id="${invitation.batch || 1}">Mark Attend</button>
                                 ${!isBlacklisted ? `<button class="btn btn-sm btn-outline-danger toggle-blacklist-btn" data-talent-id="${talent.id}" data-is-blacklisted="false">Mark Blacklist</button>` : ''}
                             ` : ''}
                         </div>
@@ -596,6 +596,8 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             $('.send-followup-btn').on('click', async function () {
                 const button = $(this);
                 const invitationId = parseInt(button.data('invitation-id'), 10);
+                const batchId = parseInt(button.data('batch-id'), 10);
+
                 const currentCampaignId = parseInt(campaignId, 10);
                 button.prop('disabled', true).text('Sending...');
                 try {
@@ -608,7 +610,8 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                         },
                         data: JSON.stringify({
                             campaignId: currentCampaignId,
-                            invitationIds: [invitationId]
+                            invitationIds: [invitationId],
+                            batchId: batchId,
                         })
                     });
                     alert('Followup marked successfully!');
@@ -624,6 +627,7 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
             $('.mark-attend-btn').on('click', async function () {
                 const button = $(this);
                 const invitationId = parseInt(button.data('invitation-id'), 10);
+                const batchId = parseInt(button.data('batch-id'), 10);
                 const currentCampaignId = parseInt(campaignId, 10);
                 button.prop('disabled', true).text('Marking...');
                 try {
@@ -636,7 +640,9 @@ Is Seen: ${invitation.isSeen ? 'Yes' : 'No'}
                         },
                         data: JSON.stringify({
                             campaignId: currentCampaignId,
-                            invitationIds: [invitationId]
+                            invitationIds: [invitationId],
+                            batchId: batchId,
+
                         })
                     });
                     alert('Marked as attended successfully!');
