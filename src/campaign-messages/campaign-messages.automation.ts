@@ -139,7 +139,14 @@ export class CampaignMessagesAutomationService {
       const invitations = await this.prisma.campaignInvitation.findMany({
         where: {
           status: {
-            notIn: [InvitationStatus.DECLINED, InvitationStatus.INIT],
+            notIn: [
+              InvitationStatus.DECLINED, 
+              InvitationStatus.INIT,
+              InvitationStatus.MANUALLY_CONFIRM,
+              InvitationStatus.MANUALLY_DECLINED,
+              InvitationStatus.MANUALLY_NOREPLY,
+              InvitationStatus.MANUALLY_PENDING,
+            ],
           },
         },
         include: {

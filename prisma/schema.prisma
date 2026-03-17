@@ -66,7 +66,7 @@ model Campaign {
   start_at           DateTime?
   end_at             DateTime?
   postEventTriggerAt DateTime?
-  followup_delay     Int       @default(12)
+  followup_delay     Int       @default(0)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 

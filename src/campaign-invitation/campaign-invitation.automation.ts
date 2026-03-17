@@ -98,7 +98,7 @@ export class CampaignInvitationAutomationService {
       console.log("lastMessageAt", lastMessageAt);
 
       this.promoterClusterState.set(promoterId, {
-        clusterSize: this.randomInt(8, 12),
+        clusterSize: this.randomInt(10, 12),
         sentInCluster: 0,
         lastMessageAt: lastMessageAt,
         breakUntil: null,
@@ -397,7 +397,10 @@ export class CampaignInvitationAutomationService {
     if (currentBatchCount === 99 && batchId === 2 && campaign.end_at === null) {
       await this.prisma.campaign.update({
         where: { id: campaignId },
-        data: { end_at: new Date(), status: CampaignStatus.completed },
+        data: { 
+          end_at: new Date(), 
+          // status: CampaignStatus.completed 
+        },
       });
       this.logger.log(`Campaign ${campaignId} end_at updated at ${new Date()}`);
     } else {
@@ -1032,13 +1035,12 @@ export class CampaignInvitationAutomationService {
     this.logger.log("Process sending thank you messages");
 
     try {
-      // const now = new Date();
       const now = new Date();
 
-      // Find invitations that need thank you messages:
+      // Find all invitations that need thank you messages:
       // - Campaign's postEventTriggerAt has passed
       // - thankYouSent is false
-      // - status is "attended"
+      // - status CONFIRMED or MANUALLY_CONFIRM
       let invitationsNeedingThankYou =
         await this.prisma.campaignInvitation.findMany({
           where: {
@@ -1060,17 +1062,14 @@ export class CampaignInvitationAutomationService {
                   },
                   postEventTriggerAt: {
                     not: null,
-                    lte: now, // less than or equal to now (has passed)
+                    lte: now,
                   },
                 },
               },
             ],
           },
-          include: {
-            campaign: true,
-          },
+          include: { campaign: true },
           orderBy: { id: "asc" },
-          take: 10,
         });
 
       if (!invitationsNeedingThankYou.length) {
@@ -1096,20 +1095,16 @@ export class CampaignInvitationAutomationService {
             },
             include: { campaign: true },
             orderBy: { id: "asc" },
-            take: 10,
           });
+
       }
 
 
-      console.log("invitationsNeedingThankYou",invitationsNeedingThankYou)
+
       if (!invitationsNeedingThankYou.length) {
         this.logger.log("No invitations needing thank you messages this run");
         return;
       }
-
-      const invitation = invitationsNeedingThankYou[0];
-      const promoterId = invitation.promoterId;
-      const threadId = invitation.thread_id;
 
       const mode = process.env.MESSAGE_MODE || "dev";
       const delayMinutes = mode === "dev" ? [1, 2] : [1, 2];
@@ -1118,29 +1113,40 @@ export class CampaignInvitationAutomationService {
       this.logger.log(
         `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
       );
+      this.logger.log(
+        `[Thank You] Processing ${invitationsNeedingThankYou.length} invitation(s); random gap checked per promoter in parallel`,
+      );
 
-      // Check if enough time has passed since last send for this promoter
-      if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
-        this.logger.debug(
-          `Skipping thank you for promoter ${promoterId}, waiting for random gap for this invitation: ${invitation.id}`,
-        );
-        return;
+      let sentCount = 0;
+      for (const invitation of invitationsNeedingThankYou) {
+        const promoterId = invitation.promoterId;
+        const threadId = invitation.thread_id;
+
+        // Per-promoter random gap: each promoter has independent state, so multiple promoters can send in the same run
+        if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
+          this.logger.debug(
+            `Skipping thank you for promoter ${promoterId}, waiting for random gap; invitation: ${invitation.id}`,
+          );
+          continue;
+        }
+        try {
+          await this.sendThankYouMessage(invitation);
+          this.updateClusterAfterSend(promoterId);
+          sentCount += 1;
+          this.logger.log(
+            `Sent thank you message for invitation ${invitation.id}, promoter ${promoterId}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to send thank you message for invitation ${invitation.id}:`,
+            error,
+          );
+        }
       }
 
-      try {
-        await this.sendThankYouMessage(invitation);
-        this.updateClusterAfterSend(promoterId);
-        this.logger.log(
-          `Sent thank you message for invitation ${invitation.id}, promoter ${promoterId}`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to send thank you message for invitation ${invitation.id}:`,
-          error,
-        );
-      }
-
-      this.logger.log("Completed automation to send thank you messages");
+      this.logger.log(
+        `Completed automation to send thank you messages; sent ${sentCount} of ${invitationsNeedingThankYou.length}`,
+      );
     } catch (error) {
       this.logger.error("Error in sendThankYouMessages automation:", error);
     }
@@ -1216,13 +1222,12 @@ export class CampaignInvitationAutomationService {
     const message = renderTemplate(finalMessageContent, variables);
     // const message = renderTemplate(randomTemplate.content, variables);
 
-    await this.sendMessageCommon({
+    const sendThankYouMessage = await this.sendMessageCommon({
       receiverId: talent.id,
       promoterId: invitation.promoterId,
       invitationId: invitation.id,
       message,
     });
-
     // Create the message entry
 
     // await this.campaignMessagesService.createMessage({
