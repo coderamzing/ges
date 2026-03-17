@@ -159,7 +159,7 @@ export class CampaignInvitationAutomationService {
       );
 
       // Reset for next cluster
-      state.clusterSize = this.randomInt(8, 12);
+      state.clusterSize = this.randomInt(10, 12);
       state.sentInCluster = 0;
     }
   }
