@@ -66,7 +66,7 @@ export class CampaignService {
 
     if (spintaxCount === 0) {
       throw new BadRequestException(
-        `Spintax variations not available for ${requiredType} (Batch ${batchId}) in this campaign`,
+        `Spintax template are not available for ${requiredType} (Batch ${batchId}) in this campaign. Please create the spintax template first.`,
       );
     }
 

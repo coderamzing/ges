@@ -103,6 +103,8 @@ Rules:
 - Keep the same sentence length and style.
 - All 12 greetings must be DIFFERENT from each other.
 - All 12 body variations must be DIFFERENT from each other.
+- A word can be swapped ONLY if that exact word exists in templateContent.
+- If the word is not present, do not use it in any variation.
 
 TOTAL DIFFERENCES PER VARIATION: 3
 - 1 different greeting
@@ -128,7 +130,7 @@ Ciaooo, Buongiorno, Ehilà, Hi, Yo
 Arabic: Hey, مرحبا, هلا, هاي, أهلاً, يا هلا, هلا هلا,
 Hello, Hi, Heyy, مرحبااا, هاي هاي
 
-WORDS YOU CAN SWAP (2 per variation, from different parts):
+WORDS YOU CAN SWAP (only if the word already exists in templateContent)
 
 English:
 - "amazing" ↔ "great" ↔ "awesome" ↔ "incredible"

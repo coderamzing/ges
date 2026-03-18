@@ -410,6 +410,22 @@ export class CampaignInvitationAutomationService {
     }
   }
 
+  private async checkExistanceTemplate(
+      campaignId: number,
+      batch: number,
+      type: TemplateType,
+    ) {
+      const t = await this.prisma.campaignSpintaxTemplate.findFirst({
+        where: {
+          campaignId,
+          type: type,
+          batch,
+        },
+      });
+
+      return !!t;
+    }
+
   constructor(
     private prisma: PrismaService,
     private campaignMessagesService: CampaignMessagesService,
@@ -490,6 +506,19 @@ export class CampaignInvitationAutomationService {
         // // Then check if enough time has passed since last send for this promoter
         const mode = process.env.MESSAGE_MODE || "dev";
         const delayMinutes = mode === "dev" ? [1, 2] : [1, 2];
+        try {
+         const hasTemplate = await this.checkExistanceTemplate(
+            invitation.campaignId,
+            invitation.batch,
+            TemplateType.invitation
+          );
+
+          if (!hasTemplate) {
+            this.logger.warn(
+              `No invitation template found for invitation ${invitation.id}`,
+            );
+            continue;
+          }
 
         if (mode === "live") {
           this.logger.log(`[Message Scheduler] Mode: ${mode}`);
@@ -507,7 +536,6 @@ export class CampaignInvitationAutomationService {
         }
 
         // Both conditions met - send the message
-        try {
           await this.sendInitialMessage(invitation);
           this.updateClusterAfterSend(promoterId);
           this.logger.log(
@@ -521,6 +549,7 @@ export class CampaignInvitationAutomationService {
             error,
           );
           // Continue to next invitation on error
+          continue;
         }
       }
 
@@ -740,7 +769,10 @@ export class CampaignInvitationAutomationService {
                   ],
                 },
               },
-              { invitationAt: { not: null, lte: fiveMinutesAgo } },
+              { invitationAt: { 
+                 not: null,
+                 lte: fiveMinutesAgo 
+                } },
               {
                 campaign: {
                   status: {
@@ -765,17 +797,13 @@ export class CampaignInvitationAutomationService {
             campaign: true,
           },
           orderBy: { id: "asc" },
-          take: 10,
+          take: 20,
         });
 
       if (!invitationsNeedingFollowup.length) {
         this.logger.log("No invitations needing followup this run");
         return;
       }
-
-      const invitation = invitationsNeedingFollowup[0];
-      const promoterId = invitation.promoterId;
-      const threadId = invitation.thread_id;
 
       const mode = process.env.MESSAGE_MODE || "dev";
       const delayMinutes = mode === "dev" ? [1, 2] : [1, 2];
@@ -784,26 +812,76 @@ export class CampaignInvitationAutomationService {
         `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
       );
 
-      // Check if enough time has passed since last send for this promoter
-      if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
-        this.logger.debug(
-          `Skipping followup for promoter ${promoterId}, waiting for random gap for this invitation ${invitation.id}`,
-        );
-        return;
-      }
+      for (const invitation of invitationsNeedingFollowup) {
 
       try {
+        const delay = invitation.campaign.followup_delay || 0;
+
+        if (!invitation.invitationAt) continue;
+
+        const sendAt = new Date(
+          invitation.invitationAt.getTime() +
+            delay * 60 * 60 * 1000,
+        );
+        console.log("now",now)
+        console.log("sendAt",sendAt)
+
+        // CASE 2 priority
+        if (delay > 0 && now < sendAt) {
+           this.logger.debug(
+            `Breaking loop: followup time not reached for invitation ${invitation.id},`,
+          );
+
+          continue;
+        }
+
+        const hasTemplate = await this.checkExistanceTemplate(
+          invitation.campaignId,
+          invitation.batch,
+          TemplateType.followup
+        );
+
+        if (!hasTemplate) {
+          this.logger.warn(
+            `No followup template found for invitation ${invitation.id}`,
+          );
+          continue;
+        }
+
+        // CASE 1 instant OR delay passed
+
+        const promoterId = invitation.promoterId;
+        const threadId = invitation.thread_id;
+
+        // random gap per promoter
+        const canSend = await this.shouldSendMessage(
+          promoterId,
+          delayMinutes,
+          threadId,
+        );
+
+        if (!canSend) {
+                  this.logger.debug(
+              `Skipping followup for promoter ${promoterId}, waiting for random gap for this invitation ${invitation.id}`,
+            );
+          continue;
+        }
+
         await this.sendFollowupMessage(invitation);
         this.updateClusterAfterSend(promoterId);
-        this.logger.log(
+
+          this.logger.log(
           `Sent followup message for invitation ${invitation.id}, promoter ${promoterId}`,
         );
+
       } catch (error) {
         this.logger.error(
           `Failed to send followup message for invitation ${invitation.id}:`,
           error,
         );
+        continue;
       }
+    }
 
       this.logger.log("Completed automation to send followup messages");
     } catch (error) {
@@ -880,6 +958,18 @@ export class CampaignInvitationAutomationService {
           `[Message Scheduler] Random delay range: ${delayMinutes[0]}–${delayMinutes[1]} minutes`,
         );
 
+         const hasTemplate = await this.checkExistanceTemplate(
+            invitation.campaignId,
+            invitation.batch,
+            TemplateType.followup
+          );
+
+          if (!hasTemplate) {
+            this.logger.warn(
+              `No followup template found for invitation ${invitation.id} in followup-delay`,
+            );
+            continue;
+          }
         // Check promoter-specific rate limiting
         if (
           !(await this.shouldSendMessage(promoterId, delayMinutes, threadId))
@@ -974,6 +1064,7 @@ export class CampaignInvitationAutomationService {
       promoterId,
     });
 
+    console.log("finalMessageContent",finalMessageContent)
     if (!finalMessageContent) return;
     const firstName = talent.name?.trim().split(/\s+/)[0] || "";
 
@@ -1122,6 +1213,20 @@ export class CampaignInvitationAutomationService {
         const promoterId = invitation.promoterId;
         const threadId = invitation.thread_id;
 
+        try {
+         const hasTemplate = await this.checkExistanceTemplate(
+            invitation.campaignId,
+            invitation.batch,
+            TemplateType.postevent
+          );
+
+          if (!hasTemplate) {
+            this.logger.warn(
+              `No postevent template found for invitation ${invitation.id}`,
+            );
+            continue;
+          }
+
         // Per-promoter random gap: each promoter has independent state, so multiple promoters can send in the same run
         if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
           this.logger.debug(
@@ -1129,7 +1234,6 @@ export class CampaignInvitationAutomationService {
           );
           continue;
         }
-        try {
           await this.sendThankYouMessage(invitation);
           this.updateClusterAfterSend(promoterId);
           sentCount += 1;
@@ -1141,6 +1245,7 @@ export class CampaignInvitationAutomationService {
             `Failed to send thank you message for invitation ${invitation.id}:`,
             error,
           );
+          continue;
         }
       }
 
@@ -1205,7 +1310,8 @@ export class CampaignInvitationAutomationService {
       batchId: invitation.batch,
       promoterId,
     });
-
+    
+    console.log("finalMessageContent",finalMessageContent)
     if (!finalMessageContent) return;
     const firstName = talent.name?.trim().split(/\s+/)[0] || "";
     console.log(firstName, "First Name");
@@ -1228,6 +1334,8 @@ export class CampaignInvitationAutomationService {
       invitationId: invitation.id,
       message,
     });
+    console.log("sendThankYouMessage",sendThankYouMessage)
+
     // Create the message entry
 
     // await this.campaignMessagesService.createMessage({
@@ -1306,3 +1414,33 @@ export class CampaignInvitationAutomationService {
 
 //   return now - lastSent >= requiredGapMs;
 // }
+
+
+//////////////////////////////////////////////////////////////
+
+      // const invitation = invitationsNeedingFollowup[0];
+      // const promoterId = invitation.promoterId;
+      // const threadId = invitation.thread_id;
+
+ // this.logger.log("Completed followup run");
+
+      // // Check if enough time has passed since last send for this promoter
+      // if (!(await this.shouldSendMessage(promoterId, delayMinutes, threadId))) {
+      //   this.logger.debug(
+      //     `Skipping followup for promoter ${promoterId}, waiting for random gap for this invitation ${invitation.id}`,
+      //   );
+      //   return;
+      // }
+
+      // try {
+      //   await this.sendFollowupMessage(invitation);
+      //   this.updateClusterAfterSend(promoterId);
+      //   this.logger.log(
+      //     `Sent followup message for invitation ${invitation.id}, promoter ${promoterId}`,
+      //   );
+      // } catch (error) {
+      //   this.logger.error(
+      //     `Failed to send followup message for invitation ${invitation.id}:`,
+      //     error,
+      //   );
+      // }
